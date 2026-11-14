@@ -490,6 +490,7 @@ final class NextcloudApiUsage {
      * @var array<string, string> "Class::method" => the call it really is
      */
     public const NAME_CLASHES = [
+        'OCA\\Files_Versions\\Versions\\VersionManager::__construct' => 'Only inspected as a resolved IVersionManager service; constructor calls belong to application classes.',
         'OCA\\Deck\\Db\\Card::setColor' => 'OCA\\Mail\\Db\\Tag::setColor, in Modules/Mail/Integration/MailTagGateway',
         'OCA\\Talk\\Room::getAttributes' => 'OCP\\Share\\IShare::getAttributes, in Modules/Files/Sharing/ShareAccess',
         'OCP\\Files\\File::getData' => 'OCP\\AppFramework\\Http\\DataResponse::getData, in Modules/Deck/NativeCommentAccess',

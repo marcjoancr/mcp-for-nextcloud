@@ -16,7 +16,7 @@ foreach($pins as $major=>$sources) {
     $tree=$root.'/'.$major;
     foreach($sources as $path=>$pin)if(!is_file($tree.'/'.$path)||hash_file('sha256',$tree.'/'.$path)!==$pin['sha256'])throw new RuntimeException('Forms platform source mismatch: '.$major.'/'.$path);
     $path=__DIR__.'/'.$major.'.php';$fixture=require $path;$parser=new SourceParser($tree);
-    foreach(['OCA\\DAV\\Comments\\CommentNode','OCP\\Files\\AppData\\IAppDataFactory','OCP\\Files\\IAppData','OCP\\Files\\SimpleFS\\ISimpleRoot','OCP\\Files\\SimpleFS\\ISimpleFolder','OCP\\Files\\SimpleFS\\ISimpleFile','OCP\\Security\\ICrypto'] as $class) {
+    foreach(['OCA\\Files_Versions\\Versions\\VersionManager','OCA\\Files_Versions\\Versions\\LegacyVersionsBackend','OCA\\Files_Versions\\Versions\\IVersionManager','OCA\\Files_Versions\\Versions\\IVersionBackend','OCA\\DAV\\Comments\\CommentNode','OCP\\Files\\AppData\\IAppDataFactory','OCP\\Files\\IAppData','OCP\\Files\\SimpleFS\\ISimpleRoot','OCP\\Files\\SimpleFS\\ISimpleFolder','OCP\\Files\\SimpleFS\\ISimpleFile','OCP\\Security\\ICrypto'] as $class) {
         $fixture['classes'][$class]=$parser->surface($class)??throw new RuntimeException('Pinned Forms platform source lacks '.$class);
     }
     ksort($fixture['classes']);$fixture['formsPlatformSources']=$sources;

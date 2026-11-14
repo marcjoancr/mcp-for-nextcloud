@@ -52,6 +52,33 @@ try {
     else $db->executeStatement('UPDATE *PREFIX*appconfig SET configvalue = ?,type = ? WHERE appid = ? AND configkey = ?',[$backupSettings,\OCP\IAppConfig::VALUE_STRING,'mcp','backup_settings']);
     $backupChanged=true;
     $path='public-linked-results.csv';$arguments=['id'=>$id,'path'=>$path,'format'=>'csv'];$home=Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($uid);
+    if($mode==='versions_disabled') {
+        $enabled=$db->executeQuery('SELECT configvalue FROM *PREFIX*appconfig WHERE appid = ? AND configkey = ?',['files_versions','enabled'])->fetchOne();
+        if($enabled===false)throw new RuntimeException('Versions enablement fixture is unavailable.');
+        $beforeJournal=(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*mcp_operations WHERE actor_uid = ?',[$uid])->fetchOne();
+        $beforeNative=(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_mcp_operations')->fetchOne();$refusals=0;
+        try {
+            $db->executeStatement('UPDATE *PREFIX*appconfig SET configvalue = ? WHERE appid = ? AND configkey = ?',['no','files_versions','enabled']);
+            foreach([true,false] as $preference) {
+                $db->executeStatement('UPDATE *PREFIX*appconfig SET configvalue = ? WHERE appid = ? AND configkey = ?',
+                    [json_encode(['version'=>1,'folder'=>'MCP backups','reserved'=>['MCP backups'],'copies'=>$preference],JSON_THROW_ON_ERROR),'mcp','backup_settings']);
+                try {$rpc('forms_link_results_file',$arguments);}
+                catch(RuntimeException $failure) {
+                    if(!str_starts_with($failure->getMessage(),'Workflow refused forms_link_results_file'))throw $failure;
+                    $refusals++;continue;
+                }
+                throw new RuntimeException('Disabled Versions was approved for future overwrites.');
+            }
+            if($refusals!==2||$home->nodeExists($path)
+                ||$beforeJournal!==(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*mcp_operations WHERE actor_uid = ?',[$uid])->fetchOne()
+                ||$beforeNative!==(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_mcp_operations')->fetchOne()
+                ||(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_mcp_linked WHERE form_id = ?',[$id])->fetchOne()!==0)
+                throw new RuntimeException('Prerequisite refusal left effects or approval reservations.');
+            echo json_encode(['ok'=>true,'checks'=>['rejected_before_effect'=>$refusals]],JSON_THROW_ON_ERROR);return;
+        } finally {
+            $db->executeStatement('UPDATE *PREFIX*appconfig SET configvalue = ? WHERE appid = ? AND configkey = ?',[$enabled,'files_versions','enabled']);
+        }
+    }
     if($mode!=='create') {
         $oldBytes='old preimage '.$uid;$old=$home->newFile($path,$oldBytes);$old->touch(time()-120);$old=$home->get($path);
         $originalId=(int)$old->getId();$oldRevision=Server::get('OCA\\Files_Versions\\Versions\\IVersionManager')->getRevision($old);

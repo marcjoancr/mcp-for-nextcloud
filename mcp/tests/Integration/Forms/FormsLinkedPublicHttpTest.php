@@ -11,6 +11,15 @@ use PHPUnit\Framework\TestCase;
 final class FormsLinkedPublicHttpTest extends TestCase {
     /** @dataProvider modes */
     public function testPublicActivationRecoveryCronAndUnlink(string $mode):void {
+        $result=$this->probe($mode);
+        foreach(['persistent_http_initial_link','real_cron_updates','unlink_preserves_file'] as $key)self::assertTrue($result['checks'][$key],$key);
+        self::assertSame($mode,$result['checks']['initial_recovery']);
+    }
+    public function testDisabledVersionsIsRefusedBeforeEffectsWithEitherCopyPreference():void {
+        $result=$this->probe('versions_disabled');
+        self::assertSame(2,$result['checks']['rejected_before_effect']);
+    }
+    private function probe(string $mode):array {
         if(getenv('MCP_FORMS_HTTP_BOUNDARY')!=='1')$this->markTestSkipped('Requires explicitly selected disposable native Forms HTTP cell.');
         $probe=getenv('MCP_FORMS_LINKED_PUBLIC_PROBE')?:__DIR__.'/fixtures/linked-public-http.php';
         self::assertFileExists($probe);
@@ -18,9 +27,7 @@ final class FormsLinkedPublicHttpTest extends TestCase {
         fwrite($pipes[0],json_encode(['mode'=>$mode],JSON_THROW_ON_ERROR));fclose($pipes[0]);
         $out=stream_get_contents($pipes[1]);$err=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);
         self::assertSame(0,proc_close($process),$out."\n".$err);
-        $result=json_decode($out,true,64,JSON_THROW_ON_ERROR);self::assertTrue($result['ok']);
-        foreach(['persistent_http_initial_link','real_cron_updates','unlink_preserves_file'] as $key)self::assertTrue($result['checks'][$key],$key);
-        self::assertSame($mode,$result['checks']['initial_recovery']);
+        $result=json_decode($out,true,64,JSON_THROW_ON_ERROR);self::assertTrue($result['ok']);return $result;
     }
     public static function modes():iterable {yield 'new output'=>['create'];yield 'native Versions overwrite'=>['versions'];yield 'private copy overwrite'=>['copy'];}
 }

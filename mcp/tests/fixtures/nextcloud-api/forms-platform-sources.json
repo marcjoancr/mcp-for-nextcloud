@@ -27,6 +27,38 @@
     "lib/public/Security/ICrypto.php": {
       "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/Security/ICrypto.php",
       "sha256": "57fccab60d3eb087b4c26a95cf240959d9347656a966034db2423d7a2ac188c6"
+    },
+    "apps/files_versions/lib/Versions/LegacyVersionsBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/apps/files_versions/lib/Versions/LegacyVersionsBackend.php",
+      "sha256": "ba5def30263dd996138aab5fb2728b45da0473bbc547f78d46952a018ccb1d58"
+    },
+    "apps/files_versions/lib/Versions/VersionManager.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/apps/files_versions/lib/Versions/VersionManager.php",
+      "sha256": "bddcaf1ac54c8108ab4129b1c2d3c16f4c6332987bcc2e1ce9a1fc958abda292"
+    },
+    "apps/files_versions/lib/Versions/IVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/apps/files_versions/lib/Versions/IVersionBackend.php",
+      "sha256": "31eadcbca7e5c5809d02c55c916cb5c923c5d37d16ee3b9253fddc2569253b70"
+    },
+    "apps/files_versions/lib/Versions/IDeletableVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/apps/files_versions/lib/Versions/IDeletableVersionBackend.php",
+      "sha256": "98b5313f027915acfb318f9ae9077cf5ceb805cd622477d770f77ebf0c350882"
+    },
+    "apps/files_versions/lib/Versions/INeedSyncVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/apps/files_versions/lib/Versions/INeedSyncVersionBackend.php",
+      "sha256": "d9815f6ac69d109526680ecc7e7d4e834a420f5057479356feaee2702ae1d05b"
+    },
+    "apps/files_versions/lib/Versions/IMetadataVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/apps/files_versions/lib/Versions/IMetadataVersionBackend.php",
+      "sha256": "ebf0905c459357bad3e14ca0dc5e9f582bd2a90a8af757770d5ca702952c0c18"
+    },
+    "apps/files_versions/lib/Versions/IVersionsImporterBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/apps/files_versions/lib/Versions/IVersionsImporterBackend.php",
+      "sha256": "edb5e67de030a6a79c17f45acf8761cc6e2dff79860bda572754cc2f0be7dddb"
+    },
+    "apps/files_versions/lib/Versions/IVersionManager.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/apps/files_versions/lib/Versions/IVersionManager.php",
+      "sha256": "63da04d0e9427d190747491f817eb510c7c70c9772bd8a836181117403f2da34"
     }
   },
   "32": {
@@ -57,6 +89,38 @@
     "lib/public/Security/ICrypto.php": {
       "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/Security/ICrypto.php",
       "sha256": "397bb7217877afaa06a7019cdb34f6895164ea457478ffc4910146f27fcbb78c"
+    },
+    "apps/files_versions/lib/Versions/LegacyVersionsBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/apps/files_versions/lib/Versions/LegacyVersionsBackend.php",
+      "sha256": "ae4ffd4212d1002fa402a5304da0f9e7cb1314807ba072be4b29dc48003e3f86"
+    },
+    "apps/files_versions/lib/Versions/VersionManager.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/apps/files_versions/lib/Versions/VersionManager.php",
+      "sha256": "f4beecf7ea7040d7b21fbc1e7b3fde4dd989beff569af28a67d913d077ebda4b"
+    },
+    "apps/files_versions/lib/Versions/IVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/apps/files_versions/lib/Versions/IVersionBackend.php",
+      "sha256": "602f7afe6cca090ca667b6026ee18ccb0dbbc8db6d9d8938193a4a4ed5924650"
+    },
+    "apps/files_versions/lib/Versions/IDeletableVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/apps/files_versions/lib/Versions/IDeletableVersionBackend.php",
+      "sha256": "98b5313f027915acfb318f9ae9077cf5ceb805cd622477d770f77ebf0c350882"
+    },
+    "apps/files_versions/lib/Versions/INeedSyncVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/apps/files_versions/lib/Versions/INeedSyncVersionBackend.php",
+      "sha256": "08a60f19c2170dee1eaa359a380b536edd6112e895cf78df251a561599e6b79a"
+    },
+    "apps/files_versions/lib/Versions/IMetadataVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/apps/files_versions/lib/Versions/IMetadataVersionBackend.php",
+      "sha256": "ebf0905c459357bad3e14ca0dc5e9f582bd2a90a8af757770d5ca702952c0c18"
+    },
+    "apps/files_versions/lib/Versions/IVersionsImporterBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/apps/files_versions/lib/Versions/IVersionsImporterBackend.php",
+      "sha256": "edb5e67de030a6a79c17f45acf8761cc6e2dff79860bda572754cc2f0be7dddb"
+    },
+    "apps/files_versions/lib/Versions/IVersionManager.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/apps/files_versions/lib/Versions/IVersionManager.php",
+      "sha256": "63da04d0e9427d190747491f817eb510c7c70c9772bd8a836181117403f2da34"
     }
   },
   "33": {
@@ -87,6 +151,38 @@
     "lib/public/Security/ICrypto.php": {
       "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/Security/ICrypto.php",
       "sha256": "397bb7217877afaa06a7019cdb34f6895164ea457478ffc4910146f27fcbb78c"
+    },
+    "apps/files_versions/lib/Versions/LegacyVersionsBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/apps/files_versions/lib/Versions/LegacyVersionsBackend.php",
+      "sha256": "ae4ffd4212d1002fa402a5304da0f9e7cb1314807ba072be4b29dc48003e3f86"
+    },
+    "apps/files_versions/lib/Versions/VersionManager.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/apps/files_versions/lib/Versions/VersionManager.php",
+      "sha256": "f4beecf7ea7040d7b21fbc1e7b3fde4dd989beff569af28a67d913d077ebda4b"
+    },
+    "apps/files_versions/lib/Versions/IVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/apps/files_versions/lib/Versions/IVersionBackend.php",
+      "sha256": "602f7afe6cca090ca667b6026ee18ccb0dbbc8db6d9d8938193a4a4ed5924650"
+    },
+    "apps/files_versions/lib/Versions/IDeletableVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/apps/files_versions/lib/Versions/IDeletableVersionBackend.php",
+      "sha256": "98b5313f027915acfb318f9ae9077cf5ceb805cd622477d770f77ebf0c350882"
+    },
+    "apps/files_versions/lib/Versions/INeedSyncVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/apps/files_versions/lib/Versions/INeedSyncVersionBackend.php",
+      "sha256": "08a60f19c2170dee1eaa359a380b536edd6112e895cf78df251a561599e6b79a"
+    },
+    "apps/files_versions/lib/Versions/IMetadataVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/apps/files_versions/lib/Versions/IMetadataVersionBackend.php",
+      "sha256": "ebf0905c459357bad3e14ca0dc5e9f582bd2a90a8af757770d5ca702952c0c18"
+    },
+    "apps/files_versions/lib/Versions/IVersionsImporterBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/apps/files_versions/lib/Versions/IVersionsImporterBackend.php",
+      "sha256": "edb5e67de030a6a79c17f45acf8761cc6e2dff79860bda572754cc2f0be7dddb"
+    },
+    "apps/files_versions/lib/Versions/IVersionManager.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/apps/files_versions/lib/Versions/IVersionManager.php",
+      "sha256": "63da04d0e9427d190747491f817eb510c7c70c9772bd8a836181117403f2da34"
     }
   },
   "34": {
@@ -117,6 +213,38 @@
     "lib/public/Security/ICrypto.php": {
       "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/Security/ICrypto.php",
       "sha256": "397bb7217877afaa06a7019cdb34f6895164ea457478ffc4910146f27fcbb78c"
+    },
+    "apps/files_versions/lib/Versions/LegacyVersionsBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/apps/files_versions/lib/Versions/LegacyVersionsBackend.php",
+      "sha256": "c35288b50a14772adb0363fd2d05903d47b42d723d1ca89f181a51afe6ec908c"
+    },
+    "apps/files_versions/lib/Versions/VersionManager.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/apps/files_versions/lib/Versions/VersionManager.php",
+      "sha256": "3aaecca1cb24d65aaf3d49e956ca5ee6d2866b48d5477668541e10a80534ed99"
+    },
+    "apps/files_versions/lib/Versions/IVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/apps/files_versions/lib/Versions/IVersionBackend.php",
+      "sha256": "602f7afe6cca090ca667b6026ee18ccb0dbbc8db6d9d8938193a4a4ed5924650"
+    },
+    "apps/files_versions/lib/Versions/IDeletableVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/apps/files_versions/lib/Versions/IDeletableVersionBackend.php",
+      "sha256": "98b5313f027915acfb318f9ae9077cf5ceb805cd622477d770f77ebf0c350882"
+    },
+    "apps/files_versions/lib/Versions/INeedSyncVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/apps/files_versions/lib/Versions/INeedSyncVersionBackend.php",
+      "sha256": "08a60f19c2170dee1eaa359a380b536edd6112e895cf78df251a561599e6b79a"
+    },
+    "apps/files_versions/lib/Versions/IMetadataVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/apps/files_versions/lib/Versions/IMetadataVersionBackend.php",
+      "sha256": "ebf0905c459357bad3e14ca0dc5e9f582bd2a90a8af757770d5ca702952c0c18"
+    },
+    "apps/files_versions/lib/Versions/IVersionsImporterBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/apps/files_versions/lib/Versions/IVersionsImporterBackend.php",
+      "sha256": "edb5e67de030a6a79c17f45acf8761cc6e2dff79860bda572754cc2f0be7dddb"
+    },
+    "apps/files_versions/lib/Versions/IVersionManager.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/apps/files_versions/lib/Versions/IVersionManager.php",
+      "sha256": "63da04d0e9427d190747491f817eb510c7c70c9772bd8a836181117403f2da34"
     }
   },
   "35": {
@@ -147,6 +275,38 @@
     "lib/public/Security/ICrypto.php": {
       "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/Security/ICrypto.php",
       "sha256": "49efc0a91f50a90453fdd663ef7d7ab8abd263d85db716912f7296bd1a2dea17"
+    },
+    "apps/files_versions/lib/Versions/LegacyVersionsBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/apps/files_versions/lib/Versions/LegacyVersionsBackend.php",
+      "sha256": "9d9e88aa03775c83416f530d7d630812fa4eb758afd2913949dff949b5b84cf3"
+    },
+    "apps/files_versions/lib/Versions/VersionManager.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/apps/files_versions/lib/Versions/VersionManager.php",
+      "sha256": "e3b501bfc559906f20f4f092750d7a5e3aa149539f20f89ff46ff70dbd1dcec0"
+    },
+    "apps/files_versions/lib/Versions/IVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/apps/files_versions/lib/Versions/IVersionBackend.php",
+      "sha256": "ade449bfe3c820fd7e11e07e231e7142d9f8fd80f25213478dfd850979d27c81"
+    },
+    "apps/files_versions/lib/Versions/IDeletableVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/apps/files_versions/lib/Versions/IDeletableVersionBackend.php",
+      "sha256": "6cb6d2df52ba4553e6e0a75eb07b47866a43cc934944d3bfb46ee7001a9faf92"
+    },
+    "apps/files_versions/lib/Versions/INeedSyncVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/apps/files_versions/lib/Versions/INeedSyncVersionBackend.php",
+      "sha256": "f41f47cb1ab27939b43c68e5ecf42813865e0f1b27f283f421a47b58ea3d55d7"
+    },
+    "apps/files_versions/lib/Versions/IMetadataVersionBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/apps/files_versions/lib/Versions/IMetadataVersionBackend.php",
+      "sha256": "2f300523ac4fcf42a4386b7224c598ebcb9b4ebdc4a57b5d69d80459496ccd3b"
+    },
+    "apps/files_versions/lib/Versions/IVersionsImporterBackend.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/apps/files_versions/lib/Versions/IVersionsImporterBackend.php",
+      "sha256": "7d8863be2f4e8e04af9214000393090a5c5ee95b6865891863d266cab463bdd4"
+    },
+    "apps/files_versions/lib/Versions/IVersionManager.php": {
+      "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/apps/files_versions/lib/Versions/IVersionManager.php",
+      "sha256": "7d3f8fdfdb8bc4f382156f077c975499f35f039021114d2ac48f0a6692a96740"
     }
   }
 }

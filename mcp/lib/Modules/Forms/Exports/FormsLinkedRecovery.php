@@ -31,7 +31,8 @@ final class FormsLinkedRecovery {
             ||preg_match('/^[a-f0-9]{64}$/D',$preimage['sha256']??'')!==1||(int)$file->getId()<1)
             throw new \RuntimeException('Linked Forms recovery preimage is unavailable.');
         $copies=($this->copiesRequired)($uid);
-        $revision=$copies?null:$this->manager($file)->getRevision($file);
+        // The qualified LegacyVersionsBackend names its old-byte version by the source mtime.
+        $revision=null;if(!$copies){$this->manager($file);$revision=$file->getMtime();}
         if(!$copies&&(!is_int($revision)||$revision<1))throw new \RuntimeException('Native Versions recovery revision is unavailable.');
         return ['uid'=>$uid,'file_id'=>(int)$file->getId(),'preimage'=>$preimage,'copy_required'=>$copies,'revision'=>$revision];
     }
