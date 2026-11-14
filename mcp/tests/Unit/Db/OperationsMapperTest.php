@@ -46,6 +46,116 @@ final class OperationsMapperTest extends TestCase {
             self::assertSame('succeeded',$store->get('scope',$tool)['state']);
         }
     }
+
+    public function testUnknownBulkEvidenceRetainsTheTargetReservationAndNeverAuthorizesReplay():void {
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
+        $bulk=str_repeat('a',64);
+        $refs=['actor_incarnation'=>'actor-one','connection_id'=>12,'native_key'=>str_repeat('b',64),'form_id'=>4,
+            'bulk_id'=>$bulk,'bulk_version'=>7,'bulk_action'=>'forms_delete_form',
+            'bulk_authority'=>['tool'=>'forms_delete_form','required_operations'=>['delete_form'],'files_operations'=>['edit']]];
+        $row=['scope_key'=>'scope','operation_id'=>'bulk-step','actor_uid'=>'alice','tool_name'=>'forms_continue_operation','effect_digest'=>'approved',
+            'target_key'=>'bulk-target','state'=>'running','resource_refs'=>$refs,'created_at'=>100,'updated_at'=>100];
+        self::assertTrue($store->reserve($row));$store->finish('scope','bulk-step','uncertain',$refs,100);
+        $old=$store->get('scope','bulk-step');
+        $evidence=$refs+['backup_id'=>'bulk_v1:'.str_repeat('c',64),'backup_format'=>'bulk_v1','files'=>'unknown'];
+        self::assertTrue($store->retainUncertain($old,$evidence,101));
+        $fresh=$store->get('scope','bulk-step');
+        self::assertSame('uncertain',$fresh['state']);self::assertSame('bulk-target',$fresh['target_key']);
+        self::assertSame($evidence,$fresh['resource_refs']);
+        self::assertFalse($store->reserve(array_replace($row,['operation_id'=>'duplicate'])));
+        self::assertFalse($store->retainUncertain($old,$refs,102),'A stale receipt cannot erase accepted recovery evidence.');
+        self::assertTrue($store->reconcile($fresh,'partial',$evidence,102));
+        self::assertNull($store->get('scope','bulk-step')['target_key']);
+        self::assertTrue($store->reserve(array_replace($row,['operation_id'=>'next-step'])));
+        self::assertFalse($store->reserve($row),'The old operation ID remains a non-replay tombstone.');
+    }
+    public function testUncertainBulkEvidenceCannotChangeTheOriginalActorProtocolOrAuthority():void {
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
+        $refs=['actor_incarnation'=>'actor-one','connection_id'=>12,'native_key'=>str_repeat('b',64),'bulk_version'=>3,
+            'bulk_id'=>str_repeat('a',64),'bulk_action'=>'forms_transfer',
+            'bulk_authority'=>['tool'=>'forms_transfer','required_operations'=>['transfer'],'files_operations'=>['create']]];
+        $row=['scope_key'=>'scope','operation_id'=>'bulk','actor_uid'=>'alice','tool_name'=>'forms_continue_operation','effect_digest'=>'approved',
+            'target_key'=>'bulk-target','state'=>'running','resource_refs'=>$refs,'created_at'=>100,'updated_at'=>100];
+        self::assertTrue($store->reserve($row));$old=$store->get('scope','bulk');
+        foreach([
+            ['native_key'=>str_repeat('c',64)],['connection_id'=>99],['actor_incarnation'=>'replacement'],['bulk_version'=>4],
+            ['bulk_id'=>str_repeat('d',64)],['bulk_action'=>'forms_delete_form'],
+            ['bulk_authority'=>['tool'=>'forms_transfer','required_operations'=>['transfer'],'files_operations'=>[]]],
+        ] as $change)self::assertFalse($store->retainUncertain($old,array_replace($refs,$change),101));
+        self::assertSame($old,$store->get('scope','bulk'));
+    }
+    public function testInitialBulkRecoveryCanAdoptOnlyItsAdmittedProtocolWhileMailIsUnaffected():void {
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
+        $refs=['actor_incarnation'=>'actor-one','connection_id'=>12,'native_key'=>str_repeat('b',64),
+            'bulk_authority'=>['tool'=>'forms_delete_form','required_operations'=>['delete_form'],'files_operations'=>['edit']]];
+        foreach(['forms_delete_form','mail_send'] as $tool) {
+            $row=['scope_key'=>'scope','operation_id'=>$tool,'actor_uid'=>'alice','tool_name'=>$tool,'effect_digest'=>'approved',
+                'target_key'=>$tool,'state'=>'running','resource_refs'=>$refs,'created_at'=>100,'updated_at'=>100];
+            self::assertTrue($store->reserve($row));$old=$store->get('scope',$tool);
+            $evidence=$refs+['bulk_id'=>str_repeat('a',64),'bulk_action'=>'forms_delete_form','backup_id'=>'bulk_v1:'.str_repeat('c',64),'backup_format'=>'bulk_v1'];
+            self::assertSame($tool==='forms_delete_form',$store->retainUncertain($old,$evidence,101));
+            self::assertSame($tool,$store->get('scope',$tool)['target_key']);
+        }
+    }
+
+
+    public function testFreshFormsHistoryRecoversASealedBackupWithoutUnlockingAnUnknownStep():void {
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
+        $connection=new ConnectionContext();$connection->set(12);$proof=new PlanState((new InMemoryConfig())->mock($this));
+        $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
+        $journal=new \OCA\Mcp\Modules\Forms\Execution\FormsOperationJournal($store,$proof,$connection,$clock,new \OCA\Mcp\Tests\Support\OperationActors(),$store);
+        $args=['id'=>4,'plan_state'=>'proof'];$plan=$journal->plan('forms_delete_form','alice',$args,['plan_state'=>'proof']);
+        $args['operation_id']=$plan['operation_id'];
+        $journal->execute('forms_delete_form','alice',$args,static function(string $key,\Closure $checkpoint):array {
+            $checkpoint(['bulk_authority'=>['tool'=>'forms_delete_form','required_operations'=>['delete_form'],'files_operations'=>['edit']]]);
+            return ['state'=>'pending','references'=>['bulk_id'=>str_repeat('a',64),'bulk_action'=>'forms_delete_form','form_id'=>4]];
+        });
+        $step=['target_operation_id'=>$args['operation_id'],'plan_state'=>'step'];
+        $plan=$journal->plan('forms_continue_operation','alice',$step,['plan_state'=>'step']);$step['operation_id']=$plan['operation_id'];
+        $effects=0;
+        $journal->execute('forms_continue_operation','alice',$step,static function()use(&$effects):array {$effects++;throw new \RuntimeException('Lost native acknowledgement');},
+            null,static fn():array=>['bulk_id'=>str_repeat('a',64),'bulk_version'=>3]);
+        $fresh=new \OCA\Mcp\Modules\Forms\Execution\FormsOperationJournal(new OperationsMapper($db->connection()),$proof,$connection,$clock,new \OCA\Mcp\Tests\Support\OperationActors(),new OperationsMapper($db->connection()));
+        $receipt=$fresh->get('alice',$step['operation_id'],static function():void {},static function(string $key,string $tool,array $refs):array {
+            self::assertSame(3,$refs['bulk_version']);
+            return ['state'=>'uncertain','references'=>['bulk_id'=>str_repeat('a',64),'bulk_action'=>'forms_delete_form','backup_id'=>'bulk_v1:'.str_repeat('c',64),'backup_format'=>'bulk_v1']];
+        });
+        self::assertSame('uncertain',$receipt['state']);
+        self::assertSame('bulk_v1:'.str_repeat('c',64),$receipt['references']['backup_id']??null);
+        self::assertSame(1,$effects);self::assertFalse($receipt['safe_to_retry']);
+        $next=['target_operation_id'=>$args['operation_id'],'plan_state'=>'next'];
+        $plan=$fresh->plan('forms_cancel_operation','alice',$next,['plan_state'=>'next']);$next['operation_id']=$plan['operation_id'];
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);
+        $fresh->execute('forms_cancel_operation','alice',$next,static fn():array=>self::fail('Uncertain native step was unlocked'),
+            null,static fn():array=>['bulk_id'=>str_repeat('a',64),'bulk_version'=>3]);
+    }
+
+
+    public function testAnUnknownInitialBulkReceiptCannotUnlockASeparateBulkControlTarget():void {
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
+        $connection=new ConnectionContext();$connection->set(12);$proof=new PlanState((new InMemoryConfig())->mock($this));
+        $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
+        $journal=new \OCA\Mcp\Modules\Forms\Execution\FormsOperationJournal($store,$proof,$connection,$clock,new \OCA\Mcp\Tests\Support\OperationActors(),$store);
+        $args=['id'=>4,'plan_state'=>'proof'];$plan=$journal->plan('forms_delete_form','alice',$args,['plan_state'=>'proof']);$args['operation_id']=$plan['operation_id'];
+        $journal->execute('forms_delete_form','alice',$args,static function(string $key,\Closure $checkpoint):array {
+            $checkpoint(['bulk_authority'=>['tool'=>'forms_delete_form','required_operations'=>['delete_form'],'files_operations'=>['edit']]]);
+            throw new \RuntimeException('Lost initial native receipt');
+        });
+        $receipt=$journal->get('alice',$args['operation_id'],static function():void {},static fn():array=>[
+            'state'=>'uncertain','references'=>['bulk_id'=>str_repeat('a',64),'bulk_action'=>'forms_delete_form','backup_id'=>'bulk_v1:'.str_repeat('c',64),'backup_format'=>'bulk_v1']]);
+        self::assertSame('uncertain',$receipt['state']);self::assertArrayHasKey('backup_id',$receipt['references']);
+        foreach(['forms_continue_operation','forms_cancel_operation'] as $tool) {
+            $step=['target_operation_id'=>$args['operation_id'],'plan_state'=>'control'];
+            $plan=$journal->plan($tool,'alice',$step,['plan_state'=>'control']);$step['operation_id']=$plan['operation_id'];$called=false;$denied=false;
+            try {
+                $journal->execute($tool,'alice',$step,static function()use(&$called):array {$called=true;return ['state'=>'succeeded'];},
+                    null,static fn():array=>['bulk_id'=>str_repeat('a',64),'bulk_version'=>3]);
+            } catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure) {$denied=true;}
+            self::assertTrue($denied,'An unresolved initial bulk result admitted a separate control target.');
+            self::assertFalse($called,'No native control may run while the initial result remains unknown.');
+        }
+    }
+
     public function testDeliveryReceiptSurvivesCompactionWithoutContentOrPrivateArtifact():void {
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
         $row=['scope_key'=>'scope','operation_id'=>'send','actor_uid'=>'alice','tool_name'=>'mail_send','effect_digest'=>'digest','target_key'=>null,'state'=>'running','resource_refs'=>[],'created_at'=>100,'updated_at'=>100];

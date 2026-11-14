@@ -58,6 +58,7 @@ final class FormsOperationJournal {
             $this->assertActor($uid,$original);$authorizeReplay?->__invoke($original['tool_name'],$original['resource_refs']);
             $prepared=$prepareReservation?->__invoke()??[];
             if(isset($original['resource_refs']['bulk_id'])) {
+                if(in_array($original['state'],['running','uncertain'],true))throw new ToolFailure('The original Forms bulk result is unresolved; inspect its evidence before any control.');
                 $bulk=$original['resource_refs']['bulk_id'];
                 if(!is_string($bulk)||preg_match('/^[a-f0-9]{64}$/D',$bulk)!==1
                     ||($prepared['bulk_id']??null)!==$bulk||!is_int($prepared['bulk_version']??null)||$prepared['bulk_version']<1
@@ -131,11 +132,14 @@ final class FormsOperationJournal {
         if($lookup!==null&&$this->outcomes!==null&&in_array($row['state'],['running','uncertain','partial'],true)&&isset($row['resource_refs']['native_key'])) {
             try {
                 $native=$lookup($row['resource_refs']['native_key'],$row['tool_name'],$row['resource_refs']);
-                $accepted=$row['state']==='partial'?['succeeded','partial']:['succeeded','partial','pending','failed_before_effect'];
+                $accepted=$row['state']==='partial'?['succeeded','partial']:['succeeded','partial','pending','failed_before_effect','uncertain'];
                 if(is_array($native)&&in_array($native['state']??null,$accepted,true)) {
                     $this->assertActor($uid,$row);$authorize($row['tool_name'],$row['resource_refs']);
                     $refs=array_replace($row['resource_refs'],array_intersect_key($native['references']??[],array_flip(self::REFERENCES)));
-                    if($this->outcomes->reconcile($row,$native['state'],$refs,$this->clock->getTime()))$row=$this->store->get($this->scope($uid),$id)??$row;
+                    $adopted=$native['state']==='uncertain'
+                        ?$this->outcomes->retainUncertain($row,$refs,$this->clock->getTime())
+                        :$this->outcomes->reconcile($row,$native['state'],$refs,$this->clock->getTime());
+                    if($adopted)$row=$this->store->get($this->scope($uid),$id)??$row;
                 }
             } catch(\Throwable) { /* An unavailable native receipt remains uncertain; no callback is repeated. */ }
         }

@@ -208,9 +208,36 @@ final class OperationsMapper implements OperationStore, \OCA\Mcp\Modules\Forms\E
         $sources=['running','uncertain','repairing'];
         if($forms&&($expected['state']??null)==='partial'){$sources[]='partial';$states=['succeeded','partial'];}
         if(!in_array($expected['state']??null,$sources,true)||!in_array($state,$states,true))return false;
-        $q=$this->db->getQueryBuilder();return $q->update(self::TABLE)
-            ->set('state',$q->createNamedParameter($state))->set('target_key',$q->createNamedParameter(null,IQueryBuilder::PARAM_NULL))
-            ->set('resource_refs',$q->createNamedParameter(json_encode($refs,JSON_THROW_ON_ERROR)))
+        return $this->compareAndSwapOutcome($expected,$state,$refs,$time);
+    }
+
+    /** Add qualified bulk recovery evidence without releasing an unresolved target claim. */
+    public function retainUncertain(array $expected,array $refs,int $time):bool {
+        $tool=$expected['tool_name']??'';
+        if(!in_array($tool,[...\OCA\Mcp\Modules\Forms\Execution\FormsBulkWorkflow::ACTIONS,'forms_continue_operation','forms_cancel_operation'],true)
+            ||!in_array($expected['state']??null,['running','uncertain'],true)||!is_string($expected['target_key']??null)
+            ||!is_string($refs['bulk_id']??null)||preg_match('/^[a-f0-9]{64}$/D',$refs['bulk_id'])!==1)return false;
+        $old=$expected['resource_refs']??[];
+        try {$authority=\OCA\Mcp\Modules\Forms\Execution\FormsBulkAuthority::checked($old['bulk_authority']??null);}
+        catch(\OCA\Mcp\Modules\Forms\Execution\FormsBeforeEffect) {return false;}
+        if(($refs['bulk_action']??null)!==$authority['tool']
+            ||!is_string($old['native_key']??null)||preg_match('/^[a-f0-9]{64}$/D',$old['native_key'])!==1)return false;
+        if(in_array($tool,['forms_continue_operation','forms_cancel_operation'],true)) {
+            if(!isset($old['bulk_id'])||!is_int($old['bulk_version']??null)||$old['bulk_version']<1)return false;
+        } elseif($tool!==$authority['tool'])return false;
+        // New phase evidence may advance, but original authority, actor, exact step and existing backup identity cannot change.
+        foreach($old as $key=>$value)if(!in_array($key,['database','files','notifications','native_operation','linked_export'],true)
+            &&(!array_key_exists($key,$refs)||$refs[$key]!==$value))return false;
+        if(isset($refs['backup_id'])&&(!is_string($refs['backup_id'])||preg_match('/^bulk_v1:[a-f0-9]{64}$/D',$refs['backup_id'])!==1))return false;
+        if(isset($refs['backup_format'])&&$refs['backup_format']!=='bulk_v1')return false;
+        return $this->compareAndSwapOutcome($expected,'uncertain',$refs,$time,true);
+    }
+
+    private function compareAndSwapOutcome(array $expected,string $state,array $refs,int $time,bool $retainTarget=false):bool {
+        $q=$this->db->getQueryBuilder();$q->update(self::TABLE)
+            ->set('state',$q->createNamedParameter($state));
+        if(!$retainTarget)$q->set('target_key',$q->createNamedParameter(null,IQueryBuilder::PARAM_NULL));
+        return $q->set('resource_refs',$q->createNamedParameter(json_encode($refs,JSON_THROW_ON_ERROR)))
             ->set('updated_at',$q->createNamedParameter($time,IQueryBuilder::PARAM_INT))
             ->where($q->expr()->eq('scope_key',$q->createNamedParameter($expected['scope_key'])))
             ->andWhere($q->expr()->eq('operation_id',$q->createNamedParameter($expected['operation_id'])))

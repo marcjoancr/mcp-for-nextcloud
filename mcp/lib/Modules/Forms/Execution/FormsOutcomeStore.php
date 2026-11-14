@@ -10,4 +10,6 @@ namespace OCA\Mcp\Modules\Forms\Execution;
 /** Exact receipt CAS for adopting committed native evidence; never grants permission to replay. */
 interface FormsOutcomeStore {
     public function reconcile(array $expected,string $state,array $refs,int $time):bool;
+    /** Preserve uncertainty and target exclusion while adopting exact native bulk recovery evidence. */
+    public function retainUncertain(array $expected,array $refs,int $time):bool;
 }
