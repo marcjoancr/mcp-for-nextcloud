@@ -16,6 +16,12 @@ final class FormsLinkedPublicHttpTest extends TestCase {
         self::assertSame($mode,$result['checks']['initial_recovery']);
         if(str_starts_with($mode,'reconcile'))self::assertTrue($result['checks']['historical_reconciliation_without_replay']);
     }
+    public function testBothActorsKeepTheirSeededVersionsAfterPublicJourneysOnTheSameRelativePath():void {
+        $fixture=getenv('MCP_FORMS_LINKED_PAIR_PROBE')?:__DIR__.'/fixtures/linked-two-actors.php';
+        $result=$this->probe('suite',$fixture);
+        self::assertSame(2,$result['checks']['actual_mcp_journeys']);self::assertSame(2,$result['checks']['verification_children']);
+        foreach(['same_relative_path','distinct_preimages','final_versions_and_outputs'] as $key)self::assertTrue($result['checks'][$key],$key);
+    }
     public function testCancellationAfterSourceChangeKeepsAuthorityAndReleasesReservation():void {
         $result=$this->probe('cancel_source');
         foreach(['cancel_changed_source','no_output_effect','reservation_released'] as $key)self::assertTrue($result['checks'][$key],$key);
@@ -24,9 +30,9 @@ final class FormsLinkedPublicHttpTest extends TestCase {
         $result=$this->probe('versions_disabled');
         self::assertSame(2,$result['checks']['rejected_before_effect']);
     }
-    private function probe(string $mode):array {
+    private function probe(string $mode,?string $fixture=null):array {
         if(getenv('MCP_FORMS_HTTP_BOUNDARY')!=='1')$this->markTestSkipped('Requires explicitly selected disposable native Forms HTTP cell.');
-        $probe=getenv('MCP_FORMS_LINKED_PUBLIC_PROBE')?:__DIR__.'/fixtures/linked-public-http.php';
+        $probe=$fixture??(getenv('MCP_FORMS_LINKED_PUBLIC_PROBE')?:__DIR__.'/fixtures/linked-public-http.php');
         self::assertFileExists($probe);
         $process=proc_open([PHP_BINARY,$probe],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);self::assertIsResource($process);
         fwrite($pipes[0],json_encode(['mode'=>$mode],JSON_THROW_ON_ERROR));fclose($pipes[0]);

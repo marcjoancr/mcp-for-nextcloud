@@ -46,7 +46,7 @@ try {
     };
     $stage='preview and persistent activation';
     $backupRow=$db->executeQuery('SELECT configvalue,type FROM *PREFIX*appconfig WHERE appid = ? AND configkey = ?',['mcp','backup_settings'])->fetch();
-    $copies=$mode!=='versions';
+    $copies=!in_array($mode,['versions','versions_evidence'],true);
     $backupSettings=json_encode(['version'=>1,'folder'=>'MCP backups','reserved'=>['MCP backups'],'copies'=>$copies],JSON_THROW_ON_ERROR);
     if($backupRow===false)$db->executeStatement('INSERT INTO *PREFIX*appconfig (appid,configkey,configvalue,type,lazy) VALUES (?,?,?,?,0)',['mcp','backup_settings',$backupSettings,\OCP\IAppConfig::VALUE_STRING]);
     else $db->executeStatement('UPDATE *PREFIX*appconfig SET configvalue = ?,type = ? WHERE appid = ? AND configkey = ?',[$backupSettings,\OCP\IAppConfig::VALUE_STRING,'mcp','backup_settings']);
@@ -150,7 +150,7 @@ try {
     $stage='native update then real cron';
     $submission=new \OCA\Forms\Db\Submission();$submission->setFormId($id);$submission->setUserId($uid);$submission->setTimestamp(time());
     $submission=Server::get(\OCA\Forms\Db\SubmissionMapper::class)->insert($submission);
-    $answer=new \OCA\Forms\Db\Answer();$answer->setSubmissionId($submission->getId());$answer->setQuestionId($question);$answer->setText('cron-http-answer');
+    $answer=new \OCA\Forms\Db\Answer();$answer->setSubmissionId($submission->getId());$answer->setQuestionId($question);$answer->setText('cron-http-answer-'.$uid);
     Server::get(\OCA\Forms\Db\AnswerMapper::class)->insert($answer);
     $jobs=Server::get(\OCP\BackgroundJob\IJobList::class);$jobs->add(\OCA\Mcp\BackgroundJob\FormsLinkedExportJob::class);
     $jobId=(int)$db->executeQuery('SELECT id FROM *PREFIX*jobs WHERE class = ? ORDER BY id DESC',[\OCA\Mcp\BackgroundJob\FormsLinkedExportJob::class])->fetchOne();
@@ -172,7 +172,9 @@ try {
     $fresh=Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($uid)->get($path);
     if((int)$fresh->getId()!==$fileId||!hash_equals($before,hash('sha256',$fresh->getContent())))throw new RuntimeException('Unlink changed output.');
     $checks['unlink_preserves_file']=true;
-    echo json_encode(['ok'=>true,'checks'=>$checks],JSON_THROW_ON_ERROR);
+    $evidence=$mode==='versions_evidence'?['uid'=>$uid,'path'=>$path,'file_id'=>$fileId,'revision'=>$oldRevision,
+        'seed_sha256'=>hash('sha256',$oldBytes),'final_sha256'=>hash('sha256',$fresh->getContent())]:null;
+    echo json_encode(['ok'=>true,'checks'=>$checks]+($evidence===null?[]:['verification'=>$evidence]),JSON_THROW_ON_ERROR);
 } catch(Throwable $error) {
     echo json_encode(['ok'=>false,'stage'=>$stage,'error'=>$error->getMessage()],JSON_THROW_ON_ERROR);$exitCode=1;
 } finally {
@@ -182,4 +184,3 @@ try {
     }
 }
 exit($exitCode);
-
