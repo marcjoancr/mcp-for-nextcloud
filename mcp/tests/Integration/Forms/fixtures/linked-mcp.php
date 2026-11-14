@@ -75,12 +75,13 @@ try {
     ]];
 
 
+    $copies=$request['case']==='copies_true';
     $before=$db->executeQuery('SELECT configvalue,type FROM *PREFIX*appconfig WHERE appid = ? AND configkey = ?',['mcp','backup_settings'])->fetch();
     try {
         if($before===false)$db->executeStatement('INSERT INTO *PREFIX*appconfig (appid,configkey,configvalue,type,lazy) VALUES (?,?,?,?,0)',
-            ['mcp','backup_settings',json_encode(['version'=>1,'folder'=>'MCP backups','reserved'=>['MCP backups'],'copies'=>false]),\OCP\IAppConfig::VALUE_STRING]);
+            ['mcp','backup_settings',json_encode(['version'=>1,'folder'=>'MCP backups','reserved'=>['MCP backups'],'copies'=>$copies]),\OCP\IAppConfig::VALUE_STRING]);
         else $db->executeStatement('UPDATE *PREFIX*appconfig SET configvalue = ?,type = ? WHERE appid = ? AND configkey = ?',
-            [json_encode(['version'=>1,'folder'=>'MCP backups','reserved'=>['MCP backups'],'copies'=>false]),\OCP\IAppConfig::VALUE_STRING,'mcp','backup_settings']);
+            [json_encode(['version'=>1,'folder'=>'MCP backups','reserved'=>['MCP backups'],'copies'=>$copies]),\OCP\IAppConfig::VALUE_STRING,'mcp','backup_settings']);
         $file->touch(time()-120);$file=$root->get($name);$input['_mcp_link_approval']['arguments']['etag']=$file->getEtag();
         $args=$input['_mcp_link_approval']['arguments'];$policy=Server::get(\OCA\Mcp\Access\Grants\GrantPolicy::class);
         $destination=$policy->resourceBoundary($uid,fn()=>Server::get(\OCA\Mcp\Modules\Forms\Exports\FormsExportDestination::class)->snapshot($uid,$args));
