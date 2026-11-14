@@ -17,7 +17,11 @@ final class MailContentDecoderTest extends TestCase {
     public function testBase64AcrossChunkBoundaryPreservesHash():void {$raw=str_repeat('abc',5000).'z';$r=$this->decode(chunk_split(base64_encode($raw),76,"\r\n"),'base64');self::assertSame($raw,$r['bytes']);self::assertSame(hash('sha256',$raw),$r['sha256']);}
     public function testQuotedPrintableAcrossChunkBoundary():void {$raw=str_repeat('x',8191).'=0D=0Aend=\r\n';$r=$this->decode(str_repeat('x',8191)."=0D=0Aend=\r\n",'quoted-printable');self::assertSame(str_repeat('x',8191)."\r\nend",$r['bytes']);}
     public function testMalformedEncodingsRefused():void {foreach([['YQ','base64'],['YR==','base64'],['YQ==YQ==','base64'],['ab=QZ','quoted-printable'],['ab=','quoted-printable'],["\xff",'7bit']] as [$input,$encoding]){$refused=false;try{$this->decode($input,$encoding);}catch(\RuntimeException){$refused=true;}self::assertTrue($refused,$encoding);}}
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    #[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
     public function testExactly25MiBDecodedBase64Succeeds():void {$raw=str_repeat('a',26214400);$r=$this->decode(base64_encode($raw),'base64');self::assertSame(26214400,$r['byte_count']);self::assertSame(hash('sha256',$raw),$r['sha256']);}
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    #[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
     public function testDecodedCapDoesNotTrustAdvertisedSize():void {$this->expectException(\RuntimeException::class);$this->decode(base64_encode(str_repeat('a',26214401)),'base64');}
     public function testEncodedSectionHashPreservesExactSourceRepresentation():void {$wire="YQ==\r\n";$r=$this->decode($wire,'base64');self::assertSame(hash('sha256',$wire),$r['wire_sha256']);self::assertSame(strlen($wire),$r['wire_byte_count']);}
 }
