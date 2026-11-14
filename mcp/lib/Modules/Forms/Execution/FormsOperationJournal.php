@@ -18,7 +18,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
 
 /** Forms has independent signatures and receipts; native evidence is never permission to repeat an effect. */
 final class FormsOperationJournal {
-    private const REFERENCES = ['form_id','question_id','option_id','submission_id','share_id','comment_id','file_id','job_id','backup_id','native_operation','database','files','notifications','linked_export'];
+    private const REFERENCES = ['form_id','question_id','option_id','submission_id','share_id','comment_id','file_id','job_id','backup_id','native_operation','bulk_id','bulk_action','backup_format','restored_form_id','database','files','notifications','linked_export'];
     public function __construct(private OperationStore $store, private PlanState $proof, private ConnectionContext $connection,
         private ITimeFactory $clock, private ActorIdentity $actors,private ?FormsOutcomeStore $outcomes=null) {}
 
@@ -56,13 +56,26 @@ final class FormsOperationJournal {
             $original=$this->store->get($scope,$arguments['target_operation_id']??'');
             if($original===null)throw new ToolFailure(ToolFailure::NOT_FOUND);
             $this->assertActor($uid,$original);$authorizeReplay?->__invoke($original['tool_name'],$original['resource_refs']);
-            $job=$original['resource_refs']['job_id']??throw new ToolFailure('The original operation has no Forms job.');
-            $refs['job_id']=$job;
             $prepared=$prepareReservation?->__invoke()??[];
-            if(!is_int($prepared['job_version']??null)||$prepared['job_version']<1)throw new ToolFailure('A current Forms job version is required before reservation.');
-            $refs['job_version']=$prepared['job_version'];
+            if(isset($original['resource_refs']['bulk_id'])) {
+                $bulk=$original['resource_refs']['bulk_id'];
+                if(!is_string($bulk)||preg_match('/^[a-f0-9]{64}$/D',$bulk)!==1
+                    ||($prepared['bulk_id']??null)!==$bulk||!is_int($prepared['bulk_version']??null)||$prepared['bulk_version']<1
+                    ||isset($prepared['job_version'])||isset($original['resource_refs']['job_id']))
+                    throw new ToolFailure('A current matching Forms bulk version is required before reservation.');
+                $authority=FormsBulkAuthority::checked($original['resource_refs']['bulk_authority']??null);
+                if(($original['resource_refs']['bulk_action']??null)!==$authority['tool'])
+                    throw new ToolFailure('The original Forms bulk action is unavailable.');
+                $refs+=['bulk_id'=>$bulk,'bulk_action'=>$authority['tool'],'bulk_version'=>$prepared['bulk_version'],'bulk_authority'=>$authority];
+                $target='bulk:'.$bulk;
+            } else {
+                $job=$original['resource_refs']['job_id']??throw new ToolFailure('The original operation has no Forms job.');
+                $refs['job_id']=$job;
+                if(!is_int($prepared['job_version']??null)||$prepared['job_version']<1)throw new ToolFailure('A current Forms job version is required before reservation.');
+                $refs['job_version']=$prepared['job_version'];
+                $target='job:'.$job;
+            }
             if(isset($original['resource_refs']['form_id']))$refs['form_id']=$original['resource_refs']['form_id'];
-            $target='job:'.$job;
         }
         $row=['scope_key'=>$scope,'actor_uid'=>$uid,'operation_id'=>$id,'tool_name'=>$tool,'effect_digest'=>$digest,
             'target_key'=>hash('sha256','forms-target-v1:'.$target),'state'=>'running','resource_refs'=>$refs,
@@ -70,9 +83,17 @@ final class FormsOperationJournal {
         if(!$this->store->reserve($row))throw new ToolFailure('Another Forms operation owns this target; inspect its outcome.');
         try {
             $this->actors->assertCurrent($uid,$actor);
-            $checkpoint=function(array $authority)use($scope,$id,&$refs):void {
-                $authority=array_intersect_key($authority,array_flip(['required_operations','files_operations','requires_admin','job_version']));
+            $checkpoint=function(array $authority)use($scope,$id,$tool,&$refs):void {
+                $authority=array_intersect_key($authority,array_flip(['required_operations','files_operations','requires_admin','job_version','bulk_version','bulk_authority']));
                 if(isset($refs['job_version'])&&($authority['job_version']??null)!==$refs['job_version'])throw new FormsBeforeEffect('The Forms job changed during admission.');
+                if(isset($refs['bulk_version'])&&($authority['bulk_version']??null)!==$refs['bulk_version'])throw new FormsBeforeEffect('The Forms bulk step changed during admission.');
+                if(array_key_exists('bulk_authority',$authority)) {
+                    $authority['bulk_authority']=FormsBulkAuthority::checked($authority['bulk_authority']);
+                    if(isset($refs['bulk_authority'])&&FormsOperationJournal::canonical($refs['bulk_authority'])!==FormsOperationJournal::canonical($authority['bulk_authority']))
+                        throw new FormsBeforeEffect('The original Forms bulk authority changed during admission.');
+                    if(!isset($refs['bulk_authority'])&&$authority['bulk_authority']['tool']!==$tool)
+                        throw new FormsBeforeEffect('The original Forms bulk action changed during admission.');
+                }
                 $refs=array_replace($refs,$authority);$this->store->checkpoint($scope,$id,$refs);
             };
             $native=$effect($nativeKey,$checkpoint);
@@ -92,6 +113,14 @@ final class FormsOperationJournal {
         $this->store->finish($scope,$id,$state,$refs,$this->clock->getTime());
         $row['state']=$state;$row['resource_refs']=$refs;$row['updated_at']=$this->clock->getTime();
         return ['data'=>$native['data']??null,'operation'=>$this->present($row,false)];
+    }
+
+    /** Internal lookup only. Private admission and operation keys never enter public history. */
+    public function context(string $uid,string $id,\Closure $authorize):array {
+        $row=$this->store->get($this->scope($uid),$id);
+        if($row===null)throw new ToolFailure(ToolFailure::NOT_FOUND);
+        $this->assertActor($uid,$row);$authorize($row['tool_name'],$row['resource_refs']);$this->assertActor($uid,$row);
+        return ['tool'=>$row['tool_name'],'references'=>$row['resource_refs']];
     }
 
     /** @param \Closure(string,array):void $authorize */

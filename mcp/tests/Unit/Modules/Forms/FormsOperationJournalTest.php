@@ -161,6 +161,109 @@ final class FormsOperationJournalTest extends TestCase {
         $result=$this->journal->execute('forms_continue_operation','alice',$next,static fn():array=>['state'=>'pending','references'=>['job_id'=>'job-a']],null,static fn():array=>['job_version'=>2]);
         self::assertSame('pending',$result['operation']['state']);
     }
+
+    public function testBulkStepPinsOriginalAuthorityAndVersionBeforeTheReplyCanBeLost():void {
+        $authority=['tool'=>'forms_delete_form','required_operations'=>['delete_form'],'files_operations'=>['edit','share']];
+        $start=$this->approved(['id'=>4],'forms_delete_form');
+        $initial=$this->journal->execute('forms_delete_form','alice',$start,static function(string $key,\Closure $checkpoint)use($authority):array {
+            $checkpoint(['bulk_authority'=>$authority]);
+            return ['state'=>'pending','references'=>['form_id'=>4,'bulk_id'=>str_repeat('a',64),'bulk_action'=>'forms_delete_form']];
+        });
+        self::assertSame(str_repeat('a',64),$initial['operation']['references']['bulk_id']??null);
+        $args=$this->approved(['target_operation_id'=>$start['operation_id']],'forms_continue_operation');
+        $step=$this->journal->execute('forms_continue_operation','alice',$args,static function():array {throw new \RuntimeException('Lost reply before checkpoint');},
+            null,static fn():array=>['bulk_id'=>str_repeat('a',64),'bulk_version'=>7]);
+        self::assertSame('uncertain',$step['operation']['state']);
+        $context=$this->journal->context('alice',$args['operation_id'],static function():void {});
+        self::assertSame(7,$context['references']['bulk_version']);
+        self::assertSame($authority,$context['references']['bulk_authority']);
+        self::assertSame('forms_delete_form',$context['references']['bulk_action']);
+        self::assertArrayHasKey('native_key',$context['references']);
+        self::assertArrayNotHasKey('bulk_authority',$step['operation']['references']);
+        self::assertArrayNotHasKey('native_key',$step['operation']['references']);
+        $this->journal->execute('forms_create','alice',$this->approved([],'forms_create'),static fn():array=>['state'=>'succeeded','references'=>['form_id'=>8]]);
+        $blocked=$this->approved(['target_operation_id'=>$start['operation_id']],'forms_cancel_operation');
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);
+        $this->journal->execute('forms_cancel_operation','alice',$blocked,static fn():array=>self::fail('Unknown bulk step replayed'),
+            null,static fn():array=>['bulk_id'=>str_repeat('a',64),'bulk_version'=>7]);
+    }
+    public function testBulkStepCannotSubstituteTheReservedVersionOrOriginalAuthority():void {
+        $authority=['tool'=>'forms_delete_responses','required_operations'=>['delete_all_responses'],'files_operations'=>['edit']];
+        $start=$this->approved(['id'=>4],'forms_delete_responses');
+        $this->journal->execute('forms_delete_responses','alice',$start,static function(string $key,\Closure $checkpoint)use($authority):array {
+            $checkpoint(['bulk_authority'=>$authority]);
+            return ['state'=>'pending','references'=>['bulk_id'=>str_repeat('b',64),'bulk_action'=>'forms_delete_responses','form_id'=>4]];
+        });
+        foreach([['bulk_version'=>8],['bulk_version'=>7,'bulk_authority'=>array_replace($authority,['files_operations'=>[]])]] as $change) {
+            $args=$this->approved(['target_operation_id'=>$start['operation_id']],'forms_continue_operation');
+            try {
+                $this->journal->execute('forms_continue_operation','alice',$args,static function(string $key,\Closure $checkpoint)use($change):array {
+                    $checkpoint($change);self::fail('Substituted bulk authority reached native effect');
+                },null,static fn():array=>['bulk_id'=>str_repeat('b',64),'bulk_version'=>7]);
+                self::fail('Changed admission was accepted');
+            } catch(\OCA\Mcp\Modules\Forms\Execution\FormsBeforeEffect) {}
+            self::assertSame('failed_before_effect',$this->journal->get('alice',$args['operation_id'],static function():void {})['state']);
+        }
+    }
+    public function testBulkControlCannotAdoptAnotherNativeTarget():void {
+        $start=$this->approved(['id'=>4],'forms_transfer');
+        $this->journal->execute('forms_transfer','alice',$start,static function(string $key,\Closure $checkpoint):array {
+            $checkpoint(['bulk_authority'=>['tool'=>'forms_transfer','required_operations'=>['transfer'],'files_operations'=>['create']]]);
+            return ['state'=>'pending','references'=>['bulk_id'=>str_repeat('c',64),'bulk_action'=>'forms_transfer']];
+        });
+        $args=$this->approved(['target_operation_id'=>$start['operation_id']],'forms_continue_operation');
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);
+        $this->journal->execute('forms_continue_operation','alice',$args,static fn():array=>self::fail('Wrong native bulk admitted'),
+            null,static fn():array=>['bulk_id'=>str_repeat('d',64),'bulk_version'=>1]);
+    }
+    public function testPrivateContextRequiresTheCurrentConnectionAndFreshOriginalAuthorization():void {
+        $args=$this->approved(['id'=>4]);
+        $this->journal->execute('forms_submit_response','alice',$args,static fn():array=>['state'=>'succeeded','references'=>['form_id'=>4]]);
+        try {
+            $this->journal->context('alice',$args['operation_id'],static fn()=>throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Revoked'));
+            self::fail('Revoked private context was returned');
+        } catch(\OCA\Mcp\Mcp\Tools\Results\ToolFailure) {}
+        $this->connection->set(99);
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);
+        $this->journal->context('alice',$args['operation_id'],static function():void {});
+    }
+
+
+    public function testBulkControlRejectsMixedJobAndBulkReservations():void {
+        $start=$this->approved(['id'=>4],'forms_transfer');
+        $this->journal->execute('forms_transfer','alice',$start,static function(string $key,\Closure $checkpoint):array {
+            $checkpoint(['bulk_authority'=>['tool'=>'forms_transfer','required_operations'=>['transfer'],'files_operations'=>['create']]]);
+            return ['state'=>'pending','references'=>['bulk_id'=>str_repeat('c',64),'bulk_action'=>'forms_transfer']];
+        });
+        $args=$this->approved(['target_operation_id'=>$start['operation_id']],'forms_continue_operation');
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);
+        $this->journal->execute('forms_continue_operation','alice',$args,static fn():array=>self::fail('Mixed native protocols admitted'),
+            null,static fn():array=>['bulk_id'=>str_repeat('c',64),'bulk_version'=>1,'job_version'=>1]);
+    }
+    public function testMalformedOriginalBulkAuthorityNeverReachesANativeEffect():void {
+        foreach([
+            ['tool'=>'forms_continue_operation','required_operations'=>['continue_operations'],'files_operations'=>[]],
+            ['tool'=>'forms_delete_form','required_operations'=>[],'files_operations'=>[]],
+            ['tool'=>'forms_delete_form','required_operations'=>['delete_form'],'files_operations'=>['delete']],
+            ['tool'=>'forms_delete_form','required_operations'=>['delete_form'],'files_operations'=>[],'origin'=>'private'],
+        ] as $authority) {
+            $args=$this->approved(['id'=>4],'forms_delete_form');
+            try {
+                $this->journal->execute('forms_delete_form','alice',$args,static function(string $key,\Closure $checkpoint)use($authority):array {
+                    $checkpoint(['bulk_authority'=>$authority]);self::fail('Invalid original authority reached native effect');
+                });
+                self::fail('Malformed admission accepted');
+            } catch(\OCA\Mcp\Modules\Forms\Execution\FormsBeforeEffect) {}
+            self::assertSame('failed_before_effect',$this->journal->get('alice',$args['operation_id'],static function():void {})['state']);
+        }
+    }
+    public function testPrivateContextCannotSurviveActorRecreationDuringAuthorization():void {
+        $args=$this->approved(['id'=>4]);
+        $this->journal->execute('forms_submit_response','alice',$args,static fn():array=>['state'=>'succeeded','references'=>['form_id'=>4]]);
+        $this->expectException(\OCA\Mcp\Mcp\Operations\ActorRetired::class);
+        $this->journal->context('alice',$args['operation_id'],function():void {$this->actors->generation='two';});
+    }
+
     private function approved(array $args,string $tool='forms_submit_response'):array {
         $plan=$this->journal->plan($tool,'alice',$args,['plan_state'=>'proof']);
         return $args+['operation_id'=>$plan['operation_id'],'plan_state'=>'proof','confirm'=>true];
