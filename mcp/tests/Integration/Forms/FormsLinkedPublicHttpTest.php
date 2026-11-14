@@ -16,6 +16,10 @@ final class FormsLinkedPublicHttpTest extends TestCase {
         self::assertSame($mode,$result['checks']['initial_recovery']);
         if(str_starts_with($mode,'reconcile'))self::assertTrue($result['checks']['historical_reconciliation_without_replay']);
     }
+    public function testCancellationAfterSourceChangeKeepsAuthorityAndReleasesReservation():void {
+        $result=$this->probe('cancel_source');
+        foreach(['cancel_changed_source','no_output_effect','reservation_released'] as $key)self::assertTrue($result['checks'][$key],$key);
+    }
     public function testDisabledVersionsIsRefusedBeforeEffectsWithEitherCopyPreference():void {
         $result=$this->probe('versions_disabled');
         self::assertSame(2,$result['checks']['rejected_before_effect']);

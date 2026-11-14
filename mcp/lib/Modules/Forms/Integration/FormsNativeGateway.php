@@ -54,7 +54,7 @@ final class FormsNativeGateway implements FormsGateway {
                 $job=$this->jobs->job($uid,$jobId);
                 if($action==='forms_continue_operation'&&in_array($job['payload']['tool'],['forms_export_results','forms_link_results_file'],true)&&($guard->capabilities()['file_sinks']??false)!==true)throw new ToolFailure('This Forms runtime does not qualify the original Files write sink.');
                 $read=$this->source($uid,$guard,$job['payload']['origin']);$snapshot=$read('snapshot',['id'=>$job['payload']['arguments']['id']]);
-                if(FormsExportJobs::sourceRevision($snapshot)!==$job['payload']['source_revision'])throw new ToolFailure('The approved Forms job source changed.');
+                if($action!=='forms_cancel_operation'&&FormsExportJobs::sourceRevision($snapshot)!==$job['payload']['source_revision'])throw new ToolFailure('The approved Forms job source changed.');
                 $snapshot['native_runtime']=FormsGuardIdentity::INSTALLED_MANIFEST_SHA256;
                 $snapshot['job_id']=$jobId;$snapshot['job_version']=$job['version'];$snapshot['job']=$this->jobs->status($uid,$jobId);
                 $snapshot['impact']['job']=$snapshot['job'];
@@ -167,7 +167,7 @@ final class FormsNativeGateway implements FormsGateway {
                 foreach($visible as $file)$out[$file['file_id']]=['name'=>$file['name'],'url'=>$this->urls->linkToRouteAbsolute('files.View.showFile',['fileid'=>$file['file_id']])];
                 return $out;
             },$operationKey,$snapshot['job_version']);
-            return ['state'=>$data['complete']?'succeeded':'pending','data'=>$data,'references'=>['job_id'=>$jobId]];
+            return ['state'=>$data['complete']||$data['state']==='cancelled'?'succeeded':'pending','data'=>$data,'references'=>['job_id'=>$jobId]];
         }
         if($action==='forms_generate_link_token')return ['state'=>'succeeded','data'=>$guard->read($uid,$action,$input),'references'=>[]];
         if(isset($input['answers'])) {

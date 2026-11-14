@@ -29,7 +29,7 @@ try {
     $token=$tokens->exchangeCode(['code'=>$code,'code_verifier'=>$verifier,'client_id'=>\OCA\Mcp\OAuth\NativeClient::CLIENT_ID,'redirect_uri'=>$redirect,'resource'=>$resource])['access_token'];
     $connection=(int)$db->executeQuery('SELECT MAX(id) FROM *PREFIX*mcp_oauth_tokens WHERE user_id = ?',[$uid])->fetchOne();
     $selection=Server::get(\OCA\Mcp\OAuth\ConnectionToolsStore::class);$saved=$selection->get($uid,$connection);
-    $selection->save($uid,$connection,['forms_link_results_file','forms_unlink_results_file','forms_continue_operation','forms_read_settings','forms_get_operation','forms_summarize_results'],$saved['revision'],['forms_link_results_file'=>['link_results']]);
+    $selection->save($uid,$connection,['forms_link_results_file','forms_unlink_results_file','forms_continue_operation','forms_cancel_operation','forms_read_settings','forms_get_operation','forms_summarize_results'],$saved['revision'],['forms_link_results_file'=>['link_results']]);
     $rpc=static function(string $name,array $args)use($token):array {
         $curl=curl_init('http://127.0.0.1/index.php/apps/mcp/');
         curl_setopt_array($curl,[CURLOPT_POST=>true,CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>60,
@@ -79,7 +79,7 @@ try {
             $db->executeStatement('UPDATE *PREFIX*appconfig SET configvalue = ? WHERE appid = ? AND configkey = ?',[$enabled,'files_versions','enabled']);
         }
     }
-    if($mode!=='create') {
+    if(!in_array($mode,['create','cancel_source'],true)) {
         $oldBytes='old preimage '.$uid;$old=$home->newFile($path,$oldBytes);$old->touch(time()-120);$old=$home->get($path);
         $originalId=(int)$old->getId();$oldRevision=Server::get('OCA\\Files_Versions\\Versions\\IVersionManager')->getRevision($old);
         $arguments+=['overwrite'=>true,'etag'=>$old->getEtag()];
@@ -87,6 +87,17 @@ try {
     $linked=$write('forms_link_results_file',$arguments);
     $operation=$linked['operation']['operation_id']??$linked['operation']['id']??null;
     if(!is_string($operation))throw new RuntimeException('Missing original operation identity.');
+    if($mode==='cancel_source') {
+        $stage='cancel after native source change';
+        $api->newQuestion($id,'short',null,'Source changed after approval');
+        $cancelled=$write('forms_cancel_operation',['target_operation_id'=>$operation]);
+        if(($cancelled['operation']['state']??null)!=='succeeded'||($cancelled['data']['state']??null)!=='cancelled'||$home->nodeExists($path))
+            throw new RuntimeException('Cancellation after a source change did not finish without a Files effect.');
+        $lease=$db->executeQuery('SELECT state,reserved_bytes,used_bytes FROM *PREFIX*mcp_forms_spool WHERE job_id = ?',[$linked['operation']['references']['job_id']])->fetch();
+        if($lease['state']!=='sealed'||(int)$lease['reserved_bytes']>=134217728||(int)$lease['reserved_bytes']<(int)$lease['used_bytes'])
+            throw new RuntimeException('Cancelled operation retained its unused reservation.');
+        echo json_encode(['ok'=>true,'checks'=>['cancel_changed_source'=>true,'no_output_effect'=>true,'reservation_released'=>true]],JSON_THROW_ON_ERROR);return;
+    }
     for($i=0;$i<6;$i++) {
         $linked=$write('forms_continue_operation',['target_operation_id'=>$operation]);
         if(!in_array($linked['operation']['state']??null,['succeeded','pending'],true))throw new RuntimeException('Continuation outcome requires recovery: '.($linked['operation']['state']??'missing'));
