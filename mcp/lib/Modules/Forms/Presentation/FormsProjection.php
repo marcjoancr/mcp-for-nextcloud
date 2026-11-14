@@ -52,7 +52,7 @@ final class FormsProjection {
         if($tool==='forms_read_admin_settings')return self::bounded(array_intersect_key($raw,array_flip(['allowPermitAll','allowPublicLink','allowCustomPublicShareTokens','allowShowToAll','creationAllowedGroups','restrictCreation','allowConfirmationEmail','confirmationEmailRateLimit','allowComments','isMailConfigured','canCreateForms'])));
         if($tool==='forms_list_comments') {
             $rows=$raw['comments']??$raw;$out=[];
-            foreach($rows as $row)$out[]=array_intersect_key($row,array_flip(['id','message','actorId','actorDisplayName','creationDateTime','parentId','isUnread','canEdit','canDelete']));
+            foreach($rows as $row)$out[]=array_intersect_key($row,array_flip(['id','message','actorId','actorType','actorDisplayName','creationDateTime','parentId','isUnread','canEdit','canDelete']));
             return self::bounded(['comments'=>$out,'hasMore'=>$raw['hasMore']??false,'nextOffset'=>$raw['nextOffset']??null]);
         }
         if($tool==='forms_list_response_files')return self::bounded(['files'=>array_map(static fn(array $r):array=>array_intersect_key($r,array_flip(['form_id','submission_id','file_id','question_id','name','size','mime'])), $raw['files']??[])]+(isset($raw['_mcp_page'])?self::nativePage($raw,$args):[]));

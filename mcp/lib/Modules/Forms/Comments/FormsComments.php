@@ -21,8 +21,8 @@ final class FormsComments {
         private IDBConnection $db,private LoggerInterface $logger) {}
     public static function isAuthor(IComment $comment,string $uid):bool {return $comment->getActorType()==='users'&&$comment->getActorId()===$uid;}
     private function row(IComment $c,string $uid):array {
-        return ['id'=>$c->getId(),'message'=>$c->getMessage(),'actorId'=>$c->getActorId(),
-            'actorDisplayName'=>$this->users->getDisplayName($c->getActorId())??'','creationDateTime'=>$c->getCreationDateTime()?->format('c'),
+        return ['id'=>$c->getId(),'message'=>$c->getMessage(),'actorId'=>$c->getActorId(),'actorType'=>$c->getActorType(),
+            'actorDisplayName'=>$c->getActorType()==='users'?($this->users->getDisplayName($c->getActorId())??''):'','creationDateTime'=>$c->getCreationDateTime()?->format('c'),
             'parentId'=>$c->getParentId(),'canEdit'=>self::isAuthor($c,$uid),'canDelete'=>self::isAuthor($c,$uid)];
     }
     private function current(int $formId,string $id):IComment {
