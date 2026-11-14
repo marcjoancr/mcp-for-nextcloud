@@ -25,7 +25,8 @@ final class ApprovedFormsOperation {
         if (!preg_match('/^[A-Za-z0-9_-]{16,128}$/D', $operationKey)) { throw new \OCA\Forms\Mcp\BeforeEffect('Invalid operation key'); }
         $intent=$input;unset($intent['_mcp_origin']);
         $fingerprint = hash_hmac('sha256', json_encode([OriginContext::identity($uid),$action,$intent], JSON_THROW_ON_ERROR), \OCP\Server::get(\OCP\IConfig::class)->getSystemValueString('secret'));
-        $result = $this->fence->transaction(function () use ($uid,$action,$input,$expectedRevision,$operationKey,$fingerprint,$authorize,$work): array {
+        $effectsStarted=false;
+        try {$result = $this->fence->transaction(function () use ($uid,$action,$input,$expectedRevision,$operationKey,$fingerprint,$authorize,$work,&$effectsStarted): array {
             $authorize();
             $row = $this->db->executeQuery('SELECT fingerprint FROM *PREFIX*forms_mcp_operations WHERE operation_key = ?', [$operationKey])->fetch();
             if ($row) {
@@ -36,13 +37,19 @@ final class ApprovedFormsOperation {
             if ((string)((int)$this->fence->revision() - 1) !== $expectedRevision) { throw new \OCA\Forms\Mcp\BeforeEffect('Forms preview is stale'); }
             $this->outbox->operation($operationKey);
             \OCP\Server::get(ManagedSharePhase::class)->operation($operationKey);
+            $effectsStarted=true;
             try { $outcome = $work(); } finally { $this->outbox->operation(null); \OCP\Server::get(ManagedSharePhase::class)->operation(null); }
             $receipt = ['state'=>'succeeded','operation_key'=>$operationKey,'references'=>$outcome['references'] ?? [],
                 'revision'=>$this->fence->revision(),'phases'=>['database'=>'committed','files'=>$outcome['files_phase']??'not_applicable','events'=>[]]];
             $this->db->executeStatement('INSERT INTO *PREFIX*forms_mcp_operations (operation_key, actor_hash, fingerprint, receipt) VALUES (?, ?, ?, ?)',
                 [$operationKey, OriginContext::identity($uid),$fingerprint,json_encode($receipt,JSON_THROW_ON_ERROR)]);
             return $receipt + ['data'=>$outcome['data'] ?? null];
-        });
+        });} catch (\Throwable $error) {
+            // Fence admission can reject before the operation callback starts.
+            // Once it starts, a Files effect may exist even if SQL rolls back.
+            if (!$effectsStarted && !$error instanceof \OCA\Forms\Mcp\BeforeEffect) {throw new \OCA\Forms\Mcp\BeforeEffect($error->getMessage(),0,$error);}
+            throw $error;
+        }
         $durable = $this->lookup($uid,$operationKey);
         return array_replace($result,$durable ?? []);
     }

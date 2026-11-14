@@ -125,10 +125,15 @@ final class BulkFiles {
     }
    }
    if(!hash_equals($j['file_revision'],$this->fingerprint((int)$j['form']['id']))||microtime(true)-$start>18){throw new \OCA\Forms\Mcp\BeforeEffect('Transfer source changed or verification budget exhausted');}
-   $this->db->executeQuery('SELECT uid FROM *PREFIX*users WHERE uid = ? FOR UPDATE',[$j['input']['owner_id']])->fetchOne();(new FreshCore($j['input']['owner_id']))->assertPrincipal(false,false);if(!hash_equals($j['target_principal']??'',\OCA\Forms\Mcp\Comments\CommentsRuntime::principal($j['input']['owner_id']))){throw new \OCA\Forms\Mcp\BeforeEffect('Approved transfer target incarnation changed');}return $commit();
+   $this->db->executeQuery('SELECT uid FROM *PREFIX*users WHERE uid = ? FOR UPDATE',[$j['input']['owner_id']])->fetchOne();OriginContext::assertFresh();(new FreshCore($j['input']['owner_id']))->assertPrincipal(false,false);if(!hash_equals($j['target_principal']??'',\OCA\Forms\Mcp\Comments\CommentsRuntime::principal($j['input']['owner_id']))){throw new \OCA\Forms\Mcp\BeforeEffect('Approved transfer target incarnation changed');}return $commit();
   }finally{/* Locks remain owned until the surrounding native transaction commits or rolls back. */}
  }
  public function remap(array &$j,float $start):void {
-  foreach(['answers','uploads','artifacts']as$kind){$cursor=0;while($rows=$this->store->page($j['id'],$kind,$cursor)){foreach($rows as$r){if(microtime(true)-$start>18){throw new \OCA\Forms\Mcp\BeforeEffect('Transfer mapping budget exhausted; verified copies retained');}$cursor=$r['id'];$old=(int)($r['data']['file_id']??0);if(!$old){continue;}$new=$this->store->mapped($j['id'],'files',$old);$table=match($kind){'answers'=>'forms_v2_answers','uploads'=>'forms_v2_uploaded_files','artifacts'=>'forms_mcp_artifacts'};$pk=$kind==='artifacts'?'file_id':'id';$count=$this->db->executeStatement('UPDATE *PREFIX*'.$table.' SET file_id = ? WHERE '.$pk.' = ? AND file_id = ?',[$new,$r['id'],$old]);if($count!==1){throw new \RuntimeException('Exact transfer reference changed');}}}}
+  foreach(['answers','uploads','artifacts']as$kind){$cursor=0;while($rows=$this->store->page($j['id'],$kind,$cursor)){
+   $table=match($kind){'answers'=>'forms_v2_answers','uploads'=>'forms_v2_uploaded_files','artifacts'=>'forms_mcp_artifacts'};$pk=$kind==='artifacts'?'file_id':'id';
+   $ids=array_column(array_filter($rows,static fn(array $row):bool=>(int)($row['data']['file_id']??0)>0),'id');
+   if($ids!==[]){$locked=$this->db->executeQuery('SELECT '.$pk.' FROM *PREFIX*'.$table.' WHERE '.$pk.' IN ('.implode(',',array_fill(0,count($ids),'?')).') ORDER BY '.$pk.' FOR UPDATE',$ids)->fetchAll();if(count($locked)!==count($ids)){throw new \OCA\Forms\Mcp\BeforeEffect('Exact transfer source rows changed');}}
+   OriginContext::assertFresh();BulkDeadline::check();
+   foreach($rows as$r){if(microtime(true)-$start>18){throw new \OCA\Forms\Mcp\BeforeEffect('Transfer mapping budget exhausted; verified copies retained');}$cursor=$r['id'];$old=(int)($r['data']['file_id']??0);if(!$old){continue;}$new=$this->store->mapped($j['id'],'files',$old);$count=$this->db->executeStatement('UPDATE *PREFIX*'.$table.' SET file_id = ? WHERE '.$pk.' = ? AND file_id = ?',[$new,$r['id'],$old]);if($count!==1){throw new \RuntimeException('Exact transfer reference changed');}}}}
  }
 }

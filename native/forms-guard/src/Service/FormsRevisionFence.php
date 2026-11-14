@@ -66,6 +66,7 @@ final class FormsRevisionFence
             }
             $acquired = true;
             $this->assertSession();
+            if (OriginContext::active()) {OriginContext::assertFresh();}
             return $work();
         } catch (\Throwable $error) {
             $failure = $error;
@@ -172,7 +173,10 @@ final class FormsRevisionFence
                 throw new \RuntimeException('Forms guard fence is missing');
             }
             $this->depth = 1;
+            if (OriginContext::active()) {OriginContext::assertFresh();}
             $result = $work();
+            if (OriginContext::active()) {OriginContext::assertFresh();}
+            BulkDeadline::check();
             $this->db->commit();
             $committed = true;
         } catch (\Throwable $error) {

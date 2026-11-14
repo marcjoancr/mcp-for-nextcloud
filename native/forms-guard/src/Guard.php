@@ -24,7 +24,7 @@ final class Guard {
         $schemaReady=$db->executeQuery('SELECT version FROM *PREFIX*migrations WHERE app = ? AND version = ?',['forms','050402Date20261113060000'])->fetchOne()!==false;
         $qualified = $schemaReady && $identity && \OCA\Forms\Mcp\Service\SharingIdentity::verify() && $runtimeQualified && $fileLocks && empty($config->getSystemValue('dbreplica', []));
         $comments=$qualified && \OCA\Forms\Mcp\Comments\CommentsRuntime::approved() && \OCA\Forms\Mcp\Comments\CommentsRuntime::available() && Server::get(\OCP\Comments\ICommentsManager::class) instanceof \OCA\Forms\Mcp\Comments\GuardedCommentsManager;
-        return ['bulk_lifecycle'=>$qualified&&Service\BulkStore::ready(),'bulk_backup_format'=>1,'comments'=>$comments,'protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
+        return ['bulk_source_writer_ready'=>$comments,'bulk_source_writer_reason'=>$comments?null:'qualified_comments_writer_required','bulk_lifecycle'=>$qualified&&Service\BulkStore::ready(),'bulk_backup_format'=>1,'comments'=>$comments,'protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
             'database'=>$provider,'actions'=>$qualified ? array_merge(NativeActions::WRITES,['forms_read_own_response','forms_read_submission_form'],$comments?['forms_list_comments','forms_add_comment','forms_update_comment','forms_delete_comment']:[]) : [],'own_response_pages'=>$qualified,'public_submission_form'=>$qualified, 'answers_preflight'=>$qualified,'file_sinks'=>$qualified,'linked_exports'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified,'files_share_types'=>$qualified?[0,1]:[],'event_delivery'=>'independently_reported'];
     }
     private function bulkAdmission(string $uid): void {
@@ -48,12 +48,12 @@ final class Guard {
         $this->bulkAdmission($uid);
         return Service\BulkDeadline::run(fn()=>OriginContext::within($uid,$origin,'lookup',[],function()use($uid,$id,$version,$key,$trustedFilesBoundary):array {
             $j=Server::get(Service\BulkStore::class)->load($id);
-            return Server::get(Service\BulkOperations::class)->step($uid,$id,$version,$key,fn()=> $this->authorize($uid,$j['action'],$j['input']),$trustedFilesBoundary);
+            return OriginContext::withBulkControl('forms_continue_operation',$j['origin'],fn()=>Server::get(Service\BulkOperations::class)->step($uid,$id,$version,$key,fn()=> $this->authorize($uid,$j['action'],$j['input']),$trustedFilesBoundary));
         }));
     }
     public function bulkStatus(string $uid,string $id,array $origin): array {$this->bulkAdmission($uid);return OriginContext::within($uid,$origin,'lookup',[],fn()=>Server::get(Service\BulkOperations::class)->status($uid,$id));}
     public function bulkLookup(string $uid,string $key,array $origin,?string $bulkId=null,?int $approvedVersion=null): ?array {$this->bulkAdmission($uid);if(($bulkId===null)!==($approvedVersion===null)){throw new BeforeEffect('Step evidence requires bulk ID and approved version');}return Service\BulkDeadline::run(fn()=>OriginContext::within($uid,$origin,'lookup',[],fn()=> $bulkId===null?Server::get(Service\BulkOperations::class)->lookup($uid,$key):Server::get(Service\BulkOperations::class)->stepEvidence($uid,$bulkId,$key,$approvedVersion)));}
-    public function bulkCancel(string $uid,string $id,array $origin,int $version,string $key): array {$this->bulkAdmission($uid);return OriginContext::within($uid,$origin,'lookup',[],fn()=>Server::get(Service\BulkOperations::class)->cancel($uid,$id,$version,$key));}
+    public function bulkCancel(string $uid,string $id,array $origin,int $version,string $key): array {$this->bulkAdmission($uid);return Service\BulkDeadline::run(fn()=>OriginContext::within($uid,$origin,'lookup',[],fn()=>OriginContext::withBulkControl('forms_cancel_operation',Server::get(Service\BulkStore::class)->load($id)['origin'],fn()=>Server::get(Service\BulkOperations::class)->cancel($uid,$id,$version,$key))));}
     /** Private archive cursor. Public adapters bind it to actor, connection and archive. */
     public function bulkCommentsPage(string $uid,string $restoreBulkId,array $origin,int $cursor=0,int $limit=50):array {
         $this->bulkAdmission($uid);

@@ -25,11 +25,16 @@ final class BulkOperations {
  }
  private function counts(int $id):array {$out=[];foreach(self::KINDS as$kind){[$sql,$params]=$this->source($kind,$id);$out[$kind]=(int)$this->db->executeQuery('SELECT COUNT(*) FROM ('.$sql.') bulk_count',$params)->fetchOne();}$out['files']=Server::get(BulkFiles::class)->count($id);return $out;}
  private static function key(string $key):void {if(!preg_match('/^[A-Za-z0-9_-]{16,128}$/D',$key)){throw new BeforeEffect('Invalid bulk operation key');}}
+ private function sourceWriter(string $action):void {
+  if($action!=='forms_restore' && !(Server::get(\OCA\Forms\Mcp\Guard::class)->capabilities()['bulk_source_writer_ready']??false)) {
+   throw new BeforeEffect('Source bulk lifecycle requires the activated qualified Forms comments writer');
+  }
+ }
  private function admit(string $uid,string $action,array $input,callable $authorize):void {
   if(!BulkStore::ready()||!in_array($action,self::ACTIONS,true)){throw new BeforeEffect('Native bounded lifecycle unavailable');}
   OriginContext::assertFresh();if(strlen(json_encode($input,JSON_THROW_ON_ERROR))>1048576){throw new BeforeEffect('Bulk input exceeds budget');}
   if($action==='forms_restore'){Server::get(\OCA\Forms\Mcp\Guard::class)->assertPrincipal($uid);if(Server::get(\OCP\IUserSession::class)->getUser()?->getUID()!==$uid){throw new BeforeEffect('Restore actor unavailable');}$this->recovery($uid,(string)$input['backup_id']);return;}
-  $authorize();$form=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$input['id']);
+  $this->sourceWriter($action);$authorize();$form=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$input['id']);
   if($action==='forms_delete_form'&&(int)$this->db->executeQuery("SELECT COUNT(*) FROM *PREFIX*comments WHERE object_type = 'forms' AND object_id = ?",[(string)$input['id']])->fetchOne()>0&&!Server::get(\OCA\Forms\Mcp\Guard::class)->capabilities()['comments']){throw new BeforeEffect('Whole-form comment cleanup requires the activated native comments guard');}
   if($form->getState()===2){throw new BeforeEffect('Archived form is unavailable for bulk mutation');}
   if(in_array($action,['forms_delete_form','forms_transfer'],true)&&$form->getOwnerId()!==$uid){throw new BeforeEffect('Only the current form owner may perform this operation');}
@@ -114,14 +119,14 @@ final class BulkOperations {
  public function step(string $uid,string $id,int $version,string $key,callable $authorize,?callable $files=null):array {
   self::key($key);$j=$this->store->load($id);$this->actor($uid,$j);
   return OriginContext::within($uid,$j['origin'],$j['action'],$j['input'],fn()=> $this->fence->withLock(function()use($uid,$id,$version,$key,$authorize,$files):array {
-   $j=$this->store->load($id);$this->actor($uid,$j);$prior=$this->store->receipt($id,$key);if($prior!==null){return $prior;}
+   $j=$this->store->load($id);$this->actor($uid,$j);$this->sourceWriter($j['action']);$prior=$this->store->receipt($id,$key);if($prior!==null){return $prior;}
    if($j['version']!==$version){throw new BeforeEffect('Bulk version conflict');}
    if(!in_array($j['state'],['pending'],true)){return $this->dto($j);}
    if(in_array($j['phase'],['backup_files','copy_files','delete_files','restore_files','remove_shares','stage_shares','stage_recipients'],true)){
     return $this->fileStep($j,$uid,$key,$authorize,$files);
    }
    return $this->fence->transaction(function()use(&$j,$uid,$key,$authorize,$files):array {
-    if(!$this->sourceMatches($j)){$j['state']=($j['done']>0||($j['source_effects']??false)||(array_sum($j['retained_files']??[])+($j['retained_shares']??0)+($j['retained_folders']??0))>0)?'partial':'failed_before_effect';$j['reason']='source_changed';}
+    $this->sourceWriter($j['action']);if(!$this->sourceMatches($j)){$j['state']=($j['done']>0||($j['source_effects']??false)||(array_sum($j['retained_files']??[])+($j['retained_shares']??0)+($j['retained_folders']??0))>0)?'partial':'failed_before_effect';$j['reason']='source_changed';}
     else {
      $this->admit($uid,$j['action'],$j['input'],$authorize);if(!$j['sealed']&&$j['action']!=='forms_restore'&&!hash_equals($j['file_revision'],Server::get(BulkFiles::class)->fingerprint((int)$j['form']['id']))){throw new BeforeEffect('Managed Files changed before recovery seal');}
      $started=BulkDeadline::started();BulkDeadline::check();
@@ -129,7 +134,7 @@ final class BulkOperations {
       'capture'=>$this->capture($j,$started),
       'verify'=>$this->verify($j,$started),
       'file_metadata'=>OriginContext::withFileBoundary($files,function()use(&$j){Server::get(BulkFiles::class)->metadata($j);}),
-      'apply'=>OriginContext::withFileBoundary($files,function()use(&$j,$started){$this->applyPage($j,$started);}),
+      'apply'=>OriginContext::withFileBoundary($files,function()use(&$j,$started,$authorize){$this->applyPage($j,$started,$authorize);}),
       'restore'=>$this->restorePage($j,$started),
       default=>throw new \RuntimeException('Unknown bulk phase'),
      };
@@ -197,10 +202,18 @@ final class BulkOperations {
    $j['sealed']=true;$j['seal']=BulkStore::digest([$j['id'],$j['actor'],$j['counts'],$j['chain'],$j['form']]);$j['phase']=$j['action']==='forms_transfer'?'copy_files':($j['action']==='forms_delete_form'?'remove_shares':'delete_files');$j['kind']=0;$j['cursor']=0;
   }
  }
- private function applyPage(array &$j,float $start):void {
+ private function applyPage(array &$j,float $start,callable $authorize):void {
   if(!$j['sealed']){throw new \RuntimeException('Unsealed recovery');}
   $kinds=$j['action']==='forms_delete_responses'?['answers','submissions']:($j['action']==='forms_delete_form'?['answers','submissions','options','questions','uploads','artifacts','shares','comments','form']:['form']);
   $kind=$kinds[$j['kind']];$rows=$this->store->page($j['id'],$kind,$j['cursor']);$processed=0;
+  // Acquire the exact bounded source rows before admission, so a row wait cannot
+  // resume inside a DELETE/UPDATE after current or original authority was revoked.
+  if($rows!==[]){
+   $pk=$kind==='artifacts'?'file_id':'id';$ids=array_column($rows,'id');
+   $locked=$this->db->executeQuery('SELECT '.$pk.' FROM *PREFIX*'.self::TABLES[$kind].' WHERE '.$pk.' IN ('.implode(',',array_fill(0,count($ids),'?')).') ORDER BY '.$pk.' FOR UPDATE',$ids)->fetchAll();
+   if(count($locked)!==count($ids)){throw new BeforeEffect('Exact bulk source rows changed');}
+  }
+  $this->admit($j['uid'],$j['action'],$j['input'],$authorize);BulkDeadline::check();
   foreach($rows as$r){if(microtime(true)-$start>16){break;}
    if($j['action']==='forms_transfer'){
     $count=Server::get(BulkFiles::class)->commitTransfer($j,$start,function()use(&$j,$start,$r):int{

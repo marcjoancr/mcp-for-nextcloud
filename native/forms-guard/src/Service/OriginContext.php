@@ -8,6 +8,9 @@ use OCP\Server;
 /** Request-local verified provenance; no UID-only fallback exists for MCP artifacts. */
 final class OriginContext {
     private static ?array $current=null;
+    private static ?array $nextBulkFrame=null;
+    private static ?array $frameBulkControl=null;
+    private static bool $bulkControlActive=false;
     private static ?\Closure $fileBoundary=null;
     public static function withFileBoundary(?callable $callback,callable $work): mixed {
         $old=self::$fileBoundary;self::$fileBoundary=$callback===null?null:\Closure::fromCallable($callback);
@@ -22,14 +25,51 @@ final class OriginContext {
             && in_array('read_response_files',$verified['operations'],true)
             && in_array('read',$verified['references']['files_operations']??[],true);
         if ($action!==$verified['tool'] && !$fileReferences && !in_array($action,['forms_results_metadata','forms_results_page','lookup','effect'],true)) {throw new \OCA\Forms\Mcp\BeforeEffect('Original Forms action does not match');}
-        $old=self::$current;unset($input['_mcp_origin']);
+        $bulk=self::$nextBulkFrame;
+        if($bulk!==null && $bulk['original']!==$origin){throw new \OCA\Forms\Mcp\BeforeEffect('Bulk business frame does not match');}
+        $old=self::$current;$oldControl=self::$frameBulkControl;unset($input['_mcp_origin']);
         self::$current=['origin'=>$origin,'verified'=>$verified,'action'=>$action,'input'=>$input];
-        try {return $work();} finally {self::$current=$old;}
+        self::$frameBulkControl=$bulk['control']??null;
+        if($bulk!==null){self::$nextBulkFrame=null;}
+        try {return $work();} finally {self::$current=$old;self::$frameBulkControl=$oldControl;}
+    }
+    /** Attach additional signed authority to the next exact bulk business frame only. */
+    public static function withBulkControl(string $tool,array $original,callable $work): mixed {
+        $control=self::current();
+        try {$stored=Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assert($original);}
+        catch(\Throwable $e){throw new \OCA\Forms\Mcp\BeforeEffect('Stored bulk authority is unavailable',0,$e);}
+        $current=$control['verified'];
+        foreach(['uid','actor','connection'] as $key) {
+            if($current[$key]!==$stored[$key]){throw new \OCA\Forms\Mcp\BeforeEffect('Bulk control identity does not match');}
+        }
+        if(isset($current['references']['form_id']) && ($current['references']['form_id']!==($stored['references']['form_id']??null))) {
+            throw new \OCA\Forms\Mcp\BeforeEffect('Bulk control form does not match');
+        }
+        if($current['tool']===$stored['tool']) {
+            // Native fixture/integration callers may still supply the original signed action.
+            if($current!==$stored){throw new \OCA\Forms\Mcp\BeforeEffect('Legacy bulk authority does not match');}
+            return $work();
+        }
+        $authority=$current['references']['bulk_authority']??null;
+        if($current['tool']!==$tool || !is_array($authority)
+            || $authority['tool']!==$stored['tool']
+            || $authority['required_operations']!==$stored['operations']
+            || $authority['files_operations']!==($stored['references']['files_operations']??[])) {
+            throw new \OCA\Forms\Mcp\BeforeEffect('Current bulk control authority does not match');
+        }
+        if(self::$bulkControlActive){throw new \OCA\Forms\Mcp\BeforeEffect('Nested bulk control is unavailable');}
+        self::$bulkControlActive=true;
+        self::$nextBulkFrame=['original'=>$original,'control'=>$control['origin']];
+        try{return $work();}finally{self::$nextBulkFrame=null;self::$bulkControlActive=false;}
     }
     /** Refresh after waits and before file effects. Callers may type a rejection only while no effect has begun. */
     public static function assertFresh(): void {
         $context=self::current();
-        try {Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assert($context['origin']);}
+        try {
+            $authorization=Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class);
+            $authorization->assert($context['origin']);
+            if(self::$frameBulkControl!==null){$authorization->assert(self::$frameBulkControl);}
+        }
         catch(\Throwable $e){throw new \RuntimeException('Original Forms authority changed',0,$e);}
     }
     public static function assertFiles(string $action,array $manifest): void {
