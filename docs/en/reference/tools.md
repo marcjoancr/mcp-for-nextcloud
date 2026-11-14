@@ -4,10 +4,11 @@
 
 # Tools
 
-The module catalogs contain at most **110 module tools**, plus `mcp_status` and
-`mcp_guide` (112 total). Three Deck dependency tools are conditional on compatible
-NC34/35 native APIs, leaving at most 107 module tools (109 total) without them.
-App availability and each account's access further reduce these counts.
+The module catalogs include `mcp_status`, `mcp_guide` and native-dependent
+workflows. The visible subset depends on installed apps, qualified native APIs,
+current account permissions and connection selection. Use `tools/list` and the
+tool guide for the admitted catalog; a fixed installation-wide count does not
+represent every account's available tools.
 
 Each tool only appears in `tools/list` and can only be called when it is assigned to the user, selected for the connection, and its required apps and operation prerequisites are enabled for that user. Grant and app are checked again on every call. Everything runs as the authenticated user, through their own Nextcloud folder, and the Nextcloud permissions and shares keep applying.
 
@@ -45,7 +46,7 @@ Plus:
 - [Talk](tools/talk.md)
 - [People](tools/people.md)
 - [Mail](tools/mail.md)
-- [Forms](tools/forms.md) — `forms_list` lists accessible forms. `forms_read` reads a form’s questions and options. Requires Forms 5.3.0 or later and the separate `forms.read` grant. `forms_read_responses` reads submission pages with the separate `forms.read_responses` grant and native results permission. Use the returned offsets to retrieve subsequent questions and options. Text fields longer than 1 KiB carry a truncation flag.
+- [Forms](tools/forms.md) — the five legacy tools retain their Forms 5.3 API floor and page bounds. The 65-tool catalog also covers construction, settings, sharing, own submissions, results, files, comments, administration, complete exports and recoverable lifecycle operations. Extended workflows require the exact qualified Forms 5.4.2 companion and independent grants/selection; `forms_capabilities` reports runtime readiness. Reading structure does not grant results, respondent identities, file access or editing.
 
 For `forms_read_responses`, pass the form `id`, `limit` (default 50, maximum 100) and `offset`. Follow `nextOffset` while `hasMore` is true. Each submission includes at most 200 answers, with `answersTruncated` indicating omitted answers. Text longer than 1 KiB has `textTruncated: true`. Uploaded file answers are omitted and reported through `fileAnswersOmitted`. Anonymous submissions omit respondent IDs even when the form's anonymity setting later changes. A submitter's ability to view their own responses does not grant access to the full result set through this tool.
 

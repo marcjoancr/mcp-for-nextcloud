@@ -37,7 +37,7 @@ These are example requests, not recorded client transcripts. Available actions d
 
 ## One connection, eleven modules
 
-The catalogs define up to **112 tools**, including the guide and status tools, across **eleven modules**. Discovery shows only tools available to the account and selected connection; three Deck dependency tools additionally require compatible Nextcloud 34/35 and Deck APIs.
+The catalogs cover **eleven modules**, plus guide and status tools. Discovery shows the subset admitted by the installed native APIs, current account permissions and selected connection. Three Deck dependency tools additionally require compatible Nextcloud 34/35 and Deck APIs; qualified Mail and Forms companions enable their extended workflows.
 
 | Module | Capabilities |
 | --- | --- |
@@ -50,7 +50,7 @@ The catalogs define up to **112 tools**, including the guide and status tools, a
 | [Talk](docs/en/reference/tools/talk.md) | Read, search and inspect message context; send messages or caller-prepared summaries, share files and create group conversations. |
 | [People](docs/en/reference/tools/people.md) | Look up people and groups before sharing or messaging. |
 | [Mail](docs/en/reference/tools/mail.md) | Search owned mail, read messages/threads/attachments without marking them read, save attachments to Files and manage local unsent drafts. No sending. |
-| [Forms](docs/en/reference/tools/forms.md) | Read forms and permitted results, count answers by page and export response pages to CSV in Files after confirmation. |
+| [Forms](docs/en/reference/tools/forms.md) | Manage forms, questions, sharing, responses, files, complete exports and recoverable operations through a qualified native companion; legacy page reads and CSV export retain their contracts. |
 | [Server logs](docs/en/reference/tools/logs.md) | Bounded, read-only diagnostics for administrators and authorized IT groups; disabled by default. |
 
 ## Built into your Nextcloud

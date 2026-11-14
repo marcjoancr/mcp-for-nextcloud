@@ -75,6 +75,34 @@ These additions start unassigned and are selected separately in each connection:
 
 Existing read permissions do not automatically enable these tools. Form export is the only write in this set: it requires a current preview and confirmation, plus shared-destination confirmation when applicable. Neither a tool assignment nor a connection selection bypasses another user's native access restrictions.
 
+## Extended Forms operations
+
+The [Forms reference](../reference/tools/forms.md) distinguishes the five legacy
+page tools from the qualified native extension. All new operations start denied
+and all new tools require assignment and connection selection after an upgrade.
+
+Authoring, settings, question editing, sharing, public links, submission, own
+responses, full results, respondents, answer files, comments, administration and
+recovery have separate operations. An owner/editor/submitter role in native Forms
+does not bypass MCP grants; a grant does not bypass native object permissions.
+Public-link and confirmation-email changes add `forms.public_link` and
+`forms.configure_notifications` respectively. Question deletion uses question
+editing authority and preserves native answer history; holding its recovery
+copy does not grant results access.
+
+Forms has no additional per-form MCP scope selector. Native form ACLs still apply;
+cross-module Files sources and destinations retain current resource scopes,
+exclusions, guest restrictions and native permissions. File exports and explicit
+file reads/saves require their declared Files operations. Native Forms-managed
+lifecycle recovery has its own Forms authority; it does not implicitly grant
+general Files access. An empty Files resource selection permits no user Files
+destination.
+
+Continuations, cancellation, operation-impact inspection and recovered-comment
+reads recheck the original action's current authority as well as their own.
+Instance administration is required only for the administrative workflows.
+Use the current tool guide for the exact operations and additional prerequisites.
+
 ## Saving, conflicts and undo
 
 Policy writes carry the revision displayed by the interface. A stale preview or concurrent change produces a conflict and a reload; the browser does not silently replay the write. An uncertain response is not shown as a successful save. Group/resource/client drafts stay drafts until their respective Save action.
