@@ -60,9 +60,6 @@ for (const header of ["if (isset($keyValuePairs['path']) && isset($keyValuePairs
 writeFileSync(linkedApiFile,linkedApi);
 const linkedMapperFile=join(output,'lib/Db/FormMapper.php');let linkedMapper=readFileSync(linkedMapperFile,'utf8');
 linkedMapper=linkedMapper.replace('return parent::update($entity);',"return \\OCP\\Server::get(\\OCA\\Forms\\Mcp\\Service\\LinkedMarkers::class)->formMutation($entity,'update',fn()=>parent::update($entity));");
-const linkedCleanup='if (str_starts_with((string)$node->getName(), $formFolderPrefix)) {';
-if (!linkedMapper.includes(linkedCleanup)) throw new Error('Native linked-output cleanup hook missing');
-linkedMapper=linkedMapper.replace(linkedCleanup,linkedCleanup+'\n if ($node instanceof \\OCP\\Files\\Folder && \\OCA\\Forms\\Mcp\\Service\\LinkedMarkers::containsOutput($form->getId(),$node)) { continue; }');
 writeFileSync(linkedMapperFile,linkedMapper);
 // Under an approved MCP file operation, delete only the verified native file IDs. Never recurse by folder name.
 for (const [file,method,body] of [
@@ -109,6 +106,17 @@ temporary=temporary.replace(temporaryLoop,temporaryLoop+"\n if (\\OCP\\Server::g
 // Stock code deletes whole timestamp folders even when they contain unrelated files; exact record deletion above is sufficient.
 temporary=temporary.replace('// now delete empty folders in user folders','return; // Retain containers; never recurse by timestamp.\n // now delete empty folders in user folders');
 writeFileSync(temporaryFile,temporary);
+// Every pinned native Node deletion checks retained exports, including another form's unlinked output.
+for (const [file,count] of [
+ ['Db/FormMapper.php',2],['Db/SubmissionMapper.php',1],['BackgroundJob/DeleteQuestionFoldersJob.php',1],
+ ['BackgroundJob/CleanupUploadedFilesJob.php',2],['Helper/FilePathHelper.php',3],
+]) {
+ const p=join(output,'lib',file);let source=readFileSync(p,'utf8');
+ const calls=/\$([A-Za-z_][A-Za-z0-9_]*)->delete\(\);(?:\s*\$deletedCount\+\+;)?/g;
+ if ([...source.matchAll(calls)].length!==count) throw new Error('Native retained-output delete hook changed: '+file);
+ source=source.replace(calls,(call,node)=>`if (!\\OCA\\Forms\\Mcp\\Service\\LinkedMarkers::containsOutput($${node})) { ${call} }`);
+ writeFileSync(p,source);
+}
 // Inherited mapper writes can be invoked by native service extensions as well as controllers.
 for (const entity of ['Form','Question','Option','Share','Answer','Submission','UploadedFile']) {
  const p=join(output,'lib/Db',entity+'Mapper.php');let source=readFileSync(p,'utf8');

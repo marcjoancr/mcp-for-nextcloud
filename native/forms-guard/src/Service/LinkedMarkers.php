@@ -273,13 +273,35 @@ final class LinkedMarkers {
         $this->db->executeStatement("UPDATE *PREFIX*forms_mcp_linked SET state = 'unlinked', version = version + 1, lease_token = '', lease_until = 0 WHERE form_id = ? AND state <> 'unlinked'",[$formId]);
     }
 
-    /** Stock recursive cleanup must preserve an exact retained export even after explicit unlink. */
-    public static function containsOutput(int $formId,\OCP\Files\Folder $folder): bool {
-        $db=Server::get(IDBConnection::class);
-        $rows=$db->executeQuery('SELECT file_id FROM *PREFIX*forms_mcp_linked WHERE form_id = ?',[$formId])->fetchAll();
-        foreach ($rows as $row) {
-            if ($folder->getById((int)$row['file_id'])!==[]) {return true;}
+    /** Retention follows exact file IDs across forms and unlink. An incomplete lookup must refuse deletion. */
+    public static function containsOutput(\OCP\Files\Node $node): bool {
+        $db=Server::get(IDBConnection::class);$deadline=microtime(true)+20;
+        if ($node instanceof File) {
+            $query=$db->getQueryBuilder();
+            $query->select('association_id')->from('forms_mcp_linked')
+                ->where($query->expr()->eq('file_id',$query->createNamedParameter($node->getId(),\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))->setMaxResults(1);
+            $retained=$query->executeQuery()->fetchOne()!==false;
+            if (microtime(true)>$deadline) {throw new \RuntimeException('Linked Forms retention lookup exceeded its deadline');}
+            return $retained;
         }
+        if (!$node instanceof \OCP\Files\Folder) {throw new \RuntimeException('Linked Forms cleanup node is unavailable');}
+        $after='';
+        do {
+            if (microtime(true)>$deadline) {throw new \RuntimeException('Linked Forms retention lookup exceeded its deadline');}
+            $query=$db->getQueryBuilder();
+            $query->select('association_id','file_id')->from('forms_mcp_linked')
+                ->where($query->expr()->gt('association_id',$query->createNamedParameter($after)))
+                ->orderBy('association_id','ASC')->setMaxResults(100);
+            $rows=$query->executeQuery()->fetchAll();
+            foreach ($rows as $row) {
+                if (microtime(true)>$deadline) {throw new \RuntimeException('Linked Forms retention lookup exceeded its deadline');}
+                $fileId=filter_var($row['file_id'],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+                if ($fileId===false) {throw new \RuntimeException('Linked Forms retained file identity is unavailable');}
+                $after=$row['association_id'];
+                if ($node->getById($fileId)!==[]) {return true;}
+            }
+        } while (count($rows)===100);
+        if (microtime(true)>$deadline) {throw new \RuntimeException('Linked Forms retention lookup exceeded its deadline');}
         return false;
     }
 

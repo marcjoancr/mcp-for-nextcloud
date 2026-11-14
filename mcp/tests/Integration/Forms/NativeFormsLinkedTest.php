@@ -43,4 +43,12 @@ final class NativeFormsLinkedTest extends TestCase {
     public function testDeadChildAfterDurableWritingClaimIsNeverReplayed(): void {$this->check('crashed_child');}
     public function testAssociationReadVerifiesOriginForAnUnlinkedForm(): void {$this->check('empty_association');}
     public function testExhaustedDirtyGenerationRefusesAndRollsBackSourceMutation(): void {$this->check('marker_exhausted');}
+    public function testResponseCleanupPreservesActiveExportAndDeletesOrdinaryFolder(): void {$this->check('cleanup_response');}
+    public function testResponseCleanupPreservesUnlinkedExport(): void {$this->check('cleanup_response_unlinked');}
+    public function testQuestionCleanupPreservesActiveExportAndDeletesOrdinaryFolder(): void {$this->check('cleanup_question');}
+    public function testQuestionCleanupPreservesUnlinkedExport(): void {$this->check('cleanup_question_unlinked');}
+    public function testFormCleanupPreservesAnotherFormsUnlinkedExport(): void {$this->check('cleanup_cross_form');}
+    public function testResponseCleanupPreservesAnotherFormsUnlinkedExport(): void {$this->check('cleanup_cross_response');}
+    public function testQuestionCleanupPreservesAnotherFormsUnlinkedExport(): void {$this->check('cleanup_cross_question');}
+    public function testRetentionLookupFailureKeepsCandidateFolders(): void {$this->check('cleanup_lookup_failure');}
 }

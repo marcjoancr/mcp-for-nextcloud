@@ -16,7 +16,8 @@ try {
     $config=Server::get(\OCP\IConfig::class);$config->deleteUserValue($uid,'mcp','forms_native_test_ready');
     $db=Server::get(\OCP\IDBConnection::class);$fence=Server::get(FormsRevisionFence::class);
     $api=(new \OCA\Forms\AppInfo\Application())->getContainer()->get(\OCA\Forms\Controller\ApiController::class);
-    $id=$api->newForm()->getData()['id'];$question=$api->newQuestion($id,'short',null,'Linked fixture question')->getData()['id'];
+    $questionType=str_contains($request['case'],'cleanup_')&&str_contains($request['case'],'question')?'file':'short';
+    $id=$api->newForm()->getData()['id'];$question=$api->newQuestion($id,$questionType,null,'Linked fixture question')->getData()['id'];
     require __DIR__.'/origin-fixture.php';formsNativeOrigin($uid,'forms_summarize_results',['id'=>$id]);
     // Issue a real persistent OAuth connection, then retain its exact selected tools in the native proof.
     $clients=Server::get(\OCA\Mcp\Db\OAuthClientsMapper::class);
@@ -34,11 +35,34 @@ try {
     $operations=$request['case']==='file_refs'?['link_results','read_response_files']:['link_results'];
     $selection->save($uid,$connection,['forms_link_results_file','forms_unlink_results_file','forms_summarize_results'],$saved['revision'],['forms_link_results_file'=>$operations]);
     $origin=Server::get(\OCA\Mcp\Modules\Forms\Access\FormsOriginProof::class)->create($uid,$connection,'forms_link_results_file',$operations,['form_id'=>$id,'owner_id'=>$uid,'files_operations'=>['read','edit','create']]);
+    $cleanup=null;
+    if (str_starts_with($request['case'],'cleanup_')) {
+        $targetId=str_contains($request['case'],'cross')?$api->newForm()->getData()['id']:$id;
+        $targetQuestion=$targetId===$id?$question:$api->newQuestion($targetId,$questionType,null,'Cleanup target')->getData()['id'];
+        $submissionIds=[];
+        for ($i=0;$i<2;$i++) {
+            $submission=new Submission();$submission->setFormId($targetId);$submission->setUserId($uid);$submission->setTimestamp(time());
+            $submissionIds[]=Server::get(SubmissionMapper::class)->insert($submission)->getId();
+        }
+        $cleanup=['form_id'=>$targetId,'question_id'=>$targetQuestion,'submission_ids'=>$submissionIds];
+    }
     $metadata=$guard->deferredRead($origin,'forms_results_metadata',['id'=>$id]);
     $root=Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($uid);$name='native-linked-'.bin2hex(random_bytes(6)).'.csv';
     if ($request['case']==='managed_folder') {
         $formsFolder=$root->nodeExists('Forms')?$root->get('Forms'):$root->newFolder('Forms');
         $formsFolder->newFolder($id.' - Linked export');$name='Forms/'.$id.' - Linked export/'.$name;
+    }
+    if ($cleanup!==null) {
+        $formsFolder=$root->nodeExists('Forms')?$root->get('Forms'):$root->newFolder('Forms');
+        $targetFolder=$formsFolder->newFolder($cleanup['form_id'].' - Retained cleanup');
+        $kept=$targetFolder->newFolder((string)$cleanup['submission_ids'][0]);$ordinary=$targetFolder->newFolder((string)$cleanup['submission_ids'][1]);
+        if (str_contains($request['case'],'question')) {
+            $kept=$kept->newFolder($cleanup['question_id'].' - Files');$ordinary=$ordinary->newFolder($cleanup['question_id'].' - Files');
+        }
+        if (str_ends_with($request['case'],'_form')) {$ordinary=$formsFolder->newFolder($cleanup['form_id'].' - Ordinary cleanup');}
+        $ordinary->newFile('ordinary.txt','ordinary native cleanup');
+        $cleanup['ordinary_path']=ltrim($root->getRelativePath($ordinary->getPath()),'/');
+        $name=ltrim($root->getRelativePath($kept->getPath()),'/').'/'.$name;
     }
     $file=$root->newFile($name,'before');
     $receipt=static function($file)use($root):array {return ['file_id'=>(int)$file->getId(),'path'=>ltrim($root->getRelativePath($file->getPath()),'/'),'etag'=>(string)$file->getEtag(),'size'=>(int)$file->getSize(),'sha256'=>hash('sha256',$file->getContent())];};
@@ -74,7 +98,28 @@ try {
         $source=$guard->deferredRead($origin,'forms_results_metadata',['id'=>$id]);
         $mutate=function()use($id):void {$s=new Submission();$s->setFormId($id);$s->setUserId('guard-owner');$s->setTimestamp(time());Server::get(SubmissionMapper::class)->insert($s);};
         $cycle=static fn($claim)=>['job_id'=>hash('sha256','forms-job-v1:'.hash('sha256','forms-linked-cycle-v1:'.$claim['association_id'].':'.$claim['dirty_generation'])),'generation'=>$claim['dirty_generation']];
-        if ($case==='stock_race') {
+        if ($cleanup!==null) {
+            if (str_contains($case,'cross') || str_ends_with($case,'_unlinked')) {$api->updateForm($id,['fileId'=>null,'fileFormat'=>null]);}
+            $concrete=Server::get(\OC\DB\Connection::class);$logger=new \Doctrine\DBAL\Logging\DebugStack();$oldLogger=$concrete->getConfiguration()->getSQLLogger();
+            $concrete->getConfiguration()->setSQLLogger($logger);
+            if ($case==='cleanup_lookup_failure') {$db->executeStatement('UPDATE *PREFIX*forms_mcp_linked SET file_id = 0 WHERE association_id = ?',[$association]);}
+            try {
+                if (str_contains($case,'question')) {
+                    $api->deleteQuestion($cleanup['form_id'],$cleanup['question_id']);
+                    Server::get(\OCA\Forms\BackgroundJob\DeleteQuestionFoldersJob::class)->run(['formId'=>$cleanup['form_id'],'questionId'=>$cleanup['question_id'],'ownerId'=>$uid]);
+                } elseif (str_ends_with($case,'_form')) {$api->deleteForm($cleanup['form_id']);}
+                else {
+                    foreach ($cleanup['submission_ids'] as $submissionId) {$api->deleteSubmission($cleanup['form_id'],$submissionId);}
+                }
+            } finally {
+                $concrete->getConfiguration()->setSQLLogger($oldLogger);
+                if ($case==='cleanup_lookup_failure') {$db->executeStatement('UPDATE *PREFIX*forms_mcp_linked SET file_id = ? WHERE association_id = ?',[$file->getId(),$association]);}
+            }
+            $result['retained_export_preserved']=$root->nodeExists($name)&&$root->get($name)->getId()===$file->getId()&&$root->get($name)->getContent()==='first verified';
+            $result['ordinary_cleanup_completed']=$root->nodeExists($cleanup['ordinary_path'])===($case==='cleanup_lookup_failure');
+            $lookups=array_values(array_filter(array_column($logger->queries,'sql'),static fn($sql)=>preg_match('/^SELECT.*file_id.*FROM.*forms_mcp_linked/i',$sql)===1));
+            $result['global_bounded_lookup']=$lookups!==[]&&!array_filter($lookups,static fn($sql)=>!str_contains($sql,'LIMIT 100')||str_contains($sql,'form_id')||str_contains($sql,'payload'));
+        } elseif ($case==='stock_race') {
             $out=stream_get_contents($stockPipes[1]);$err=stream_get_contents($stockPipes[2]);fclose($stockPipes[1]);fclose($stockPipes[2]);
             $result['stock_completed']=proc_close($stockProcess)===0;$stock=json_decode($out,true,16,JSON_THROW_ON_ERROR);
             $result['no_session_switch']=$stock['ok']&&$stock['null_session'];$result['verified_bytes_preserved']=$file->getContent()==='first verified';
