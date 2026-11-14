@@ -28,7 +28,7 @@ final class FormsNativeGateway implements FormsGateway {
         private FormsNativeAuthorization $authorization,private IURLGenerator $urls,
         private FormsExportJobs $jobs,private FormsExportDestination $destination,private FormsDownloadAdmission $downloads,private \OCA\Mcp\Modules\Forms\Execution\FormsOperationJournal $journal,
         private \OCA\Mcp\Modules\Forms\Reading\FormsListing $listing,private \OCA\Mcp\Modules\Forms\Reading\FormsListingSource $inventory,
-        private \OCA\Mcp\Access\Grants\GrantPolicy $policy,private \OCA\Mcp\Modules\Forms\Exports\FormsLinkedFiles $linkedFiles,private \OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner $linkedRunner,private \Closure $commentService,private FormsBulkWorkflow $bulk,private FormsBulkControl $bulkControl) {}
+        private \OCA\Mcp\Access\Grants\GrantPolicy $policy,private \OCA\Mcp\Modules\Forms\Exports\FormsLinkedFiles $linkedFiles,private \OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner $linkedRunner,private \Closure $commentService,private FormsBulkWorkflow $bulk,private FormsBulkControl $bulkControl,private FormsRecoveryReads $recoveryReads) {}
     public function capabilities(string $uid):array {return $this->features->forUser($uid);}
     private function native(string $uid):object {
         if(!$this->features->forUser($uid)['guardedWrites'])throw new ToolFailure('The installed Forms runtime has not been qualified for this capability.');
@@ -43,6 +43,13 @@ final class FormsNativeGateway implements FormsGateway {
             $guard=$this->native($uid);
             $nativeCapabilities=$guard->capabilities();
             if(!FormsPublication::supported($action,$nativeCapabilities))throw new FormsBeforeEffect('This Forms workflow is not available on the qualified runtime.');
+            if(in_array($action,FormsRecoveryReads::ACTIONS,true)) {
+                $snapshot=$this->recoveryReads->snapshot($uid,$action,$input,$guard,
+                    fn(string $operation):array=>$this->journal->context($uid,$operation,fn(string $tool,array $refs)=>$this->authorization->assertHistory($uid,$tool,$refs))['references'],
+                    fn(string $tool,array $args,array $view):array=>$this->authorization->capture($uid,$tool,$args,$view));
+                $snapshot['native_runtime']=FormsGuardIdentity::INSTALLED_MANIFEST_SHA256;
+                $this->snapshots[$this->key($uid,$action,$input)]=$snapshot;return $snapshot;
+            }
             if($this->wantsBulk($action,$input)&&($nativeCapabilities['bulk_lifecycle']??false)===true) {
                 $snapshot=$this->bulk->preview($uid,$action,$input,$guard,
                     fn(string $tool,array $args,array $view):array=>$this->authorization->capture($uid,$tool,$args,$view),
@@ -128,6 +135,12 @@ final class FormsNativeGateway implements FormsGateway {
     }
     public function read(string $uid,string $action,array $input):array {
         try {
+            if(in_array($action,FormsRecoveryReads::ACTIONS,true)) {
+                $snapshot=$this->snapshots[$this->key($uid,$action,$input)]??throw new ToolFailure('A current Forms recovery read snapshot is required.');
+                return $this->recoveryReads->read($uid,$action,$input,$snapshot,$this->native($uid),
+                    fn(string $tool,array $args,array $view):array=>$this->authorization->capture($uid,$tool,$args,$view),
+                    fn(array $origin,string $tool,array $manifest)=>$this->authorization->assertFiles($origin,$tool,$manifest));
+            }
             if($action==='forms_list_comments') {
                 $snapshot=$this->snapshots[$this->key($uid,$action,$input)]??throw new ToolFailure('A current comment snapshot is required.');
                 $origin=$this->authorization->capture($uid,$action,$input,$snapshot);

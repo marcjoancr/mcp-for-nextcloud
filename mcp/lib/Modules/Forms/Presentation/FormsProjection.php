@@ -23,6 +23,17 @@ final class FormsProjection {
     }
     public static function read(string $tool,array $raw,array $args):array {
         if(in_array($tool,['forms_search','forms_read_result'],true))return self::bounded($raw);
+        if($tool==='forms_read_operation_impact') {
+            $allowed=($raw['collection']??null)==='files'?['file_id','path','name','size','etag','owner','action','destination','recovery']:
+                ['native_share_id','recipient','type','folder_ids','managed_share_ids','action','destination','destination_owner','source_action','permissions'];
+            return self::bounded(array_intersect_key($raw,array_flip(['collection','total','hasMore','nextCursor']))+
+                ['items'=>array_map(static fn(array $row):array=>array_intersect_key($row,array_flip($allowed)),$raw['items']??[])]);
+        }
+        if($tool==='forms_read_recovered_comments') {
+            $rows=[];foreach($raw['comments']??[] as $row)$rows[]=array_intersect_key($row,array_flip(['id','parent_id','root_id','message','verb','created_at','latest_child_at','expire_at','historical']))+
+                ['author'=>array_intersect_key($row['author']??[],array_flip(['type','id','identity_status']))];
+            return self::bounded(['comments'=>$rows]+array_intersect_key($raw,array_flip(['total','restored_form_id','read_only','hasMore','nextCursor'])));
+        }
         if($tool==='forms_read_submission_form')return self::submissionForm($raw,$args);
         if($tool==='forms_read_own_response'){self::nativePage($raw,$args);return self::response($raw,$args);}
         if($tool==='forms_read_settings')return self::bounded(self::form($raw,$args)+(isset($raw['linkedExport'])?['linkedExport'=>array_intersect_key($raw['linkedExport'],array_flip(['form_id','association_id','version','state','pending','last_completed_generation']))]:[]));
