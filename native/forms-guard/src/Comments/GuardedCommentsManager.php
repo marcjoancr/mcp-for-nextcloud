@@ -77,7 +77,9 @@ final class GuardedCommentsManager extends \OC\Comments\Manager {
                 $parent=$this->get($comment->getParentId());
                 if ($parent->getObjectType()!=='forms' || $parent->getObjectId()!==$comment->getObjectId()) {throw new \RuntimeException('Comment parent belongs to another object');}
             }
+            $new=$comment->getId()==='';
             if (!parent::save($comment)) {throw new \RuntimeException('Native comment persistence failed');}\OCA\Forms\Mcp\Service\BulkEpoch::touch((int)$comment->getObjectId());
+            if($new){HistoricalAuthor::record($comment,$uid);}
             return true;
         });
     }

@@ -1,0 +1,3 @@
+<?php
+declare(strict_types=1);define('OC_CONSOLE',true);require '/var/www/html/lib/base.php';use OCP\Server;
+try{Server::get(\OCP\App\IAppManager::class)->loadApp('files_sharing');$uid=$argv[1];Server::get(\OCP\IUserSession::class)->setUser(Server::get(\OCP\IUserManager::class)->get($uid));\OC\Files\Filesystem::initMountPoints($uid);$root=Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($uid);$file=$root->getById((int)$argv[2])[0]??null;$denied=$root->getById((int)$argv[3])===[];echo json_encode(['visible'=>$file!==null&&$file->getContent()==='retained parity bytes','unshared_hidden'=>$denied],JSON_THROW_ON_ERROR)."\n";}catch(Throwable $e){echo json_encode(['error'=>$e->getMessage()])."\n";exit(1);}

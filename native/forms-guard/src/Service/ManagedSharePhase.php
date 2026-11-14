@@ -150,7 +150,7 @@ final class ManagedSharePhase
         return ScopedShareManager::create($envelope['owner_id'], function (\OCP\Share\IShare $share, bool $create) use ($envelope, $folder, $expectedRow): void {
             $this->assertNative($envelope, $folder);
             StorageAdmission::node($folder);
-            if ($create !== $envelope['create'] || $share->getShareOwner() !== $envelope['owner_id'] || $share->getSharedBy() !== $envelope['owner_id'] || $share->getSharedWith() !== $envelope['recipient'] || $share->getShareType() !== $envelope['type'] || $share->getNodeId() !== $folder->getId() || $share->getPermissions() !== 1) {
+            if ($create !== $envelope['create'] || $share->getShareOwner() !== $envelope['owner_id'] || ($create && $share->getSharedBy() !== $envelope['owner_id']) || $share->getSharedWith() !== $envelope['recipient'] || $share->getShareType() !== $envelope['type'] || $share->getNodeId() !== $folder->getId() || $share->getPermissions() !== 1) {
                 throw new \RuntimeException('Approved native Files share tuple changed before persistence');
             }
             if (!$create) {

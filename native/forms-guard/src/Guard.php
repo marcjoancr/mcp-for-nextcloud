@@ -52,8 +52,13 @@ final class Guard {
         }));
     }
     public function bulkStatus(string $uid,string $id,array $origin): array {$this->bulkAdmission($uid);return OriginContext::within($uid,$origin,'lookup',[],fn()=>Server::get(Service\BulkOperations::class)->status($uid,$id));}
-    public function bulkLookup(string $uid,string $key,array $origin): ?array {$this->bulkAdmission($uid);return OriginContext::within($uid,$origin,'lookup',[],fn()=>Server::get(Service\BulkOperations::class)->lookup($uid,$key));}
+    public function bulkLookup(string $uid,string $key,array $origin,?string $bulkId=null,?int $approvedVersion=null): ?array {$this->bulkAdmission($uid);if(($bulkId===null)!==($approvedVersion===null)){throw new BeforeEffect('Step evidence requires bulk ID and approved version');}return Service\BulkDeadline::run(fn()=>OriginContext::within($uid,$origin,'lookup',[],fn()=> $bulkId===null?Server::get(Service\BulkOperations::class)->lookup($uid,$key):Server::get(Service\BulkOperations::class)->stepEvidence($uid,$bulkId,$key,$approvedVersion)));}
     public function bulkCancel(string $uid,string $id,array $origin,int $version,string $key): array {$this->bulkAdmission($uid);return OriginContext::within($uid,$origin,'lookup',[],fn()=>Server::get(Service\BulkOperations::class)->cancel($uid,$id,$version,$key));}
+    /** Private archive cursor. Public adapters bind it to actor, connection and archive. */
+    public function bulkCommentsPage(string $uid,string $restoreBulkId,array $origin,int $cursor=0,int $limit=50):array {
+        $this->bulkAdmission($uid);
+        return Service\BulkDeadline::run(fn()=>OriginContext::within($uid,$origin,'lookup',[],fn()=>Server::get(Service\BulkOperations::class)->commentsPage($uid,$restoreBulkId,$cursor,$limit)));
+    }
     private function commentsAdmission(string $uid,string $action,array $input): void {
         if (!in_array($action,['forms_list_comments','forms_add_comment','forms_update_comment','forms_delete_comment'],true)
             || !($this->capabilities()['comments']??false) || strlen(json_encode($input,JSON_THROW_ON_ERROR))>1048576) {

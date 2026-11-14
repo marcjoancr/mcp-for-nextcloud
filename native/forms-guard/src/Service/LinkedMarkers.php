@@ -245,6 +245,7 @@ final class LinkedMarkers {
         $service=Server::get(self::class);
         if (!$service->fence->active()) {throw new \LogicException('Stock Forms admission requires native fence');}
         try {$form=Server::get(FormMapper::class)->findById($formId);} catch (\OCP\AppFramework\Db\DoesNotExistException) {return false;}
+        if($form->getFileId()===null){return $service->db->executeQuery('SELECT association_id FROM *PREFIX*forms_mcp_linked WHERE form_id = ? LIMIT 1',[$formId])->fetchOne()!==false;}
         return $service->tuple($form)!==null;
     }
 
@@ -308,6 +309,7 @@ final class LinkedMarkers {
     public function formMutation(Form $form,string $method,callable $work): mixed {
         return $this->fence->transaction(function()use($form,$method,$work): mixed {
             $before=Server::get(FormMapper::class)->findById($form->getId());
+            if($method!=='delete'&&$before->getOwnerId()!==$form->getOwnerId()&&($this->tuple($before)!==null||(OriginContext::active()&&OriginContext::current()['action']==='forms_transfer'))){$form->setFileId(null);$form->setFileFormat(null);}
             $result=$work();BulkEpoch::touch($form->getId());
             $after=$method==='delete'?null:Server::get(FormMapper::class)->findById($form->getId());
             if ($after===null || $before->getFileId()!==$after->getFileId() || $before->getFileFormat()!==$after->getFileFormat()) {

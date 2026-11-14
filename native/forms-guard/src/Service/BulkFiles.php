@@ -20,6 +20,16 @@ final class BulkFiles {
    $page=$this->db->executeQuery('SELECT ids.file_id,f.storage,f.path,f.size,f.etag FROM ('.$sql.') ids LEFT JOIN *PREFIX*filecache f ON f.fileid=ids.file_id WHERE ids.file_id > ? ORDER BY ids.file_id LIMIT 100',[...$params,$after])->fetchAll();
    BulkDeadline::check();foreach($page as$row){if(++$count>1000||microtime(true)>$deadline||$row['etag']===null){throw new \RuntimeException('Managed file identity unavailable within preview budget');}$json=json_encode($row,JSON_THROW_ON_ERROR);if(strlen($json)>1048576){throw new \RuntimeException('Managed file identity exceeds projection budget');}hash_update($hash,$json);$after=(int)$row['file_id'];}
   }while(count($page)===100);
+  $shareCursor='';$shareCount=0;
+  do{
+   $page=$this->db->executeQuery("SELECT m.files_share_id,m.native_share_id,m.folder_id,s.uid_owner,s.uid_initiator,s.share_type,s.share_with,s.permissions,f.storage,f.path FROM *PREFIX*forms_mcp_file_shares m LEFT JOIN *PREFIX*share s ON m.files_share_id = CONCAT('ocinternal:',s.id) LEFT JOIN *PREFIX*filecache f ON f.fileid=m.folder_id WHERE m.form_id = ? AND m.files_share_id > ? ORDER BY m.files_share_id LIMIT 100",[$form,$shareCursor])->fetchAll();
+   foreach($page as$row){BulkDeadline::check();if(++$shareCount>BulkStore::MAX_ROWS){throw new \RuntimeException('Managed share preview exceeds row budget');}hash_update($hash,json_encode($row,JSON_THROW_ON_ERROR));if($row['uid_owner']!==null){hash_update($hash,json_encode(BulkTransferShares::shareState($row['files_share_id']),JSON_THROW_ON_ERROR));}$shareCursor=$row['files_share_id'];}
+  }while(count($page)===100);
+  $recipientCursor=0;
+  do{
+   $page=$this->db->executeQuery("SELECT c.id,c.parent,c.share_with,c.accepted,c.permissions,c.expiration,c.attributes FROM *PREFIX*share c INNER JOIN *PREFIX*forms_mcp_file_shares m ON m.files_share_id = CONCAT('ocinternal:',c.parent) WHERE m.form_id = ? AND c.share_type = 2 AND c.id > ? ORDER BY c.id LIMIT 100",[$form,$recipientCursor])->fetchAll();
+   foreach($page as$row){BulkDeadline::check();if(++$shareCount>BulkStore::MAX_ROWS){throw new \RuntimeException('Recipient-state preview exceeds row budget');}$json=json_encode($row,JSON_THROW_ON_ERROR);if(strlen($json)>1040000){throw new \RuntimeException('Recipient state exceeds byte budget');}hash_update($hash,$json);$recipientCursor=(int)$row['id'];}
+  }while(count($page)===100);
   return hash_final($hash);
  }
  public function deletes(string $action,int $form,int $fileId):bool {
@@ -44,12 +54,12 @@ final class BulkFiles {
   if($read!==$size||$etag!==$file->getEtag()){throw new \RuntimeException('Managed file changed');}
   return ['file_id'=>(int)$file->getId(),'path'=>$file->getPath(),'name'=>$file->getName(),'etag'=>$etag,'size'=>$size,'sha256'=>hash_final($ctx)];
  }
- public function next(array $j):?array {$id=$j['action']==='forms_restore'?$j['input']['backup_id']:$j['id'];$rows=$this->store->page($id,$j['phase']==='remove_shares'?'managed_shares':'files',$j['cursor']);return $rows[0]??null;}
+ public function next(array $j):?array {$id=$j['action']==='forms_restore'?$j['input']['backup_id']:$j['id'];$rows=$this->store->page($id,$j['phase']==='stage_recipients'?'share_recipients':(in_array($j['phase'],['remove_shares','stage_shares'],true)?'managed_shares':'files'),$j['cursor']);return $rows[0]??null;}
  public function reservation(array $j,array $row):int {return in_array($j['phase'],['backup_files','copy_files','restore_files'],true)?(int)$row['data']['size']:0;}
  public function manifest(array $j,array $meta):array {if($j['action']==='forms_restore'){return ['files'=>[],'restore'=>'new_private_closed_form','destination_owner'=>$j['uid'],'backup_id'=>$j['input']['backup_id']];}return ['form_id'=>(int)$j['form']['id'],'target_owner'=>$j['input']['owner_id']??null,'files'=>[$meta],'delete_file_ids'=>$meta['delete']?[$meta['file_id']]:[],'files_share'=>false,'share_removals'=>[],'share_impact'=>[],'folders'=>'retained','recovery'=>true];}
  public function effect(array &$j,array $row,?callable $boundary):void {
-  $deadline=BulkDeadline::started()+18;$original=$boundary;$target=$j['action']==='forms_transfer'?$j['input']['owner_id']:null;$boundary=static function(string $action,array $manifest)use($deadline,$original,$target):void{if($target!==null){(new FreshCore($target))->assertPrincipal(false,false);}if(microtime(true)>$deadline){throw new \RuntimeException('Bulk file step deadline exhausted');}if($original!==null){$original($action,$manifest);}if(microtime(true)>$deadline){throw new \RuntimeException('Bulk file step deadline exhausted after policy wait');}};
-  $m=$row['data'];if($j['phase']==='remove_shares'){$this->removeShare($j,$row,$boundary);return;}$manifest=$this->manifest($j,$m);
+  $deadline=BulkDeadline::started()+18;$original=$boundary;$target=$j['action']==='forms_transfer'?$j['input']['owner_id']:null;$boundary=static function(string $action,array $manifest)use($deadline,$original,$target,$j):void{if(microtime(true)>$deadline){throw new \RuntimeException('Bulk file step deadline exhausted');}if($original!==null){$original($action,$manifest);}if($target!==null){(new FreshCore($target))->assertPrincipal(false,false);if(!hash_equals($j['target_principal'],\OCA\Forms\Mcp\Comments\CommentsRuntime::principal($target))){throw new \RuntimeException('Transfer target incarnation changed');}$form=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$j['form']['id']);if($form->getOwnerId()!==$j['uid']||$form->getState()===2){throw new \RuntimeException('Original transfer owner authority changed');}}if(microtime(true)>$deadline){throw new \RuntimeException('Bulk file step deadline exhausted');}if(microtime(true)>$deadline){throw new \RuntimeException('Bulk file step deadline exhausted after policy wait');}};
+  $m=$row['data'];if($j['phase']==='stage_recipients'){Server::get(BulkTransferShares::class)->stageRecipient($j,$row,$boundary);return;}if($j['phase']==='stage_shares'){Server::get(BulkTransferShares::class)->stage($j,$row,$boundary);return;}if($j['phase']==='remove_shares'){$this->removeShare($j,$row,$boundary);return;}$manifest=$this->manifest($j,$m);
   OriginContext::withFileBoundary($boundary,function()use(&$j,$manifest,$m,$row){return OriginContext::withFileImpact($j['action'],$manifest,function()use(&$j,$m,$row,$manifest):void{
    OriginContext::assertFresh();OriginContext::assertFiles($j['action'],$manifest);StorageAdmission::bulkRecovery();
    if($j['phase']==='backup_files'){
@@ -68,8 +78,9 @@ final class BulkFiles {
     $form=$j['phase']==='restore_files'?Server::get(\OCA\Forms\Db\FormMapper::class)->findById($j['restored_form_id']):Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$j['form']['id']);
     $base=Server::get(\OCA\Forms\Helper\FilePathHelper::class)->getFormUploadedFilesFolderPath($form);$path=$base.'/bulk-'.$j['id'];
     if($j['cursor']===0&&$root->nodeExists($base)){throw new \RuntimeException('Bulk copy destination already exists');}
+    $name=$row['id'].'-'.$m['name'];if($j['phase']==='copy_files'){$full=BulkTransferShares::path($j,$m['path']);$path=dirname($full);$name=basename($full);}
     $folder=NewFileStorage::folder($root,$path);$backup=$j['phase']==='restore_files'?$j['input']['backup_id']:$j['id'];$saved=Server::get(\OCP\Files\AppData\IAppDataFactory::class)->get('forms_mcp_bulk_recovery')->getFolder($backup)->getFile('file-'.$row['id']);$this->verifyCopy($saved,$m);
-    $stream=$saved->read();try{$copy=NewFileStorage::create($folder,$row['id'].'-'.$m['name'],$stream);}finally{if(is_resource($stream)){fclose($stream);}}$this->verifyCopy($copy,$m);
+    $stream=$saved->read();try{$copy=NewFileStorage::create($folder,$name,$stream);}finally{if(is_resource($stream)){fclose($stream);}}$this->verifyCopy($copy,$m);
     if($j['phase']==='restore_files'){$this->store->put($j,'files',$row['id'],[]);$this->db->executeStatement('INSERT INTO *PREFIX*forms_mcp_artifacts (form_id,file_id) VALUES (?,?)',[$j['restored_form_id'],$copy->getId()]);}
     $this->store->map($j['id'],'files',$row['id'],(int)$copy->getId());if($j['phase']==='copy_files'){$copyMeta=$this->meta($copy);$copyMeta['cache']=$this->db->executeQuery('SELECT storage,path,size,etag FROM *PREFIX*filecache WHERE fileid = ?',[$copy->getId()])->fetch();$this->store->putMapping($j,'copies',$row['id'],$copyMeta);}
    }
@@ -114,7 +125,7 @@ final class BulkFiles {
     }
    }
    if(!hash_equals($j['file_revision'],$this->fingerprint((int)$j['form']['id']))||microtime(true)-$start>18){throw new \OCA\Forms\Mcp\BeforeEffect('Transfer source changed or verification budget exhausted');}
-   (new FreshCore($j['input']['owner_id']))->assertPrincipal(false,false);return $commit();
+   $this->db->executeQuery('SELECT uid FROM *PREFIX*users WHERE uid = ? FOR UPDATE',[$j['input']['owner_id']])->fetchOne();(new FreshCore($j['input']['owner_id']))->assertPrincipal(false,false);if(!hash_equals($j['target_principal']??'',\OCA\Forms\Mcp\Comments\CommentsRuntime::principal($j['input']['owner_id']))){throw new \OCA\Forms\Mcp\BeforeEffect('Approved transfer target incarnation changed');}return $commit();
   }finally{/* Locks remain owned until the surrounding native transaction commits or rolls back. */}
  }
  public function remap(array &$j,float $start):void {

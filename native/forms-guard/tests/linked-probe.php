@@ -205,7 +205,7 @@ try {
             } finally {$appConfig->setValueString('mcp','enabled',$enabled);}
         } elseif ($case==='lifecycle') {
             $mutate();$claim=$guard->linkedClaim($association);$form=Server::get(FormMapper::class)->findById($id);$form->setOwnerId('guard-other');Server::get(FormMapper::class)->update($form);
-            $result['transfer_paused']=$db->executeQuery('SELECT state FROM *PREFIX*forms_mcp_linked WHERE association_id = ?',[$association])->fetchOne()==='paused';
+            $result['transfer_unlinked']=$db->executeQuery('SELECT state FROM *PREFIX*forms_mcp_linked WHERE association_id = ?',[$association])->fetchOne()==='unlinked';
             $result['transfer_suppressed']=$fence->transaction(fn()=>LinkedMarkers::suppress($id));$result['old_read_refused']=$refused(fn()=>$guard->linkedRead($claim,'snapshot',['id'=>$id]));
             $form->setOwnerId($uid);Server::get(FormMapper::class)->update($form);$result['no_auto_reactivation']=$guard->linkedClaim($association)===null;
             $api->updateForm($id,['fileId'=>null,'fileFormat'=>null]);$result['native_unlinked']=Server::get(FormMapper::class)->findById($id)->getFileId()===null;

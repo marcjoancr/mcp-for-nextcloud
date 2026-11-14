@@ -114,6 +114,16 @@ final class ManagedShares
             $native->setPermissions([]);
             return $native;
         }
+        if (BulkStore::ready()) {
+            // A transfer's sealed checkpoint owns exact newly-created share evidence even
+            // after a later native unshare removed its Forms row but failed externally.
+            $rows = Server::get(IDBConnection::class)->executeQuery("SELECT r.bulk_id,r.source_id,m.files_share_id,m.folder_id FROM *PREFIX*forms_mcp_bulk_rows r INNER JOIN *PREFIX*forms_mcp_file_shares m ON m.files_share_id = CONCAT('ocinternal:',r.mapped_id) WHERE r.kind = 'staged_shares' AND m.form_id = ? AND m.native_share_id = ? ORDER BY r.source_id LIMIT 1", [$formId,$nativeId])->fetchAll();
+            foreach ($rows as $row) {
+                $store=Server::get(BulkStore::class);$job=$store->load($row['bulk_id']);$proof=$store->one($row['bulk_id'],'staged_shares',(int)$row['source_id']);
+                if($job['action']!=='forms_transfer'||$job['phase']!=='complete'||(int)$job['form']['id']!==$formId||$job['input']['owner_id']!==$owner||$proof['files_share_id']!==$row['files_share_id']||(int)$proof['folder_id']!==(int)$row['folder_id']||$proof['native_share_id']!==$nativeId||$proof['approved_tuple']['owner_id']!==$owner){throw new \RuntimeException('Transferred managed share evidence does not match');}
+                $native=new Share();$native->setId($nativeId);$native->setFormId($formId);$native->setShareType($proof['approved_tuple']['type']);$native->setShareWith($proof['approved_tuple']['recipient']);$native->setPermissions([]);return $native;
+            }
+        }
         throw new \RuntimeException('Managed share historical identity is unavailable within the bounded lookup');
     }
     public static function removalSnapshots(int $formId, array $files): array

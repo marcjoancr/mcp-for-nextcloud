@@ -15,8 +15,21 @@ final class ScopedShareManager
     }
     public static function createdHere(\OC\Share20\Manager $manager, string $id): bool
     {
-        $factory = (new \ReflectionProperty($manager, 'factory'))->getValue($manager);
+        $factory = (new \ReflectionProperty(\OC\Share20\Manager::class, 'factory'))->getValue($manager);
         return $factory instanceof SharingProviderFactory && $factory->createdHere($id);
+    }
+    private static function transferProvider(TransferShareManager $manager): SharingDefaultProvider {
+        $factory=(new \ReflectionProperty(\OC\Share20\Manager::class,'factory'))->getValue($manager);$provider=$factory->getProviderForType(0);if(!$provider instanceof SharingDefaultProvider){throw new \RuntimeException('Unqualified transfer provider');}return $provider;
+    }
+    public static function quarantineTransfer(TransferShareManager $manager):void {self::transferProvider($manager)->quarantineTransferCreates();}
+    public static function activateTransfer(TransferShareManager $manager,\OCP\Share\IShare $share):void {$manager->validateActivation($share);self::transferProvider($manager)->activateTransfer($share);}
+    public static function activateTransferRecipients(TransferShareManager $manager,\OCP\Share\IShare $share,array $rows,callable $authorize):void {self::transferProvider($manager)->activateTransferRecipients($share,$rows,$authorize);}
+    public static function preserveTransferRecipients(\OC\Share20\Manager $manager,\OCP\Share\IShare $share,array $rows):array {
+        if(!$manager instanceof TransferShareManager){throw new \RuntimeException('Recipient-state migration requires qualified transfer authority');}
+        $factory=(new \ReflectionProperty(\OC\Share20\Manager::class,'factory'))->getValue($manager);
+        $provider=$factory->getProviderForType($share->getShareType());
+        if(!$provider instanceof SharingDefaultProvider){throw new \RuntimeException('Unqualified transfer provider');}
+        return $provider->preserveTransferRecipients($share,$rows);
     }
     public static function create(string $uid, \Closure $beforeWrite): \OC\Share20\Manager
     {

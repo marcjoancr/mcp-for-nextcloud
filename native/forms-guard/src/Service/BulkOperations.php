@@ -8,7 +8,7 @@ use OCP\{Server,IDBConnection};
 /** Server-only bounded destructive protocol. Checkpoints and exact SQL effects commit together. */
 final class BulkOperations {
  public const ACTIONS=['forms_delete_responses','forms_delete_form','forms_transfer','forms_restore'];
- private const KINDS=['form','questions','options','submissions','answers','uploads','artifacts','shares','comments','managed_shares'];
+ private const KINDS=['form','questions','options','submissions','answers','uploads','artifacts','shares','comments','managed_shares','share_recipients'];
  private const TABLES=['form'=>'forms_v2_forms','questions'=>'forms_v2_questions','options'=>'forms_v2_options','submissions'=>'forms_v2_submissions','answers'=>'forms_v2_answers','uploads'=>'forms_v2_uploaded_files','artifacts'=>'forms_mcp_artifacts','shares'=>'forms_v2_shares','comments'=>'comments','managed_shares'=>'forms_mcp_file_shares'];
  public function __construct(private IDBConnection $db,private FormsRevisionFence $fence,private BulkStore $store){}
  private function source(string $kind,int $id):array {
@@ -17,6 +17,7 @@ final class BulkOperations {
    'answers'=>['SELECT x.* FROM *PREFIX*forms_v2_answers x JOIN *PREFIX*forms_v2_submissions s ON s.id=x.submission_id WHERE s.form_id = ?',[$id],'x.id'],
    'options'=>['SELECT x.* FROM *PREFIX*forms_v2_options x JOIN *PREFIX*forms_v2_questions q ON q.id=x.question_id WHERE q.form_id = ?',[$id],'x.id'],
    'managed_shares'=>['SELECT x.*, '.($this->db->getDatabaseProvider(true)==='postgres'?'CAST(SUBSTRING(x.files_share_id,12) AS BIGINT)':'CAST(SUBSTRING(x.files_share_id,12) AS SIGNED)').' AS id FROM *PREFIX*forms_mcp_file_shares x WHERE x.form_id = ?',[$id],($this->db->getDatabaseProvider(true)==='postgres'?'CAST(SUBSTRING(x.files_share_id,12) AS BIGINT)':'CAST(SUBSTRING(x.files_share_id,12) AS SIGNED)')],
+   'share_recipients'=>["SELECT c.* FROM *PREFIX*share c INNER JOIN *PREFIX*forms_mcp_file_shares m ON m.files_share_id = CONCAT('ocinternal:',c.parent) WHERE m.form_id = ? AND c.share_type = 2",[$id],'c.id'],
    'comments'=>["SELECT x.* FROM *PREFIX*comments x WHERE x.object_type = 'forms' AND x.object_id = ?",[(string)$id],'x.id'],
    'artifacts'=>['SELECT x.* FROM *PREFIX*forms_mcp_artifacts x WHERE x.form_id = ?',[$id],'x.file_id'],
    default=>['SELECT x.* FROM *PREFIX*'.self::TABLES[$kind].' x WHERE x.form_id = ?',[$id],'x.id'],
@@ -32,17 +33,19 @@ final class BulkOperations {
   if($action==='forms_delete_form'&&(int)$this->db->executeQuery("SELECT COUNT(*) FROM *PREFIX*comments WHERE object_type = 'forms' AND object_id = ?",[(string)$input['id']])->fetchOne()>0&&!Server::get(\OCA\Forms\Mcp\Guard::class)->capabilities()['comments']){throw new BeforeEffect('Whole-form comment cleanup requires the activated native comments guard');}
   if($form->getState()===2){throw new BeforeEffect('Archived form is unavailable for bulk mutation');}
   if(in_array($action,['forms_delete_form','forms_transfer'],true)&&$form->getOwnerId()!==$uid){throw new BeforeEffect('Only the current form owner may perform this operation');}
-  if($action==='forms_transfer'&&(int)$this->db->executeQuery("SELECT COUNT(*) FROM *PREFIX*forms_mcp_file_shares m INNER JOIN *PREFIX*share s ON m.files_share_id = CONCAT('ocinternal:',s.id) WHERE m.form_id = ?",[$input['id']])->fetchOne()>0){throw new BeforeEffect('Transfer with live managed Files shares awaits qualified target-share staging');}
+  if($action==='forms_transfer'&&(int)$this->db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_mcp_file_shares WHERE form_id = ?',[$input['id']])->fetchOne()>0&&!in_array('share',OriginContext::current()['verified']['references']['files_operations']??[],true)){throw new BeforeEffect('Original Files-sharing grant is required');}
+  if($action==='forms_transfer'&&(int)$this->db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_mcp_file_shares WHERE form_id = ?',[$input['id']])->fetchOne()>0){TransferShareDispatcher::inventory(Server::get(\OCP\EventDispatcher\IEventDispatcher::class));}
   if($action==='forms_transfer'){(new FreshCore($input['owner_id']??''))->assertPrincipal(false,false);$target=Server::get(\OCP\IUserManager::class)->get($input['owner_id']??'');if(!$target||!$target->isEnabled()){throw new BeforeEffect('Transfer target unavailable');}}
  }
+ private function previewBinding(string $action,array $input,string $files):string {return $action==='forms_transfer'?BulkStore::digest([$files,\OCA\Forms\Mcp\Comments\CommentsRuntime::principal($input['owner_id'])]):$files;}
  public function snapshot(string $uid,string $action,array $input,callable $authorize):array {
   $rev=$this->fence->revision();$this->admit($uid,$action,$input,$authorize);
   if($action==='forms_restore'){$backup=$this->recovery($uid,$input['backup_id']);$counts=$backup['counts'];$form=$backup['form'];}
   else{$counts=$this->counts((int)$input['id']);$form=$this->db->executeQuery('SELECT id,owner_id,title FROM *PREFIX*forms_v2_forms WHERE id = ?',[$input['id']])->fetch();}
   if(array_sum($counts)>BulkStore::MAX_ROWS||$counts['files']>1000){throw new BeforeEffect('Bulk recovery row quota exceeded');}
-  if($action==='forms_transfer'&&$counts['files']>0){$native=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$input['id']);$path=Server::get(\OCA\Forms\Helper\FilePathHelper::class)->getFormUploadedFilesFolderPath($native);if(Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($input['owner_id'])->nodeExists($path)){throw new BeforeEffect('Transfer destination already exists');}}
+  if($action==='forms_transfer'&&($counts['files']>0||$counts['managed_shares']>0)){$native=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$input['id']);$path=Server::get(\OCA\Forms\Helper\FilePathHelper::class)->getFormUploadedFilesFolderPath($native);if(Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($input['owner_id'])->nodeExists($path)){throw new BeforeEffect('Transfer destination already exists');}}
   if($rev!==$this->fence->revision()){throw new BeforeEffect('Forms changed during bulk preview');}
-  return ['revision'=>'b1:'.$rev.':'.($action==='forms_restore'?str_repeat('0',64):Server::get(BulkFiles::class)->fingerprint((int)$form['id'])),'action'=>$action,'form'=>['id'=>(int)$form['id'],'title'=>$form['title'],'ownerId'=>$form['owner_id']], 'counts'=>$counts,'file_manifest'=>['files_share'=>($counts['managed_shares']??0)>0],'source_epoch'=>BulkEpoch::epoch((int)$form['id']),'target'=>$input['owner_id']??null,'destination'=>$this->destination($uid,$action,$input),'preview_collections'=>['files','managed_shares'],'recovery'=>'complete_sealed_before_effect','files'=>'exact_managed_ids_only','folders'=>'retained','linked_outputs'=>'retained'];
+  return ['revision'=>'b1:'.$rev.':'.$this->previewBinding($action,$input,$action==='forms_restore'?str_repeat('0',64):Server::get(BulkFiles::class)->fingerprint((int)$form['id'])),'action'=>$action,'form'=>['id'=>(int)$form['id'],'title'=>$form['title'],'ownerId'=>$form['owner_id']], 'counts'=>$counts,'file_manifest'=>['files_share'=>($counts['managed_shares']??0)>0],'source_epoch'=>BulkEpoch::epoch((int)$form['id']),'target'=>$input['owner_id']??null,'destination'=>$this->destination($uid,$action,$input),'preview_collections'=>['files','managed_shares'],'recovery'=>'complete_sealed_before_effect','files'=>'exact_managed_ids_only','folders'=>'retained','linked_outputs'=>'retained'];
  }
  /** Read-only inspection of every approved external effect, bound to the preview revision. */
  public function previewPage(string $uid,string $action,array $input,string $revision,string $kind,int $cursor,int $limit,callable $authorize):array {
@@ -62,19 +65,20 @@ final class BulkOperations {
    foreach(array_slice($rows,0,$limit)as$row){
     BulkDeadline::check();$r=$backup?$row['data']:$row;$id=(int)($backup?$row['id']:$r['id']);
     if($backup){$tuple=$r['approved_tuple'];}else{try{$share=Server::get(\OCA\Forms\Db\ShareMapper::class)->findById((int)$r['native_share_id']);}catch(\OCP\AppFramework\Db\DoesNotExistException){$share=ManagedShares::historicalShare((int)$input['id'],(int)$r['native_share_id']);}$tuple=['owner_id'=>$snapshot['form']['ownerId'],'recipient'=>$share->getShareWith(),'type'=>$share->getShareType()];if(!ManagedShares::isAbsent($r['files_share_id'])){ManagedShares::assertIdentity(SharingIdentity::manager()->getShareById($r['files_share_id'],onlyValid:false),$tuple,$r);}}
-    $item=['native_share_id'=>(int)$r['native_share_id'],'recipient'=>$tuple['recipient'],'type'=>$tuple['type'],'folder_ids'=>[(int)$r['folder_id']],'managed_share_ids'=>[$r['files_share_id']],'action'=>$action==='forms_delete_form'?'remove':($backup?'not_recreated':'retain')];
+    $item=['native_share_id'=>(int)$r['native_share_id'],'recipient'=>$tuple['recipient'],'type'=>$tuple['type'],'folder_ids'=>[(int)$r['folder_id']],'managed_share_ids'=>[$r['files_share_id']],'action'=>$action==='forms_delete_form'?'remove':($backup?'not_recreated':($action==='forms_transfer'?($tuple['type']===0&&$tuple['recipient']===$input['owner_id']?'target_ownership':'stage_target_share'):'retain')),'destination_owner'=>$action==='forms_transfer'?$input['owner_id']:null,'destination'=>$action==='forms_transfer'?$snapshot['destination']:null,'source_action'=>'retain','permissions'=>['read'],'recipient_acceptance'=>'preserved','recipient_state_count'=>$backup?null:(int)$this->db->executeQuery('SELECT COUNT(*) FROM *PREFIX*share WHERE parent = ? AND share_type = 2',[$id])->fetchOne()];
+    if($action==='forms_transfer'&&!ManagedShares::isAbsent($r['files_share_id'])){$folder=Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($snapshot['form']['ownerId'])->getById((int)$r['folder_id'])[0]??null;if(!$folder instanceof \OCP\Files\Folder){throw new BeforeEffect('Preview share folder unavailable');}$item['source_folder_path']=$folder->getPath();$item['destination_folder_template']=$snapshot['destination']['base'].'/bulk-{operation_id}/source/'.BulkTransferShares::relative($snapshot['form']['ownerId'],$folder->getPath());}
     $size=strlen(json_encode($item,JSON_THROW_ON_ERROR));if($size>1040000){throw new BeforeEffect('Preview item exceeds byte budget');}if($bytes+$size>1040000){break;}$bytes+=$size;$items[]=$item;$after=$id;
    }
   }
   if($backup){$more=$this->store->hasAfter($backup['id'],$kind,$after);}elseif($kind==='files'){$more=Server::get(BulkFiles::class)->previewFiles((int)$input['id'],$after,1)!==[];}else{[$sql,$params,$pk]=$this->source($kind,(int)$input['id']);$more=$this->db->executeQuery($sql.' AND '.$pk.' > ? ORDER BY '.$pk.' LIMIT 1',[...$params,$after])->fetchOne()!==false;}
-  $this->admit($uid,$action,$input,$authorize);$current='b1:'.$this->fence->revision().':'.($backup?str_repeat('0',64):Server::get(BulkFiles::class)->fingerprint((int)$input['id']));BulkDeadline::check();if(!hash_equals($revision,$current)){throw new BeforeEffect('Bulk preview changed during inspection');}
+  $this->admit($uid,$action,$input,$authorize);$current='b1:'.$this->fence->revision().':'.$this->previewBinding($action,$input,$backup?str_repeat('0',64):Server::get(BulkFiles::class)->fingerprint((int)$input['id']));BulkDeadline::check();if(!hash_equals($revision,$current)){throw new BeforeEffect('Bulk preview changed during inspection');}
   return ['items'=>$items,'total'=>(int)$snapshot['counts'][$kind],'next_cursor'=>$more?$after:null,'complete'=>!$more,'revision'=>$revision];
  }
  private function destination(string $uid,string $action,array $input):?array {
   if(!in_array($action,['forms_transfer','forms_restore'],true)){return null;}
   if($action==='forms_transfer'){$form=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$input['id']);$base=Server::get(\OCA\Forms\Helper\FilePathHelper::class)->getFormUploadedFilesFolderPath($form);}
   else{$base=\OCA\Forms\Constants::FILES_FOLDER.'/{new_form_id} - {normalized_recovered_title}';}
-  return ['owner'=>$input['owner_id']??$uid,'base'=>$base,'path_template'=>$base.'/bulk-{operation_id}/{source_file_id}-{source_name}','overwrite'=>false,'form'=>$action==='forms_restore'?'new_private_closed':'same_form'];
+  return ['owner'=>$input['owner_id']??$uid,'base'=>$base,'path_template'=>$action==='forms_transfer'?$base.'/bulk-{operation_id}/source/{original_owner_relative_path}':$base.'/bulk-{operation_id}/{source_file_id}-{source_name}','overwrite'=>false,'form'=>$action==='forms_restore'?'new_private_closed':'same_form'];
  }
  public function start(string $uid,string $action,array $input,string $revision,string $key,callable $authorize):array {
   self::key($key);if(!preg_match('/^b1:([0-9]+):([a-f0-9]{64})$/D',$revision,$parts)){throw new BeforeEffect('Bulk preview identity invalid');}$fileRevision=$parts[2];$revision=$parts[1];$intent=$input;unset($intent['_mcp_origin']);$fingerprint=BulkStore::digest([$action,$intent,OriginContext::identity($uid)]);
@@ -82,10 +86,10 @@ final class BulkOperations {
    $old=$this->store->byKey($key);if($old){$this->actor($uid,$old);if(!hash_equals($fingerprint,$old['fingerprint'])){throw new BeforeEffect('Bulk key conflict');}return $this->dto($old);}
    return $this->fence->transaction(function()use($uid,$action,$input,$revision,$key,$authorize,$fingerprint,$fileRevision):array{
    if((string)((int)$this->fence->revision()-1)!==$revision){throw new BeforeEffect('Bulk preview stale');}
-   $this->admit($uid,$action,$input,$authorize);if($action!=='forms_restore'&&!hash_equals($fileRevision,Server::get(BulkFiles::class)->fingerprint((int)$input['id']))){throw new BeforeEffect('Managed Files changed after preview');}$backup=$action==='forms_restore'?$this->recovery($uid,$input['backup_id']):null;
+   $this->admit($uid,$action,$input,$authorize);$targetPrincipal=$action==='forms_transfer'?\OCA\Forms\Mcp\Comments\CommentsRuntime::principal($input['owner_id']):null;if($action!=='forms_restore'){$actualFiles=Server::get(BulkFiles::class)->fingerprint((int)$input['id']);if(!hash_equals($fileRevision,$action==='forms_transfer'?BulkStore::digest([$actualFiles,$targetPrincipal]):$actualFiles)){throw new BeforeEffect('Managed Files or transfer target changed after preview');}$fileRevision=$actualFiles;}$backup=$action==='forms_restore'?$this->recovery($uid,$input['backup_id']):null;
    $counts=$backup['counts']??$this->counts((int)$input['id']);if(array_sum($counts)>BulkStore::MAX_ROWS||$counts['files']>1000){throw new BeforeEffect('Bulk recovery row quota exceeded');}
    $form=$backup['form']??$this->db->executeQuery('SELECT * FROM *PREFIX*forms_v2_forms WHERE id = ?',[$input['id']])->fetch();
-   $j=['id'=>hash('sha256','forms-bulk:'.$key),'key'=>$key,'actor'=>OriginContext::identity($uid),'uid'=>$uid,'action'=>$action,'input'=>$input,'fingerprint'=>$fingerprint,'origin'=>OriginContext::current()['origin'],'revision'=>$this->fence->revision(),'backup_format'=>1,'file_revision'=>$fileRevision,'epoch'=>$backup?0:BulkEpoch::epoch((int)$form['id']),'global_epoch'=>BulkEpoch::epoch(0),'native_manifest'=>BulkEpoch::runtime(),'form'=>$form,'counts'=>$counts,'state'=>'pending','phase'=>$backup?'restore':'capture','kind'=>0,'cursor'=>0,'version'=>1,'captured'=>0,'done'=>0,'bytes'=>0,'chain'=>'','verified_chain'=>'','verified'=>0,'sealed'=>false,'restored_form_id'=>null];
+   $j=['id'=>hash('sha256','forms-bulk:'.$key),'key'=>$key,'actor'=>OriginContext::identity($uid),'uid'=>$uid,'action'=>$action,'input'=>$input,'fingerprint'=>$fingerprint,'origin'=>OriginContext::current()['origin'],'revision'=>$this->fence->revision(),'backup_format'=>1,'file_revision'=>$fileRevision,'epoch'=>$backup?0:BulkEpoch::epoch((int)$form['id']),'global_epoch'=>BulkEpoch::epoch(0),'native_manifest'=>BulkEpoch::runtime(),'target_principal'=>$targetPrincipal,'form'=>$form,'counts'=>$counts,'state'=>'pending','phase'=>$backup?'restore':'capture','kind'=>0,'cursor'=>0,'version'=>1,'captured'=>0,'done'=>0,'bytes'=>0,'chain'=>'','verified_chain'=>'','verified'=>0,'sealed'=>false,'restored_form_id'=>null];
    $this->store->create($j);BulkDeadline::check();return $this->dto($j);
    });
   });
@@ -94,6 +98,18 @@ final class BulkOperations {
  private function sourceMatches(array $j):bool {return hash_equals($j['native_manifest']??'',BulkEpoch::runtime())&&($j['global_epoch']??-1)===BulkEpoch::epoch(0)&&$j['epoch']===$this->sourceEpoch($j);}
  private function actor(string $uid,array $j):void {if(!hash_equals($j['actor'],OriginContext::identity($uid))||$uid!==$j['uid']){throw new BeforeEffect('Bulk operation unavailable to this actor');}}
  public function lookup(string $uid,string $key):?array {$j=$this->store->byKey($key);if(!$j){return null;}$this->actor($uid,$j);return OriginContext::within($uid,$j['origin'],'lookup',$j['input'],fn()=> $this->dto($j));}
+ /** Read-only serialized evidence. Absence is proven only at the exact untouched approved version. */
+ public function stepEvidence(string $uid,string $id,string $key,int $approvedVersion):?array {
+  self::key($key);if($approvedVersion<1){throw new BeforeEffect('Invalid approved step version');}
+  $j=$this->store->load($id);$this->actor($uid,$j);
+  return OriginContext::within($uid,$j['origin'],'lookup',$j['input'],fn()=> $this->fence->withLock(function()use($uid,$id,$key,$approvedVersion):?array{
+   OriginContext::assertFresh();$j=$this->store->load($id);$this->actor($uid,$j);$receipt=$this->store->receipt($id,$key);
+   if($receipt!==null){if($receipt['version']!==$approvedVersion+1){throw new BeforeEffect('Step receipt version does not match');}return $receipt;}
+   if($j['state']==='uncertain'&&($j['claim']['step_key']??null)===$key&&$j['version']===$approvedVersion+1){return $this->dto($j);}
+   if($j['state']==='pending'&&$j['version']===$approvedVersion&&!isset($j['claim'])&&hash_equals($j['native_manifest']??'',BulkEpoch::runtime())){return null;}
+   throw new BeforeEffect('Step evidence is unavailable; absence does not prove no effect');
+  }));
+ }
  public function status(string $uid,string $id):array {$j=$this->store->load($id);$this->actor($uid,$j);return OriginContext::within($uid,$j['origin'],'lookup',$j['input'],fn()=> $this->dto($j));}
  public function step(string $uid,string $id,int $version,string $key,callable $authorize,?callable $files=null):array {
   self::key($key);$j=$this->store->load($id);$this->actor($uid,$j);
@@ -101,11 +117,11 @@ final class BulkOperations {
    $j=$this->store->load($id);$this->actor($uid,$j);$prior=$this->store->receipt($id,$key);if($prior!==null){return $prior;}
    if($j['version']!==$version){throw new BeforeEffect('Bulk version conflict');}
    if(!in_array($j['state'],['pending'],true)){return $this->dto($j);}
-   if(in_array($j['phase'],['backup_files','copy_files','delete_files','restore_files','remove_shares'],true)){
+   if(in_array($j['phase'],['backup_files','copy_files','delete_files','restore_files','remove_shares','stage_shares','stage_recipients'],true)){
     return $this->fileStep($j,$uid,$key,$authorize,$files);
    }
    return $this->fence->transaction(function()use(&$j,$uid,$key,$authorize,$files):array {
-    if(!$this->sourceMatches($j)){$j['state']=($j['done']>0||($j['source_effects']??false)||array_sum($j['retained_files']??[])>0)?'partial':'failed_before_effect';$j['reason']='source_changed';}
+    if(!$this->sourceMatches($j)){$j['state']=($j['done']>0||($j['source_effects']??false)||(array_sum($j['retained_files']??[])+($j['retained_shares']??0)+($j['retained_folders']??0))>0)?'partial':'failed_before_effect';$j['reason']='source_changed';}
     else {
      $this->admit($uid,$j['action'],$j['input'],$authorize);if(!$j['sealed']&&$j['action']!=='forms_restore'&&!hash_equals($j['file_revision'],Server::get(BulkFiles::class)->fingerprint((int)$j['form']['id']))){throw new BeforeEffect('Managed Files changed before recovery seal');}
      $started=BulkDeadline::started();BulkDeadline::check();
@@ -123,17 +139,17 @@ final class BulkOperations {
   }));
  }
  private function fileStep(array $j,string $uid,string $key,callable $authorize,?callable $files):array {
-  if(!$this->sourceMatches($j)){return $this->fence->transaction(function()use(&$j,$key):array{$j['state']=($j['done']>0||($j['source_effects']??false)||array_sum($j['retained_files']??[])>0)?'partial':'failed_before_effect';$j['reason']='source_changed';$j['version']++;$this->store->save($j);$dto=$this->dto($j);$this->store->record($j['id'],$key,$dto);return $dto;});}
+  if(!$this->sourceMatches($j)){return $this->fence->transaction(function()use(&$j,$key):array{$j['state']=($j['done']>0||($j['source_effects']??false)||(array_sum($j['retained_files']??[])+($j['retained_shares']??0)+($j['retained_folders']??0))>0)?'partial':'failed_before_effect';$j['reason']='source_changed';$j['version']++;$this->store->save($j);$dto=$this->dto($j);$this->store->record($j['id'],$key,$dto);return $dto;});}
   $worker=Server::get(BulkFiles::class);$row=$worker->next($j);
   $this->fence->transaction(function()use(&$j,$uid,$authorize,$worker,$row,$key):void{
    if(!$this->sourceMatches($j)){throw new BeforeEffect('Bulk source changed');}
    $this->admit($uid,$j['action'],$j['input'],$authorize);if($j['phase']==='backup_files'&&!hash_equals($j['file_revision'],$worker->fingerprint((int)$j['form']['id']))){throw new BeforeEffect('Managed Files changed before recovery seal');}
    if($row===null){
-    $j['phase']=match($j['phase']){'backup_files'=>'verify','restore_files'=>'restore','remove_shares'=>'delete_files',default=>'apply'};$j['cursor']=0;
+    $j['phase']=match($j['phase']){'backup_files'=>'verify','restore_files'=>'restore','remove_shares'=>'delete_files','copy_files'=>'stage_shares','stage_shares'=>'stage_recipients',default=>'apply'};$j['cursor']=0;
    }else{
     BulkDeadline::check();
     // Reservation survives an unknown external write, including a lost acknowledgement.
-    $this->store->reserve($j,$worker->reservation($j,$row));$j['state']='uncertain';if($j['phase']==='remove_shares'){$j['share_events']=true;$j['event_phase']='uncertain';}$j['claim']=['step_key'=>$key,'file_id'=>$row['id'],'phase'=>$j['phase']];
+    $this->store->reserve($j,$worker->reservation($j,$row));$j['state']='uncertain';if(in_array($j['phase'],['remove_shares','stage_shares'],true)){$j['share_events']=true;$j['event_phase']='uncertain';}$j['claim']=['step_key'=>$key,'file_id'=>$row['id'],'phase'=>$j['phase']];
    }
    $j['version']++;$j['revision']=$this->fence->revision();$j['epoch']=$this->sourceEpoch($j);$this->store->save($j);if($row===null){$this->store->record($j['id'],$key,$this->dto($j));}BulkDeadline::check();
   });
@@ -146,20 +162,22 @@ final class BulkOperations {
   }catch(\Throwable){return $this->dto($this->store->load($j['id']));}
  }
  public function cancel(string $uid,string $id,int $version,string $key):array {
-  self::key($key);$original=$this->store->load($id);$this->actor($uid,$original);return OriginContext::within($uid,$original['origin'],'lookup',$original['input'],fn()=> $this->fence->transaction(function()use($uid,$id,$version,$key):array{$j=$this->store->load($id);$this->actor($uid,$j);$prior=$this->store->receipt($id,$key);if($prior){return $prior;}if($version!==$j['version']){throw new BeforeEffect('Bulk version conflict');}if($j['state']==='pending'){$j['state']=($j['done']>0||($j['source_effects']??false)||array_sum($j['retained_files']??[])>0)?'partial':'cancelled';$j['version']++;$this->store->save($j);}$dto=$this->dto($j);$this->store->record($id,$key,$dto);return $dto;}));
+  self::key($key);$original=$this->store->load($id);$this->actor($uid,$original);return OriginContext::within($uid,$original['origin'],'lookup',$original['input'],fn()=> $this->fence->transaction(function()use($uid,$id,$version,$key):array{$j=$this->store->load($id);$this->actor($uid,$j);$prior=$this->store->receipt($id,$key);if($prior){return $prior;}if($version!==$j['version']){throw new BeforeEffect('Bulk version conflict');}if($j['state']==='pending'){$j['state']=($j['done']>0||($j['source_effects']??false)||(array_sum($j['retained_files']??[])+($j['retained_shares']??0)+($j['retained_folders']??0))>0)?'partial':'cancelled';$j['version']++;$this->store->save($j);}$dto=$this->dto($j);$this->store->record($id,$key,$dto);return $dto;}));
  }
  // Yield ordinary row pages early enough to persist their cursor before the hard18s deadline.
  private function capture(array &$j,float $start):void {
   $kind=self::KINDS[$j['kind']];[$sql,$params,$pk]=$this->source($kind,(int)$j['form']['id']);$params[]=$j['cursor'];$result=$this->db->executeQuery($sql.' AND '.$pk.' > ? ORDER BY '.$pk.' LIMIT 100',$params);$bytes=0;$processed=0;
   try{while($row=$result->fetch()){
    if($kind==='uploads'){unset($row['upload_token']);}
+   if($kind==='comments'){$row['historical_author']=\OCA\Forms\Mcp\Comments\HistoricalAuthor::capture($row);}
    if($kind==='managed_shares'){
-    if($j['action']==='forms_delete_form'&&!in_array('share',OriginContext::current()['verified']['references']['files_operations']??[],true)){throw new BeforeEffect('Original Files-sharing grant is required');}
+    if(in_array($j['action'],['forms_delete_form','forms_transfer'],true)&&!in_array('share',OriginContext::current()['verified']['references']['files_operations']??[],true)){throw new BeforeEffect('Original Files-sharing grant is required');}
     try{$native=Server::get(\OCA\Forms\Db\ShareMapper::class)->findById((int)$row['native_share_id']);}catch(\OCP\AppFramework\Db\DoesNotExistException){$native=ManagedShares::historicalShare((int)$j['form']['id'],(int)$row['native_share_id']);}
     if($native->getFormId()!==(int)$j['form']['id']){throw new BeforeEffect('Managed share form changed');}
     $row['approved_tuple']=['owner_id'=>$j['form']['owner_id'],'recipient'=>$native->getShareWith(),'type'=>$native->getShareType()];SharingIdentity::assertType($row['approved_tuple']['type']);
     if(!ManagedShares::isAbsent($row['files_share_id'])){ManagedShares::assertIdentity(SharingIdentity::manager()->getShareById($row['files_share_id'],onlyValid:false),$row['approved_tuple'],$row);}
    }
+   if($kind==='managed_shares'&&$j['action']==='forms_transfer'){$row=BulkTransferShares::capture($row,$j);}
    $size=strlen(json_encode($row,JSON_THROW_ON_ERROR));if($size>1048576){throw new BeforeEffect('Single recovery row exceeds projection budget');}if($bytes+$size>1048576||microtime(true)-$start>16){break;}
    $bytes+=$size;$id=(int)($row[$kind==='artifacts'?'file_id':'id']);$this->store->put($j,$kind,$id,$row);$j['cursor']=$id;$processed++;
   }}finally{$result->closeCursor();}
@@ -186,8 +204,8 @@ final class BulkOperations {
   foreach($rows as$r){if(microtime(true)-$start>16){break;}
    if($j['action']==='forms_transfer'){
     $count=Server::get(BulkFiles::class)->commitTransfer($j,$start,function()use(&$j,$start,$r):int{
-     Server::get(BulkFiles::class)->remap($j,$start);Server::get(LinkedMarkers::class)->retire((int)$j['form']['id']);OriginContext::assertFresh();if(microtime(true)-$start>18){throw new BeforeEffect('Transfer mapping deadline exhausted');}
-     return $this->db->executeStatement('UPDATE *PREFIX*forms_v2_forms SET owner_id = ?,locked_by = NULL,locked_until = NULL WHERE id = ? AND owner_id = ?',[$j['input']['owner_id'],$r['id'],$j['form']['owner_id']]);
+     Server::get(BulkFiles::class)->remap($j,$start);Server::get(BulkTransferShares::class)->commit($j);Server::get(LinkedMarkers::class)->retire((int)$j['form']['id']);OriginContext::assertFresh();if(microtime(true)-$start>18){throw new BeforeEffect('Transfer mapping deadline exhausted');}
+     return $this->db->executeStatement('UPDATE *PREFIX*forms_v2_forms SET owner_id = ?,locked_by = NULL,locked_until = NULL,file_id = NULL,file_format = NULL WHERE id = ? AND owner_id = ?',[$j['input']['owner_id'],$r['id'],$j['form']['owner_id']]);
     });
    }else{
     if($kind==='form'){
@@ -212,6 +230,31 @@ final class BulkOperations {
   if($live===false){if($b['form']['owner_id']!==$uid){throw new BeforeEffect('Recovery owner unavailable');}}
   else{$f=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$b['form']['id']);$p=(new ScopedServices($uid))->forms()->getPermissions($f);if($f->getOwnerId()!==$uid&&(!in_array('results',$p,true)||!in_array('results_delete',$p,true))){throw new BeforeEffect('Recovery authority revoked');}}
   if(!(new ScopedServices($uid))->get(\OCA\Forms\Service\ConfigService::class)->canCreateForms()){throw new BeforeEffect('Form creation unavailable');}return $b;
+ }
+ /** Historical archive is readable only through its completed, currently owned restored form. */
+ public function commentsPage(string $uid,string $restoreId,int $cursor,int $limit):array {
+  if($cursor<0||$limit<1||$limit>100){throw new BeforeEffect('Invalid historical comment page');}
+  $j=$this->store->load($restoreId);$this->actor($uid,$j);
+  if($j['action']!=='forms_restore'||$j['phase']!=='complete'||$j['state']!=='completed'||!is_int($j['restored_form_id'])){throw new BeforeEffect('Historical recovery is not complete');}
+  $admit=function()use($uid,$j):array {
+   OriginContext::assertFresh();$v=OriginContext::current()['verified'];
+   if(!in_array($v['tool'],['forms_list_comments','forms_read_recovered_comments'],true)||(int)($v['references']['form_id']??0)!==$j['restored_form_id']){throw new BeforeEffect('Historical comment grant does not match restored form');}
+   if(!Server::get(\OCA\Forms\Mcp\Guard::class)->capabilities()['comments']){throw new BeforeEffect('Historical comments runtime unavailable');}
+   if(Server::get(\OCP\IUserSession::class)->getUser()?->getUID()!==$uid){throw new BeforeEffect('Historical comment actor changed');}
+   $scope=new ScopedServices($uid);$form=Server::get(\OCA\Forms\Db\FormMapper::class)->findById($j['restored_form_id']);
+   if($form->getOwnerId()!==$uid||!$scope->forms()->hasUserAccess($form)||!$form->getAllowComments()||!$scope->get(\OCA\Forms\Service\ConfigService::class)->getAllowComments()){throw new BeforeEffect('Historical comments unavailable to current actor');}
+   $backup=$this->recovery($uid,$j['input']['backup_id']);if($this->db->executeQuery('SELECT id FROM *PREFIX*forms_v2_forms WHERE id = ?',[$backup['form']['id']])->fetchOne()!==false){$source=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$backup['form']['id']);if(!$source->getAllowComments()||!$scope->forms()->hasUserAccess($source)){throw new BeforeEffect('Live source comment authority is unavailable');}}return $backup;
+  };
+  $rev=$this->fence->revision();$b=$admit();$items=[];$after=$cursor;$bytes=0;$namespace='archive:'.$j['id'].':';
+  foreach(array_slice($this->store->page($b['id'],'comments',$cursor),0,$limit)as$r){
+   BulkDeadline::check();$d=$r['data'];if(($d['object_type']??null)!=='forms'||(int)$d['object_id']!==(int)$b['form']['id']){throw new BeforeEffect('Historical comment belongs to another form');}
+   $author=$d['historical_author']??['type'=>$d['actor_type'],'id'=>$d['actor_id'],'identity_status'=>'unverified_historical'];$author=array_intersect_key($author,array_flip(['type','id','identity_status']));
+   $parent=(int)($d['parent_id']??0);$root=(int)($d['topmost_parent_id']??0);
+   $item=['id'=>$namespace.$r['id'],'source_id'=>$r['id'],'parent_id'=>$parent>0?$namespace.$parent:null,'root_id'=>$namespace.($root>0?$root:($parent>0?$parent:$r['id'])),'author'=>$author,'message'=>$d['message'],'verb'=>$d['verb'],'created_at'=>$d['creation_timestamp'],'latest_child_at'=>$d['latest_child_timestamp']??null,'expire_at'=>$d['expire_date']??null,'historical'=>true];
+   $size=strlen(json_encode($item,JSON_THROW_ON_ERROR));if($size>1040000){throw new BeforeEffect('Historical comment exceeds page budget');}if($bytes+$size>1040000){break;}$bytes+=$size;$items[]=$item;$after=$r['id'];
+  }
+  $more=$this->store->hasAfter($b['id'],'comments',$after);$admit();BulkDeadline::check();if($rev!==$this->fence->revision()){throw new BeforeEffect('Historical comment authority changed during read');}
+  return ['items'=>$items,'total'=>(int)($b['counts']['comments']??0),'next_cursor'=>$more?$after:null,'complete'=>!$more,'archive_id'=>$j['id'],'restored_form_id'=>$j['restored_form_id']];
  }
  private function insert(string $kind,array $row):int {
   $name=match($kind){'form'=>'Form','questions'=>'Question','options'=>'Option','submissions'=>'Submission','answers'=>'Answer'};$class='OCA\\Forms\\Db\\'.$name;$e=new $class();
@@ -240,7 +283,7 @@ final class BulkOperations {
   if($q['type']==='ranking'){$value=array_map($map,$value);}else{$new=[];$numeric=(json_decode($q['extra_settings_json']??'{}',true,64,JSON_THROW_ON_ERROR)['questionType']??null)===\OCA\Forms\Constants::ANSWER_GRID_TYPE_NUMBER;foreach($value as$key=>$v){if($numeric){$cells=[];foreach($v as$column=>$number){$cells[$map($column)]=$number;}$new[$map($key)]=$cells;}else{$new[$map($key)]=is_array($v)?array_map($map,$v):$map($v);}}$value=$new;}return json_encode($value,JSON_THROW_ON_ERROR);
  }
  private function dto(array $j):array {
-  $total=match($j['action']){'forms_delete_responses'=>$j['counts']['answers']+$j['counts']['submissions']+($j['artifact_deletions']??0),'forms_transfer'=>1,'forms_restore'=>array_sum(array_intersect_key($j['counts'],array_flip(['form','questions','options','submissions','answers']))),default=>array_sum($j['counts'])-$j['counts']['files']};
-  return ['bulk_id'=>$j['id'],'operation_key'=>$j['key'],'state'=>$j['state'],'phase'=>$j['phase'],'version'=>$j['version'],'progress'=>['done'=>$j['done'],'total'=>$total,'captured'=>$j['captured'],'capture_total'=>array_sum($j['counts'])],'references'=>['form_id'=>(int)$j['form']['id'],'backup_id'=>$j['sealed']?$j['id']:($j['input']['backup_id']??null),'restored_form_id'=>$j['restored_form_id'],'backup_format'=>'bulk_v1'],'retained_files'=>['recovery'=>$j['retained_files']['recovery']??0,'copies'=>$j['retained_files']['copies']??0,'evidence_id'=>$j['id'],'backup_sealed'=>$j['sealed']],'next'=>$j['state']==='pending','reason'=>$j['reason']??null,'phases'=>['database'=>$j['phase']==='complete'?'committed':($j['done']?'partially_committed':'not_started'),'files'=>$j['counts']['files']===0&&($j['counts']['managed_shares']??0)===0?'not_applicable':($j['phase']==='complete'?'verified':($j['state']==='uncertain'?'unknown':(array_sum($j['retained_files']??[])>0?'retained':'pending'))),'events'=>($j['share_events']??false)?[['kind'=>'files_share','phase'=>$j['event_phase']??'attempted_unverified']]:[]]];
+  $total=match($j['action']){'forms_delete_responses'=>$j['counts']['answers']+$j['counts']['submissions']+($j['artifact_deletions']??0),'forms_transfer'=>1,'forms_restore'=>array_sum(array_intersect_key($j['counts'],array_flip(['form','questions','options','submissions','answers']))),default=>array_sum($j['counts'])-$j['counts']['files']-($j['counts']['share_recipients']??0)};
+  return ['bulk_id'=>$j['id'],'operation_key'=>$j['key'],'state'=>$j['state'],'phase'=>$j['phase'],'version'=>$j['version'],'progress'=>['done'=>$j['done'],'total'=>$total,'captured'=>$j['captured'],'capture_total'=>array_sum($j['counts'])],'references'=>['form_id'=>(int)$j['form']['id'],'backup_id'=>$j['sealed']?$j['id']:($j['input']['backup_id']??null),'restored_form_id'=>$j['restored_form_id'],'backup_format'=>'bulk_v1'],'retained_files'=>['recovery'=>$j['retained_files']['recovery']??0,'copies'=>$j['retained_files']['copies']??0,'shares'=>$j['retained_shares']??0,'recipient_states'=>$j['retained_recipients']??0,'folders'=>$j['retained_folders']??0,'evidence_id'=>$j['id'],'backup_sealed'=>$j['sealed']],'next'=>$j['state']==='pending','reason'=>$j['reason']??null,'phases'=>['database'=>$j['phase']==='complete'?'committed':($j['done']?'partially_committed':'not_started'),'files'=>$j['counts']['files']===0&&($j['counts']['managed_shares']??0)===0?'not_applicable':($j['phase']==='complete'?'verified':($j['state']==='uncertain'?'unknown':((array_sum($j['retained_files']??[])+($j['retained_shares']??0)+($j['retained_folders']??0))>0?'retained':'pending'))),'events'=>($j['share_events']??false)?[['kind'=>'files_share','phase'=>$j['event_phase']??'attempted_unverified']]:[]]];
  }
 }
