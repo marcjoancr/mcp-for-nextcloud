@@ -2,14 +2,14 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: c2cf0556c42976efdfa0f9ba3514f2ce70f5884d -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../../en/reference/tools.md).
 
 # Ferramentas
 
-Os catálogos dos módulos contêm no máximo **110 ferramentas de módulo**, mais `mcp_status` e `mcp_guide` (112 no total). Três ferramentas de dependências Deck dependem de APIs nativas NC34/35 compatíveis, deixando no máximo 107 ferramentas de módulo (109 no total) sem elas. A disponibilidade das aplicações e o acesso de cada conta reduzem ainda estas contagens.
+O catálogo inclui `mcp_status`, `mcp_guide` e fluxos dependentes de aplicações e APIs nativas qualificadas. As permissões atuais e a seleção na ligação determinam as ferramentas disponíveis. Consulte `tools/list` e o guia para ver o catálogo admitido; uma contagem global fixa não representa o acesso de cada conta.
 
 Cada ferramenta só aparece em `tools/list` e só pode ser chamada quando está atribuída ao utilizador, selecionada para a ligação, e as aplicações necessárias e precondições da operação estão ativas para esse utilizador. A permissão e a aplicação são verificadas novamente em cada chamada. Tudo é executado como o utilizador autenticado, através da sua pasta no Nextcloud, mantendo as permissões e partilhas do Nextcloud.
 
@@ -47,7 +47,7 @@ Além disso:
 - [Talk](tools/talk.md)
 - [People](tools/people.md)
 - [Mail](tools/mail.md)
-- [Forms](tools/forms.md) — `forms_list` lista formulários acessíveis. `forms_read` lê perguntas e opções. Exige Forms 5.3.0 ou posterior e a permissão separada `forms.read`. `forms_read_responses` lê páginas de submissões com a permissão separada `forms.read_responses` e permissão nativa de resultados. Use os deslocamentos devolvidos para obter perguntas e opções seguintes. Campos de texto maiores que 1 KiB incluem uma indicação de truncagem.
+- [Forms](tools/forms.md) — as cinco ferramentas legadas mantêm o mínimo de Forms 5.3 e os limites por página. O catálogo de 65 ferramentas também cobre criação, definições, partilha, respostas próprias, resultados, ficheiros, comentários, administração, exportações completas e recuperação. São necessárias a extensão exata qualificada de Forms 5.4.2 e permissões e seleção independentes; `forms_capabilities` informa a disponibilidade. Ler a estrutura não concede resultados, participantes, ficheiros nem edição.
 
 Para `forms_read_responses`, indique o `id` do formulário, `limit` (50 por predefinição, máximo 100) e `offset`. Siga `nextOffset` enquanto `hasMore` for verdadeiro. Cada submissão inclui no máximo 200 respostas, com `answersTruncated` a indicar respostas omitidas. Texto maior que 1 KiB tem `textTruncated: true`. Respostas com ficheiros carregados são omitidas e indicadas por `fileAnswersOmitted`. Submissões anónimas omitem IDs dos respondentes mesmo que a definição de anonimato mude posteriormente. Poder consultar as próprias respostas não concede acesso ao conjunto completo de resultados por esta ferramenta.
 

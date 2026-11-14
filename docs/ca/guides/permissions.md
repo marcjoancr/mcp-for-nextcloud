@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/guides/permissions.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: c2cf0556c42976efdfa0f9ba3514f2ce70f5884d -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../en/guides/permissions.md).
@@ -63,6 +63,31 @@ Aquestes incorporacions comencen sense assignació i se seleccionen per separat 
 | `calendar_check_availability` | `calendar.availability` | Àmbit de Calendar, comparticions natives i classificació d'esdeveniments |
 
 Els permisos de lectura existents no habiliten automàticament aquestes eines. L'exportació de formularis és l'única escriptura d'aquest conjunt: requereix una previsualització actual i confirmació, més confirmació de destinació compartida quan correspongui. Ni assignar una eina ni seleccionar-la a una connexió evita les restriccions natives d'accés d'un altre usuari.
+
+## Operacions ampliades de Forms
+
+La [referència de Forms](../reference/tools/forms.md) diferencia les cinc eines
+heretades de l'extensió qualificada. Les operacions noves comencen denegades; les
+eines noves requereixen assignació i selecció també després d'actualitzar.
+
+Construcció, ajustos, preguntes, compartició, enllaços, enviament, respostes
+pròpies, resultats, participants, fitxers, comentaris, administració i recuperació
+tenen permisos independents. Els rols natius no substitueixen els permisos de MCP
+ni a l'inrevés. Canviar els enllaços públics afegeix `forms.public_link`;
+configurar correus afegeix `forms.configure_notifications`. Suprimir una
+pregunta requereix editar preguntes i conserva l'historial. Tenir-ne una còpia
+no concedeix accés als resultats.
+
+No hi ha un selector addicional d'àmbits per formulari. Es mantenen les ACL
+natives i els àmbits de Files d'origen i destí, exclusions i restriccions de
+convidats. Exportar o llegir/desar fitxers exigeix les operacions declarades.
+La recuperació nativa de Forms té autoritat pròpia i no concedeix accés general
+a Files. Un àmbit de Files buit no permet destins a Files.
+
+Continuar, cancel·lar i consultar impactes o comentaris recuperats revalida
+l'autoritat actual de l'acció original, a més de la del lector. Només els fluxos
+administratius exigeixen ser administrador real. Consulta la guia actual per
+veure les operacions i els requisits exactes.
 
 ## Desar, conflictes i desfer
 

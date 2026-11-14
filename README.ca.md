@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: README.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: c2cf0556c42976efdfa0f9ba3514f2ce70f5884d -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](README.md).
@@ -42,7 +42,7 @@ Són exemples de peticions, no transcripcions de clients enregistrades. Les acci
 
 ## Una connexió, onze mòduls
 
-Els catàlegs defineixen fins a **112 eines**, incloses les eines de guia i estat, distribuïdes en **onze mòduls**. El descobriment només mostra les eines disponibles per al compte i la connexió seleccionada; tres eines de dependències de Deck també necessiten Nextcloud 34/35 i API de Deck compatibles.
+Els catàlegs cobreixen **onze mòduls**, a més de les eines de guia i estat. La llista visible depèn de les API natives qualificades, els permisos actuals i la selecció de la connexió. Tres eines de dependències de Deck requereixen API compatibles de Nextcloud 34/35 i Deck; les extensions qualificades de Mail i Forms habiliten els fluxos ampliats.
 
 | Mòdul | Capacitats |
 | --- | --- |
@@ -55,7 +55,7 @@ Els catàlegs defineixen fins a **112 eines**, incloses les eines de guia i esta
 | [Talk](docs/ca/reference/tools/talk.md) | Lectura, cerca i consulta de context de missatges; enviament de missatges o resums preparats per qui fa la crida, compartició de fitxers i creació de converses de grup. |
 | [People](docs/ca/reference/tools/people.md) | Cerca de persones i grups abans de compartir o enviar missatges. |
 | [Mail](docs/ca/reference/tools/mail.md) | Cerca de correu propi, lectura de missatges/fils/adjunts sense marcar-los com a llegits, desament d’adjunts a Files i gestió d’esborranys locals sense enviar. Sense enviament de correu. |
-| [Forms](docs/ca/reference/tools/forms.md) | Lectura de formularis i resultats permesos, recompte de respostes per pàgina i exportació de pàgines de respostes a CSV a Files amb confirmació prèvia. |
+| [Forms](docs/ca/reference/tools/forms.md) | Gestiona formularis, preguntes, compartició, respostes, fitxers, exportacions completes i operacions recuperables mitjançant una extensió nativa qualificada; conserva els contractes de lectura i exportació CSV per pàgina. |
 | [Registres del servidor](docs/ca/reference/tools/logs.md) | Diagnòstic limitat de només lectura per a administradors i grups d'IT autoritzats; desactivat per defecte. |
 
 ## Integrat al teu Nextcloud

@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: README.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: c2cf0556c42976efdfa0f9ba3514f2ce70f5884d -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](README.md).
@@ -42,7 +42,7 @@ Son ejemplos de peticiones, no transcripciones de sesiones reales. Las acciones 
 
 ## Una conexión, once módulos
 
-Los catálogos definen hasta **112 herramientas**, incluidas la guía y las herramientas de estado. El descubrimiento solo muestra las disponibles para la cuenta y seleccionadas en la conexión; tres herramientas de dependencias de Deck requieren además API compatibles de Nextcloud 34/35 y Deck.
+Los catálogos cubren **once módulos**, además de las herramientas de guía y estado. La lista visible depende de las API nativas cualificadas, los permisos actuales y la selección de la conexión. Tres herramientas de dependencias de Deck requieren API compatibles de Nextcloud 34/35 y Deck; las extensiones cualificadas de Mail y Forms habilitan sus flujos ampliados.
 
 | Módulo | Capacidades |
 | --- | --- |
@@ -55,7 +55,7 @@ Los catálogos definen hasta **112 herramientas**, incluidas la guía y las herr
 | [Talk](docs/es/reference/tools/talk.md) | Leer, buscar y consultar el contexto de mensajes; enviar mensajes o resúmenes preparados por quien llama, compartir archivos y crear conversaciones de grupo. |
 | [People](docs/es/reference/tools/people.md) | Buscar personas y grupos antes de compartir o enviar mensajes. |
 | [Mail](docs/es/reference/tools/mail.md) | Buscar correo propio, leer mensajes/hilos/adjuntos sin marcarlos como leídos, guardar adjuntos en Files y gestionar borradores locales sin enviar. No envía correo. |
-| [Forms](docs/es/reference/tools/forms.md) | Leer formularios y resultados permitidos, contar respuestas por página y exportar páginas de respuestas a CSV en Files tras la confirmación. |
+| [Forms](docs/es/reference/tools/forms.md) | Gestiona formularios, preguntas, compartición, respuestas, archivos, exportaciones completas y operaciones recuperables mediante una extensión nativa cualificada; conserva los contratos de lectura y exportación CSV por página. |
 | [Registros del servidor](docs/es/reference/tools/logs.md) | Diagnóstico acotado y de solo lectura para administradores y grupos de TI autorizados; desactivado por defecto. |
 
 ## Dentro de tu Nextcloud

@@ -3,7 +3,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/guides/permissions.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: c2cf0556c42976efdfa0f9ba3514f2ce70f5884d -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../en/guides/permissions.md).
@@ -64,6 +64,31 @@ Estas adições começam sem atribuição e são selecionadas separadamente em c
 | `calendar_check_availability` | `calendar.availability` | Escopo Calendar, compartilhamentos nativos e classificação dos eventos |
 
 Permissões de leitura existentes não habilitam essas ferramentas automaticamente. Exportar formulário é a única escrita nesse conjunto: exige prévia atual e confirmação, além de confirmação de destino compartilhado quando aplicável. Nem atribuição de ferramenta nem seleção de conexão ignoram restrições nativas de acesso de outro usuário.
+
+## Operações ampliadas de Forms
+
+A [referência de Forms](../reference/tools/forms.md) separa as cinco ferramentas
+legadas da extensão qualificada. Operações novas começam negadas; ferramentas
+novas exigem atribuição e seleção também após uma atualização.
+
+Criação, configurações, perguntas, compartilhamento, links, envio, respostas
+próprias, resultados, participantes, arquivos, comentários, administração e
+recuperação têm permissões independentes. Papéis nativos não substituem
+permissões de MCP nem o contrário. Mudar links públicos acrescenta
+`forms.public_link`; configurar e-mails acrescenta
+`forms.configure_notifications`. Excluir uma pergunta exige editar perguntas
+e preserva o histórico. Possuir a cópia não concede acesso aos resultados.
+
+Não há seletor adicional de escopo por formulário. Permanecem as ACLs nativas e
+os escopos de Files na origem e no destino, exclusões e restrições de convidados.
+Exportar ou ler/salvar arquivos exige as operações declaradas. A recuperação
+nativa gerenciada por Forms tem autoridade própria e não concede acesso geral a
+Files. Escopo vazio de Files não permite destinos em Files.
+
+Continuar, cancelar ou consultar impactos e comentários recuperados revalida a
+autoridade atual da ação original além da autoridade do leitor. Apenas fluxos
+administrativos exigem administrador real. Consulte o guia atual para ver as
+operações e os requisitos exatos.
 
 ## Salvar, conflitos e desfazer
 

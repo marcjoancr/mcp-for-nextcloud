@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/guides/permissions.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: c2cf0556c42976efdfa0f9ba3514f2ce70f5884d -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../../en/guides/permissions.md).
@@ -63,6 +63,32 @@ Estas adições começam sem atribuição e são selecionadas separadamente em c
 | `calendar_check_availability` | `calendar.availability` | Âmbito Calendar, partilhas nativas e classificação de eventos |
 
 As permissões de leitura existentes não ativam automaticamente estas ferramentas. A exportação de formulários é a única escrita deste conjunto: exige pré-visualização atual e confirmação, mais confirmação de destino partilhado quando aplicável. A atribuição de ferramentas e a seleção da ligação não contornam restrições de acesso nativo de outro utilizador.
+
+## Operações alargadas de Forms
+
+A [referência de Forms](../reference/tools/forms.md) distingue as cinco
+ferramentas legadas da extensão qualificada. As operações novas começam
+recusadas; as ferramentas novas exigem atribuição e seleção também após uma
+atualização.
+
+Criação, definições, perguntas, partilha, ligações, envio, respostas próprias,
+resultados, participantes, ficheiros, comentários, administração e recuperação
+têm permissões independentes. Os papéis nativos não substituem permissões de MCP
+nem o contrário. Alterar ligações públicas acrescenta `forms.public_link`;
+configurar correio acrescenta `forms.configure_notifications`. Eliminar uma
+pergunta exige editar perguntas e conserva o histórico. Possuir a cópia não
+concede acesso aos resultados.
+
+Não há seletor adicional de âmbito por formulário. Mantêm-se as ACLs nativas e
+os âmbitos de Files na origem e no destino, exclusões e restrições de convidados.
+Exportar ou ler/guardar ficheiros exige as operações declaradas. A recuperação
+nativa gerida por Forms tem autoridade própria e não concede acesso geral a
+Files. Um âmbito vazio de Files não permite destinos em Files.
+
+Continuar, cancelar e consultar impactos ou comentários recuperados revalida a
+autoridade atual da ação original além da do leitor. Apenas fluxos
+administrativos exigem administrador real. Consulte o guia atual para ver as
+operações e os requisitos exatos.
 
 ## Guardar, conflitos e desfazer
 

@@ -2,14 +2,14 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: c2cf0556c42976efdfa0f9ba3514f2ce70f5884d -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../en/reference/tools.md).
 
 # Eines
 
-Els catàlegs dels mòduls contenen com a màxim **110 eines de mòdul**, més `mcp_status` i `mcp_guide` (112 en total). Tres eines de dependències de Deck depenen d’API natives compatibles de NC34/35, de manera que sense elles hi ha com a màxim 107 eines de mòdul (109 en total). La disponibilitat d’aplicacions i l’accés de cada compte redueixen encara més aquests recomptes.
+El catàleg inclou `mcp_status`, `mcp_guide` i fluxos dependents d'aplicacions i API natives qualificades. Els permisos actuals i la selecció de la connexió determinen les eines disponibles. Consulta `tools/list` i la guia per veure el catàleg admès; un recompte global fix no representa l'accés de cada compte.
 
 Cada eina només apareix a `tools/list` i només es pot cridar si està assignada a l'usuari, seleccionada per a la connexió, i les aplicacions i els requisits previs d'operació necessaris estan habilitats per a l'usuari. El permís i l'estat de l'aplicació es tornen a comprovar en cada crida. Tot s'executa com a usuari autenticat, dins de la seva pròpia carpeta de Nextcloud, i es continuen aplicant els permisos i els elements compartits de Nextcloud.
 
@@ -47,7 +47,7 @@ A més:
 - [Talk](tools/talk.md)
 - [Persones](tools/people.md)
 - [Mail](tools/mail.md)
-- [Forms](tools/forms.md) — `forms_list` llista formularis accessibles. `forms_read` llegeix preguntes i opcions d'un formulari. Requereix Forms 5.3.0 o posterior i el permís separat `forms.read`. `forms_read_responses` llegeix pàgines d'enviaments amb el permís separat `forms.read_responses` i el permís natiu de resultats. Utilitza els offsets retornats per recuperar preguntes i opcions posteriors. Els camps de text de més d'1 KiB inclouen un indicador de truncament.
+- [Forms](tools/forms.md) — les cinc eines heretades mantenen el mínim de Forms 5.3 i els límits per pàgina. El catàleg de 65 eines també cobreix construcció, ajustos, compartició, respostes pròpies, resultats, fitxers, comentaris, administració, exportacions completes i recuperació. L'ampliació requereix l'extensió exacta qualificada de Forms 5.4.2 i permisos i selecció independents; `forms_capabilities` indica la disponibilitat. Llegir l'estructura no concedeix resultats, participants, fitxers ni edició.
 
 Per a `forms_read_responses`, passa l'`id` del formulari, `limit` (50 per defecte, màxim 100) i `offset`. Segueix `nextOffset` mentre `hasMore` sigui cert. Cada enviament inclou com a màxim 200 respostes, amb `answersTruncated` per indicar les omeses. El text de més d'1 KiB inclou `textTruncated: true`. Les respostes de fitxers pujats s'ometen i s'indiquen amb `fileAnswersOmitted`. Els enviaments anònims ometen ID dels participants encara que l'opció d'anonimat del formulari canviï després. Poder veure les respostes pròpies no concedeix accés al conjunt complet de resultats amb aquesta eina.
 

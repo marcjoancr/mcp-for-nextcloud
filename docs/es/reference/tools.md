@@ -2,14 +2,14 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: c2cf0556c42976efdfa0f9ba3514f2ce70f5884d -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../../en/reference/tools.md).
 
 # Herramientas
 
-Los catálogos contienen como máximo **110 herramientas de módulos**, más `mcp_status` y `mcp_guide` (112 en total). Tres herramientas de dependencias de Deck requieren API nativas compatibles de NC34/35; sin ellas quedan como máximo 107 herramientas de módulos (109 en total). La disponibilidad de aplicaciones y el acceso de cada cuenta reducen aún más estas cifras.
+El catálogo incluye `mcp_status`, `mcp_guide` y flujos dependientes de aplicaciones y API nativas cualificadas. Los permisos actuales y la selección de la conexión determinan qué herramientas están disponibles. Consulta `tools/list` y la guía para ver el catálogo admitido; una cifra global fija no representa el acceso de cada cuenta.
 
 Cada herramienta solo aparece en `tools/list` y solo se puede llamar si está asignada al usuario, seleccionada para la conexión y esa persona tiene habilitadas las aplicaciones y los requisitos de operación necesarios. Ambos requisitos se vuelven a comprobar en cada llamada. Todo se ejecuta como el usuario autenticado, a través de su propia carpeta de Nextcloud, y se siguen aplicando los permisos y recursos compartidos de Nextcloud.
 
@@ -47,7 +47,7 @@ Además:
 - [Talk](tools/talk.md)
 - [People](tools/people.md)
 - [Mail](tools/mail.md)
-- [Forms](tools/forms.md) — `forms_list` lista formularios accesibles y `forms_read` lee preguntas y opciones. Requieren Forms 5.3.0 o posterior y el permiso separado `forms.read`. `forms_read_responses` lee páginas de envíos con el permiso independiente `forms.read_responses` y permiso nativo de resultados. Usa los desplazamientos devueltos para recuperar preguntas y opciones posteriores. Los textos de más de 1 KiB indican recorte.
+- [Forms](tools/forms.md) — las cinco herramientas heredadas mantienen su mínimo de Forms 5.3 y sus límites por página. El catálogo de 65 herramientas también cubre construcción, ajustes, compartición, respuestas propias, resultados, archivos, comentarios, administración, exportaciones completas y recuperación. La ampliación exige la extensión exacta cualificada de Forms 5.4.2 y permisos y selección independientes; `forms_capabilities` indica la disponibilidad. Leer la estructura no concede acceso a resultados, participantes, archivos ni edición.
 
 Para `forms_read_responses`, envía `id`, `limit` (50 por defecto, máximo 100) y `offset`. Sigue `nextOffset` mientras `hasMore` sea verdadero. Cada envío incluye hasta 200 respuestas, con `answersTruncated` para las omitidas. Los textos de más de 1 KiB tienen `textTruncated: true`. Se omiten archivos subidos y se informa mediante `fileAnswersOmitted`. Las respuestas anónimas omiten ID de participantes aunque después cambie la opción de anonimato. Poder consultar la propia respuesta no concede acceso al conjunto completo mediante esta herramienta.
 
