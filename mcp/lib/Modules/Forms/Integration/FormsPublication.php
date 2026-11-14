@@ -14,6 +14,7 @@ final class FormsPublication {
     public static function supported(string $tool,array $native):bool {
         if($tool==='forms_capabilities')return true;
         if(($native['qualified']??false)!==true||($native['protocol']??null)!==1)return false;
+        if(in_array($tool,['forms_link_results_file','forms_unlink_results_file'],true))return in_array($tool,self::MCP,true)&&($native['linked_exports']??false)===true&&($native['file_sinks']??false)===true;
         if($tool==='forms_read_own_response'&&($native['own_response_pages']??false)!==true)return false;
         if($tool==='forms_read_submission_form'&&($native['public_submission_form']??false)!==true)return false;
         if(in_array($tool,['forms_submit_response','forms_update_response','forms_update_own_response'],true)&&($native['answers_preflight']??false)!==true)return false;
