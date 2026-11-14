@@ -10,6 +10,11 @@ namespace OCA\Mcp\Tests\Unit\Modules\Forms;
 use OCA\Mcp\Modules\Forms\Integration\FormsPublication;
 use PHPUnit\Framework\TestCase;
 final class FormsPublicationTest extends TestCase {
+    public function testNativeCommentActionsAloneCannotPublishAnUnwiredMcpPath():void {
+        $actions=['forms_list_comments','forms_add_comment','forms_update_comment','forms_delete_comment'];
+        $native=['qualified'=>true,'protocol'=>1,'comments'=>true,'actions'=>$actions];
+        foreach($actions as $action)self::assertFalse(FormsPublication::supported($action,$native));
+    }
     public function testAnswerWritersRequireReadOnlyNativeValidationBeforeApproval():void {
         $tools=['forms_submit_response','forms_update_response','forms_update_own_response'];
         $native=['qualified'=>true,'protocol'=>1,'actions'=>$tools];

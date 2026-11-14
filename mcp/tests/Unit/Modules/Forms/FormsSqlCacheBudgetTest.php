@@ -41,6 +41,64 @@ final class FormsSqlCacheBudgetTest extends TestCase {
             'delivered'=>['file_id'=>7,'sha256'=>'verified-output']]];
         $this->budget->reserve($this->id,'alice');self::assertTrue($this->jobs->create($job));return $this->jobs->get($this->id);
     }
+    private function linkedRecoveryFixture():array {
+        $old=$this->create();$next=$old;$next['version']++;
+        $p=&$next['payload'];$p['tool']='forms_link_results_file';$p['origin']['tool']=$p['tool'];
+        $p['arguments']=['id'=>4,'path'=>'results.csv','format'=>'csv'];$p['destination']=['path'=>'results.csv','overwrite'=>false];
+        $p['metadata']['form']['id']=4;
+        $p['linked_schema_digest']=\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExport::schemaDigest($p['metadata']);
+        $p['linked_approval']=['arguments'=>$p['arguments'],'destination'=>$p['destination'],'native_runtime'=>$p['native_runtime'],
+            'source_revision'=>$p['source_revision'],'schema_digest'=>$p['linked_schema_digest']];
+        $p['last_step']=['key'=>'verified-native-key','approved_version'=>1,'outcome'=>['state'=>'partial','references'=>['job_id'=>$this->id]]];
+        unset($p['delivered']);self::assertTrue($this->jobs->compareAndSwap($old,$next));$this->budget->seal($this->id);
+        $spool=$this->createMock(FormsSpool::class);
+        foreach(['get','put','assertActive','reserve','seal'] as $method)$spool->expects(self::never())->method($method);
+        $engine=new FormsExportJobs($this->jobs,$spool,new FormsExportRenderer(),static fn(array $origin):array=>$origin,fn():int=>$this->now);
+        $association=str_repeat('a',64);
+        $receipt=['state'=>'succeeded','operation_key'=>'verified-native-key','phases'=>['database'=>'committed','files'=>'saved_verified'],
+            'references'=>['form_id'=>4,'file_id'=>7,'association_id'=>$association,'linked_export'=>$association,'source_revision'=>'4']];
+        return [$engine,$receipt];
+    }
+    /** @dataProvider expiredLinkedStates */
+    public function testExactHistoricalAcknowledgementSurvivesRealSqlExpiryAndCompaction(bool $compacted):void {
+        [$engine,$receipt]=$this->linkedRecoveryFixture();
+        if($compacted)$this->expire();else $this->now+=FormsSpoolMapper::RETENTION_SECONDS;
+        $lookups=0;
+        $outcome=$engine->reconcileLinkedDelivery('alice',$this->id,'verified-native-key',1,function(array $origin)use($receipt,&$lookups):array {
+            self::assertSame(12,$origin['connection']);$lookups++;return $receipt;
+        });
+        self::assertSame('succeeded',$outcome['state']);self::assertSame(1,$lookups);
+        $after=$this->jobs->get($this->id);self::assertSame('delivered',$after['state']);
+        self::assertSame(['file_id'=>7,'association_id'=>str_repeat('a',64),'historical'=>true],$after['payload']['delivered']);
+        self::assertSame('succeeded',$engine->recover('alice',$this->id,'verified-native-key',1)['state']);
+        if($compacted) {
+            self::assertArrayNotHasKey('metadata',$after['payload']);
+            self::assertStringNotContainsString('Private question',json_encode($after['payload']));
+            self::assertSame(0,(int)$this->sql->dbal->fetchOne('SELECT used_bytes FROM mcp_forms_spool'));
+        }
+    }
+    /** @dataProvider invalidHistoricalChanges */
+    public function testHistoricalSqlRouteCannotRestoreContentOrSubstituteTheApproval(string $change):void {
+        [, $receipt]=$this->linkedRecoveryFixture();$this->expire();$old=$this->jobs->get($this->id);
+        $file=(new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedActivation())->recovered('alice',$old,'verified-native-key',$receipt);
+        self::assertIsArray($file);$next=$old;$next['version']++;$next['state']='delivered';$next['updated_at']=$this->now;
+        $next['payload']['delivered']=$file;
+        $next['payload']['last_step']=['key'=>'verified-native-key','approved_version'=>1,
+            'outcome'=>\OCA\Mcp\Modules\Forms\Exports\FormsLinkedActivation::historicalOutcome($old,$receipt,$file)];
+        match($change) {
+            'content'=>$next['payload']['metadata']=['answers'=>['resurrected private bytes']],
+            'origin'=>$next['payload']['origin']['connection']=99,
+            'key'=>$next['payload']['last_step']['key']='unapproved-key',
+            'file'=>$next['payload']['delivered']['file_id']=99,
+            'proof'=>$receipt['phases']['database']='unknown',
+            'version'=>$next['version']++,
+        };
+        self::assertFalse($this->jobs->acknowledgeLinkedDelivery($old,$next,$receipt));
+        self::assertSame($old,$this->jobs->get($this->id));
+        self::assertSame(0,(int)$this->sql->dbal->fetchOne('SELECT used_bytes FROM mcp_forms_spool'));
+    }
+    public static function invalidHistoricalChanges():iterable {foreach(['content','origin','key','file','proof','version'] as $change)yield $change=>[$change];}
+    public static function expiredLinkedStates():iterable {yield 'expired but not cleaned'=>[false];yield 'cleaned and SQL compacted'=>[true];}
     private function expire():void {$this->now+=FormsSpoolMapper::RETENTION_SECONDS;self::assertTrue($this->budget->retire($this->id));$this->budget->finish($this->id);}
     public function testReadOnlyRetirementProofRequiresSealedMatchingActorAndNoPendingIo():void {
         $this->create();self::assertFalse($this->budget->sealed($this->id,'alice'));

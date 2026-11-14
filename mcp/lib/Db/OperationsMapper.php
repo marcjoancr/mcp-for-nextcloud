@@ -203,8 +203,11 @@ final class OperationsMapper implements OperationStore, \OCA\Mcp\Modules\Forms\E
 
     /** Separate approved reconciliation only: exact state/receipt CAS, retaining the non-replay key. */
     public function reconcile(array $expected,string $state,array $refs,int $time):bool {
-        $states=str_starts_with($expected['tool_name']??'','forms_')?['succeeded','partial','pending','failed_before_effect']:['succeeded','repaired'];
-        if(!in_array($expected['state']??null,['running','uncertain','repairing'],true)||!in_array($state,$states,true))return false;
+        $forms=str_starts_with($expected['tool_name']??'','forms_');
+        $states=$forms?['succeeded','partial','pending','failed_before_effect']:['succeeded','repaired'];
+        $sources=['running','uncertain','repairing'];
+        if($forms&&($expected['state']??null)==='partial'){$sources[]='partial';$states=['succeeded','partial'];}
+        if(!in_array($expected['state']??null,$sources,true)||!in_array($state,$states,true))return false;
         $q=$this->db->getQueryBuilder();return $q->update(self::TABLE)
             ->set('state',$q->createNamedParameter($state))->set('target_key',$q->createNamedParameter(null,IQueryBuilder::PARAM_NULL))
             ->set('resource_refs',$q->createNamedParameter(json_encode($refs,JSON_THROW_ON_ERROR)))

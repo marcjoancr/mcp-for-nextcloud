@@ -14,7 +14,8 @@ final class FormsExportJobsTest extends TestCase {
         $store=$this->createMock(FormsJobStore::class);
         $store->method('get')->willReturnCallback(fn(string $id):?array=>$this->jobs[$id]??null);
         $store->method('create')->willReturnCallback(function(array $job):bool {if(isset($this->jobs[$job['job_id']]))return false;$this->jobs[$job['job_id']]=$job;return true;});
-        $store->method('compareAndSwap')->willReturnCallback(function(array $old,array $next):bool {if(($this->jobs[$old['job_id']]??null)!==$old)return false;$this->jobs[$old['job_id']]=$next;return true;});
+        $cas=function(array $old,array $next):bool {if(($this->jobs[$old['job_id']]??null)!==$old)return false;$this->jobs[$old['job_id']]=$next;return true;};
+        $store->method('compareAndSwap')->willReturnCallback($cas);$store->method('acknowledgeLinkedDelivery')->willReturnCallback($cas);
         $spool=$this->createMock(FormsSpool::class);
         $spool->method('assertActive')->willReturnCallback(function():void{if(!$this->cacheLive)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('cache expired');});
         $spool->method('retain')->willReturnCallback(fn():bool=>$this->garbageReady);
@@ -40,6 +41,57 @@ final class FormsExportJobsTest extends TestCase {
         self::assertSame($approval,$this->jobs[$id]['payload']['linked_approval']??null);
         $plain=$this->engine->start('alice','forms_export_results',$args,array_diff_key($preview,['linked_approval'=>true]),'plain-export',['uid'=>'alice','connection'=>12],$this->native(...))['references']['job_id'];
         self::assertArrayNotHasKey('linked_approval',$this->jobs[$plain]['payload']);
+    }
+    private function uncertainInitialLink():array {
+        $this->source=array_slice($this->source,0,1);$args=['id'=>4,'format'=>'csv','path'=>'results.csv'];
+        $snapshot=$this->engine->preview('alice','forms_link_results_file',$args,['revision'=>'4'],$this->native(...));
+        $destination=['path'=>'results.csv','overwrite'=>false];$snapshot['file_destination']=$destination;
+        $snapshot['linked_approval']=['arguments'=>$args,'destination'=>$destination,
+            'native_runtime'=>\OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity::INSTALLED_MANIFEST_SHA256,
+            'source_revision'=>'4','schema_digest'=>\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExport::schemaDigest($snapshot['export_metadata'])];
+        $id=$this->engine->start('alice','forms_link_results_file',$args,$snapshot,'initial-link',['uid'=>'alice','connection'=>12,'tool'=>'forms_link_results_file'],$this->native(...))['references']['job_id'];
+        $this->engine->step('alice',$id,$this->native(...));$version=$this->jobs[$id]['version'];$key='initial-delivery-key';
+        try {$this->engine->deliver('alice',$id,$this->native(...),static fn()=>throw new \RuntimeException('lost after native commit'),$key,$version);}
+        catch(\RuntimeException) {}
+        self::assertSame('delivery_uncertain',$this->jobs[$id]['state']);
+        $association=str_repeat('a',64);
+        $receipt=['state'=>'succeeded','operation_key'=>$key,'phases'=>['database'=>'committed','files'=>'saved_verified'],
+            'references'=>['form_id'=>4,'file_id'=>7,'association_id'=>$association,'linked_export'=>$association,'source_revision'=>'4']];
+        return [$id,$key,$version,$receipt];
+    }
+    public function testInitialLinkedCommitReconciliationDoesNotReadOrRewriteChangedSourceOrOutput():void {
+        [$id,$key,$version,$receipt]=$this->uncertainInitialLink();$this->revision++;$this->cacheLive=false;$lookups=0;
+        $outcome=$this->engine->reconcileLinkedDelivery('alice',$id,$key,$version,function(array $origin)use($receipt,&$lookups):array {
+            self::assertSame(12,$origin['connection']);$lookups++;return $receipt;
+        });
+        self::assertSame('succeeded',$outcome['state']);self::assertSame(1,$lookups);
+        self::assertSame('delivered',$this->jobs[$id]['state']);
+        self::assertSame(['file_id'=>7,'association_id'=>str_repeat('a',64),'historical'=>true],$this->jobs[$id]['payload']['delivered']);
+        self::assertArrayNotHasKey('current_step',$this->jobs[$id]['payload']);
+        self::assertSame('succeeded',$this->engine->recover('alice',$id,$key,$version)['state']);
+    }
+    /** @dataProvider invalidLinkedReceipts */
+    public function testUnprovenOrSubstitutedLinkedReceiptCannotAcknowledgeAnEffect(string $change):void {
+        [$id,$key,$version,$receipt]=$this->uncertainInitialLink();$before=$this->jobs[$id];
+        match($change) {
+            'key'=>$receipt['operation_key']='another-key',
+            'form'=>$receipt['references']['form_id']=5,
+            'file'=>$receipt['references']['file_id']=0,
+            'association'=>$receipt['references']['association_id']=str_repeat('b',64),
+            'source'=>$receipt['references']['source_revision']='5',
+            'database'=>$receipt['phases']['database']='unknown',
+            'files'=>$receipt['phases']['files']='unknown',
+            'native_pending_events'=>$receipt['state']='partial',
+            'missing'=>$receipt=[],
+        };
+        self::assertNull($this->engine->reconcileLinkedDelivery('alice',$id,$key,$version,static fn():array=>$receipt));
+        self::assertSame($before,$this->jobs[$id]);
+    }
+    public static function invalidLinkedReceipts():iterable {foreach(['key','form','file','association','source','database','files','native_pending_events','missing'] as $change)yield $change=>[$change];}
+    public function testReconciliationStillRequiresTheOriginalCurrentAuthorityBeforeLookup():void {
+        [$id,$key,$version]=$this->uncertainInitialLink();$this->originAllowed=false;
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);
+        $this->engine->reconcileLinkedDelivery('alice',$id,$key,$version,static fn()=>self::fail('Revoked connection read native evidence.'));
     }
     private function start():array {
         $preview=$this->engine->preview('alice','forms_download_results',['id'=>4,'format'=>'csv'],['revision'=>'4','form'=>['id'=>4,'ownerId'=>'alice']]+($this->exportRevision===null?[]:['export_revision'=>$this->exportRevision]),$this->native(...));

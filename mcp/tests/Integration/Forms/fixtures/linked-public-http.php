@@ -108,6 +108,34 @@ try {
         }
     }
     $checks['initial_recovery']=$mode;
+    if(str_starts_with($mode,'reconcile')) {
+        $stage='lost initial acknowledgement';
+        $store=Server::get(\OCA\Mcp\Modules\Forms\Exports\FormsJobStore::class);$jobId=$linked['data']['job_id'];$job=$store->get($jobId);
+        if($job['state']!=='delivered')throw new RuntimeException('Cannot inject lost acknowledgement before an actual committed delivery.');
+        $uncertain=$job;$uncertain['version']++;$uncertain['state']='delivery_uncertain';
+        $uncertain['payload']['last_step']['outcome']=['state'=>'partial','references'=>['job_id'=>$jobId]];unset($uncertain['payload']['delivered']);
+        if(!$store->compareAndSwap($job,$uncertain))throw new RuntimeException('Lost acknowledgement fault injection conflicted.');
+        $deliveryOperation=$linked['operation']['operation_id'];
+        if($db->executeStatement('UPDATE *PREFIX*mcp_operations SET state = ?,target_key = ? WHERE actor_uid = ? AND operation_id = ? AND state = ?',
+            ['uncertain',hash('sha256','forms-target-v1:job:'.$jobId),$uid,$deliveryOperation,'succeeded'])!==1)throw new RuntimeException('Cannot inject local acknowledgement loss.');
+        if(in_array($mode,['reconcile_expired','reconcile_cleaned'],true)) {
+            $db->executeStatement('UPDATE *PREFIX*mcp_forms_spool SET expires_at = ? WHERE job_id = ?',[time()-1,$jobId]);
+            if($mode==='reconcile_cleaned') {
+                Server::get(\OCA\Mcp\Modules\Forms\Exports\FormsPrivateSpool::class)->cleanup();
+                if(array_key_exists('metadata',$store->get($jobId)['payload']))throw new RuntimeException('Expired fixture metadata was not compacted.');
+            }
+        }
+        $nativeCount=(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_mcp_operations')->fetchOne();
+        $oldHash=hash('sha256',$file->getContent());
+        $proof=$rpc('forms_get_operation',['operation_id'=>$deliveryOperation]);
+        if(($proof['state']??null)!=='succeeded'||($proof['references']['file_id']??null)!==$fileId||($proof['references']['database']??null)!=='committed'
+            ||$store->get($jobId)['state']!=='delivered'||($store->get($jobId)['payload']['delivered']['historical']??false)!==true)
+            throw new RuntimeException('Actual native receipt did not reconcile the lost acknowledgement.');
+        $again=$rpc('forms_get_operation',['operation_id'=>$deliveryOperation]);
+        if($again['state']!=='succeeded'||$nativeCount!==(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_mcp_operations')->fetchOne()
+            ||!hash_equals($oldHash,hash('sha256',$file->getContent())))throw new RuntimeException('Receipt reconciliation repeated an effect.');
+        $checks['historical_reconciliation_without_replay']=true;
+    }
     $stage='native update then real cron';
     $submission=new \OCA\Forms\Db\Submission();$submission->setFormId($id);$submission->setUserId($uid);$submission->setTimestamp(time());
     $submission=Server::get(\OCA\Forms\Db\SubmissionMapper::class)->insert($submission);

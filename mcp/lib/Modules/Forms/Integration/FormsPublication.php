@@ -13,6 +13,7 @@ final class FormsPublication {
     private const READS=['forms_read_settings','forms_read_question','forms_list_shares','forms_read_links','forms_get_embed','forms_read_own_responses','forms_read_response','forms_list_response_files','forms_read_admin_settings','forms_get_operation','forms_list_operations'];
     public static function supported(string $tool,array $native):bool {
         if($tool==='forms_capabilities')return true;
+        if(in_array($tool,['forms_list_comments','forms_add_comment','forms_update_comment','forms_delete_comment'],true))return in_array($tool,self::MCP,true)&&($native['qualified']??false)===true&&($native['protocol']??null)===1&&($native['comments']??false)===true;
         if(($native['qualified']??false)!==true||($native['protocol']??null)!==1)return false;
         if(in_array($tool,['forms_link_results_file','forms_unlink_results_file'],true))return in_array($tool,self::MCP,true)&&($native['linked_exports']??false)===true&&($native['file_sinks']??false)===true;
         if($tool==='forms_read_own_response'&&($native['own_response_pages']??false)!==true)return false;

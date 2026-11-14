@@ -110,6 +110,14 @@ final class FormsOperationJournalTest extends TestCase {
         self::assertSame('succeeded',$status['state']);self::assertSame(8,$status['references']['submission_id']);
         self::assertSame(1,$calls);self::assertArrayNotHasKey('secret',$status['references']);
     }
+    public function testPartialReceiptCanConvergeFromNewNativeEvidenceWithoutRepeatingTheEffect():void {
+        $args=$this->approved(['id'=>4]);$calls=0;
+        $this->journal->execute('forms_submit_response','alice',$args,function()use(&$calls):array {
+            $calls++;return ['state'=>'partial','references'=>['form_id'=>4,'database'=>'committed']];
+        });
+        $status=$this->journal->get('alice',$args['operation_id'],static function():void{},static fn():array=>['state'=>'succeeded','references'=>['form_id'=>4,'database'=>'committed']]);
+        self::assertSame('succeeded',$status['state']);self::assertSame(1,$calls);
+    }
     public function testFilteredReceiptPageStillHasContinuation():void {
         for($i=0;$i<3;$i++){$a=$this->approved(['id'=>10+$i]);$this->journal->execute('forms_submit_response','alice',$a,fn():array=>['state'=>'succeeded','references'=>[]]);}
         $page=$this->journal->list('alice',null,1,static function():void{throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('revoked');});

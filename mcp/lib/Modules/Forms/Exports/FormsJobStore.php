@@ -11,4 +11,5 @@ interface FormsJobStore {
     public function get(string $id):?array;
     public function create(array $job):bool;
     public function compareAndSwap(array $expected,array $next):bool;
+    public function acknowledgeLinkedDelivery(array $expected,array $next,array $nativeReceipt):bool;
 }

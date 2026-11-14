@@ -30,6 +30,22 @@ final class OperationsMapperTest extends TestCase {
         self::assertFalse($store->reserve($row),'Completed operation keys remain non-replay tombstones.');
         self::assertNull($store->get(str_repeat('f',64),'one'));
     }
+    public function testOnlyFormsPartialEvidenceCanConvergeAndCannotBecomeNoEffect():void {
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
+        foreach(['forms_continue_operation','mail_write_draft'] as $tool) {
+            $row=['scope_key'=>'scope','operation_id'=>$tool,'actor_uid'=>'alice','tool_name'=>$tool,'effect_digest'=>'digest',
+                'target_key'=>null,'state'=>'running','resource_refs'=>[],'created_at'=>100,'updated_at'=>100];
+            self::assertTrue($store->reserve($row));$store->finish('scope',$tool,'partial',['database'=>'committed'],100);
+            $expected=$store->get('scope',$tool);
+            self::assertFalse($store->reconcile($expected,'failed_before_effect',[],101));
+            if($tool==='mail_write_draft') {
+                self::assertFalse($store->reconcile($expected,'succeeded',[],101));continue;
+            }
+            self::assertTrue($store->reconcile($expected,'succeeded',['database'=>'committed'],101));
+            self::assertFalse($store->reconcile($expected,'partial',[],102),'A stale proof cannot replace the accepted acknowledgement.');
+            self::assertSame('succeeded',$store->get('scope',$tool)['state']);
+        }
+    }
     public function testDeliveryReceiptSurvivesCompactionWithoutContentOrPrivateArtifact():void {
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
         $row=['scope_key'=>'scope','operation_id'=>'send','actor_uid'=>'alice','tool_name'=>'mail_send','effect_digest'=>'digest','target_key'=>null,'state'=>'running','resource_refs'=>[],'created_at'=>100,'updated_at'=>100];

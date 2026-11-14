@@ -210,7 +210,16 @@ final class FormsNativeGateway implements FormsGateway {
         if($context!==null&&in_array($context['tool'],['forms_continue_operation','forms_cancel_operation'],true)) {
             $refs=$context['references'];
             if(!isset($refs['job_id'],$refs['job_version'])||!is_int($refs['job_version']))return null;
-            return $this->jobs->recover($uid,$refs['job_id'],$operationKey,$refs['job_version']);
+            if($context['tool']==='forms_continue_operation') {
+                $native=$this->native($uid);
+                $committed=$this->jobs->reconcileLinkedDelivery($uid,$refs['job_id'],$operationKey,$refs['job_version'],
+                    function(array $original)use($uid,$operationKey,$native):?array {
+                        $this->authorization->assert($original);return $native->lookup($uid,$operationKey,$original);
+                    });
+                if($committed!==null)return $this->outcome($committed);
+            }
+            $recovered=$this->jobs->recover($uid,$refs['job_id'],$operationKey,$refs['job_version']);
+            return $recovered===null?null:$this->outcome($recovered);
         }
         $id=hash('sha256','forms-job-v1:'.$operationKey);
         $evidence=$this->jobs->admissionEvidence($uid,$id);if($evidence!==null)return $evidence;

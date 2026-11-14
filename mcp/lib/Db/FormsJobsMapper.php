@@ -40,10 +40,31 @@ final class FormsJobsMapper implements FormsJobStore {
         } catch(Exception $error){if($error->getReason()===Exception::REASON_UNIQUE_CONSTRAINT_VIOLATION)return false;throw $error;}
     }
     public function compareAndSwap(array $expected,array $next):bool {
-        if($next['actor_uid']!==$expected['actor_uid']||$next['job_id']!==$expected['job_id'])throw new \RuntimeException('Forms job identity changed.');
-        $encrypted=$this->crypto->encrypt(json_encode($next['payload'],JSON_THROW_ON_ERROR));
         $oldContent=$expected['payload'];$newContent=$next['payload'];
         foreach(['current_step','last_step'] as $key){unset($oldContent[$key],$newContent[$key]);}
+        return $this->replace($expected,$next,$oldContent===$newContent);
+    }
+    /** A verified historical receipt may survive cache expiry; no result content or original approval can change. */
+    public function acknowledgeLinkedDelivery(array $expected,array $next,array $nativeReceipt):bool {
+        if(!in_array($expected['state'],['delivering','delivery_uncertain'],true)||$next['state']!=='delivered'
+            ||$next['version']!==$expected['version']+1||isset($expected['payload']['delivered'])||isset($next['payload']['current_step']))return false;
+        $control=['state'=>true,'version'=>true,'updated_at'=>true,'payload'=>true];
+        if(array_diff_key($expected,$control)!==array_diff_key($next,$control))return false;
+        $step=$expected['state']==='delivering'?($expected['payload']['current_step']??[]):($expected['payload']['last_step']??[]);
+        if(!is_string($step['key']??null)||!is_int($step['approved_version']??null))return false;
+        $file=(new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedActivation())->recovered($expected['actor_uid'],$expected,$step['key'],$nativeReceipt);
+        if($file===null||($next['payload']['delivered']??null)!==$file
+            ||($next['payload']['last_step']??null)!==['key'=>$step['key'],'approved_version'=>$step['approved_version'],
+                'outcome'=>\OCA\Mcp\Modules\Forms\Exports\FormsLinkedActivation::historicalOutcome($expected,$nativeReceipt,$file)])return false;
+        $oldContent=$expected['payload'];$newContent=$next['payload'];
+        foreach(['current_step','last_step'] as $key){unset($oldContent[$key],$newContent[$key]);}
+        unset($newContent['delivered']);
+        if($oldContent!==$newContent)return false;
+        return $this->replace($expected,$next,true);
+    }
+    private function replace(array $expected,array $next,bool $evidenceOnly):bool {
+        if($next['actor_uid']!==$expected['actor_uid']||$next['job_id']!==$expected['job_id'])throw new \RuntimeException('Forms job identity changed.');
+        $encrypted=$this->crypto->encrypt(json_encode($next['payload'],JSON_THROW_ON_ERROR));
         return $this->budget->persistSQL($expected['job_id'],$expected['actor_uid'],strlen($encrypted),function()use($expected,$next,$encrypted):bool {
             $q=$this->db->getQueryBuilder();return $q->update('mcp_forms_jobs')
                 ->set('version',$q->createNamedParameter($next['version'],IQueryBuilder::PARAM_INT))->set('state',$q->createNamedParameter($next['state']))
@@ -51,6 +72,6 @@ final class FormsJobsMapper implements FormsJobStore {
                 ->where($q->expr()->eq('job_id',$q->createNamedParameter($expected['job_id'])))
                 ->andWhere($q->expr()->eq('version',$q->createNamedParameter($expected['version'],IQueryBuilder::PARAM_INT)))
                 ->andWhere($q->expr()->eq('state',$q->createNamedParameter($expected['state'])))->executeStatement()===1;
-        },$oldContent===$newContent);
+        },$evidenceOnly);
     }
 }

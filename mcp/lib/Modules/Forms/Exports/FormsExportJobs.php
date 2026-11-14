@@ -41,7 +41,10 @@ final class FormsExportJobs {
         $job=['job_id'=>$id,'actor_uid'=>$uid,'version'=>1,'state'=>'collecting','updated_at'=>($this->time)(),
             'payload'=>['origin'=>$origin,'cache_protocol'=>2,'native_runtime'=>\OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity::INSTALLED_MANIFEST_SHA256,'tool'=>$tool,'arguments'=>$args,'source_revision'=>self::sourceRevision($snapshot),
                 'cache_expires_at'=>($this->time)()+604800,'metadata'=>$snapshot['export_metadata'],'destination'=>$snapshot['file_destination']??null,'done'=>0,'after_id'=>0,'bytes'=>0,'parts'=>[],'file_ids'=>[]]];
-        if($tool==='forms_link_results_file'&&isset($snapshot['linked_approval']))$job['payload']['linked_approval']=$snapshot['linked_approval'];
+        if($tool==='forms_link_results_file'&&isset($snapshot['linked_approval'])) {
+            $job['payload']['linked_approval']=$snapshot['linked_approval'];
+            $job['payload']['linked_schema_digest']=FormsLinkedExport::schemaDigest($snapshot['export_metadata']);
+        }
         try {$this->spool->reserve($id,$uid);}catch(\Throwable){throw new \OCA\Mcp\Modules\Forms\Execution\FormsBeforeEffect('Forms temporary result capacity is unavailable. No result job or Files write was started.');}
         if(!$this->store->create($job))throw new ToolFailure('Forms job admission conflicted; inspect its receipt.');
         return $this->receipt($id);
@@ -167,6 +170,24 @@ final class FormsExportJobs {
         $next=$this->accepted($working,$next,$outcome);
         if(!$this->store->compareAndSwap($working,$next))throw new ToolFailure('Forms worker lost the page claim.');
         return $this->present($next);
+    }
+    /** Never repeats a writer: one exact committed native activation can settle a lost local acknowledgement. */
+    public function reconcileLinkedDelivery(string $uid,string $id,string $key,int $version,callable $lookup):?array {
+        $old=$this->job($uid,$id,false);$p=$old['payload'];
+        if(($p['tool']??null)!=='forms_link_results_file'||!isset($p['linked_approval'])
+            ||!in_array($old['state'],['delivering','delivery_uncertain'],true))return null;
+        $step=$old['state']==='delivering'?($p['current_step']??[]):($p['last_step']??[]);
+        if(($step['key']??null)!==$key||($step['approved_version']??null)!==$version)return null;
+        $receipt=$lookup($p['origin']);
+        if(!is_array($receipt))return null;
+        $file=(new FormsLinkedActivation())->recovered($uid,$old,$key,$receipt);
+        if($file===null)return null;
+        $this->admitEvidence($uid,$old);
+        $outcome=FormsLinkedActivation::historicalOutcome($old,$receipt,$file);
+        $next=$old;$next['version']++;$next['state']='delivered';$next['updated_at']=($this->time)();
+        $next['payload']['delivered']=$file;
+        $next['payload']['last_step']=['key'=>$key,'approved_version'=>$version,'outcome'=>$outcome];unset($next['payload']['current_step']);
+        return $this->store->acknowledgeLinkedDelivery($old,$next,$receipt)?$outcome:null;
     }
     /** Recover durable evidence only. Invalidating a stale read claim prevents a delayed worker from accepting its page. */
     public function recover(string $uid,string $id,string $key,int $version):?array {

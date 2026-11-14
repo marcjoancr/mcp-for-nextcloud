@@ -98,10 +98,11 @@ final class FormsOperationJournal {
         $row=$this->store->get($this->scope($uid),$id);
         if($row===null)throw new ToolFailure(ToolFailure::NOT_FOUND);
         $this->assertActor($uid,$row);$authorize($row['tool_name'],$row['resource_refs']);
-        if($lookup!==null&&$this->outcomes!==null&&in_array($row['state'],['running','uncertain'],true)&&isset($row['resource_refs']['native_key'])) {
+        if($lookup!==null&&$this->outcomes!==null&&in_array($row['state'],['running','uncertain','partial'],true)&&isset($row['resource_refs']['native_key'])) {
             try {
                 $native=$lookup($row['resource_refs']['native_key'],$row['tool_name'],$row['resource_refs']);
-                if(is_array($native)&&in_array($native['state']??null,['succeeded','partial','pending','failed_before_effect'],true)) {
+                $accepted=$row['state']==='partial'?['succeeded','partial']:['succeeded','partial','pending','failed_before_effect'];
+                if(is_array($native)&&in_array($native['state']??null,$accepted,true)) {
                     $this->assertActor($uid,$row);$authorize($row['tool_name'],$row['resource_refs']);
                     $refs=array_replace($row['resource_refs'],array_intersect_key($native['references']??[],array_flip(self::REFERENCES)));
                     if($this->outcomes->reconcile($row,$native['state'],$refs,$this->clock->getTime()))$row=$this->store->get($this->scope($uid),$id)??$row;

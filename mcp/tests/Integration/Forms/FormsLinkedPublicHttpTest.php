@@ -14,6 +14,7 @@ final class FormsLinkedPublicHttpTest extends TestCase {
         $result=$this->probe($mode);
         foreach(['persistent_http_initial_link','real_cron_updates','unlink_preserves_file'] as $key)self::assertTrue($result['checks'][$key],$key);
         self::assertSame($mode,$result['checks']['initial_recovery']);
+        if(str_starts_with($mode,'reconcile'))self::assertTrue($result['checks']['historical_reconciliation_without_replay']);
     }
     public function testDisabledVersionsIsRefusedBeforeEffectsWithEitherCopyPreference():void {
         $result=$this->probe('versions_disabled');
@@ -29,5 +30,5 @@ final class FormsLinkedPublicHttpTest extends TestCase {
         self::assertSame(0,proc_close($process),$out."\n".$err);
         $result=json_decode($out,true,64,JSON_THROW_ON_ERROR);self::assertTrue($result['ok']);return $result;
     }
-    public static function modes():iterable {yield 'new output'=>['create'];yield 'native Versions overwrite'=>['versions'];yield 'private copy overwrite'=>['copy'];}
+    public static function modes():iterable {yield 'new output'=>['create'];yield 'native Versions overwrite'=>['versions'];yield 'private copy overwrite'=>['copy'];yield 'lost acknowledgement'=>['reconcile'];yield 'lost acknowledgement after expiry'=>['reconcile_expired'];yield 'lost acknowledgement after cleanup'=>['reconcile_cleaned'];}
 }
