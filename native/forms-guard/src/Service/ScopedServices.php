@@ -11,9 +11,9 @@ final class ScopedServices {
     private FreshCore $core;
     private \OCP\IUser $user;
     private \Psr\Container\ContainerInterface $container;
-    public function __construct(string $uid, private bool $deferred = false, private bool $boundedReads = false) {
+    public function __construct(string $uid, private bool $deferred = false, private bool $boundedReads = false, bool $nativeOnly = false) {
         $this->core = new FreshCore($uid);
-        $this->core->assertPrincipal();
+        $this->core->assertPrincipal(false, !$nativeOnly);
         $this->user = $this->core->user();
         $this->container=(new \OCA\Forms\AppInfo\Application())->getContainer();
     }

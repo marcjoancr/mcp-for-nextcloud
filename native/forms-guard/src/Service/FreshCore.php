@@ -81,8 +81,8 @@ final class FreshCore {
         self::set($this->apps, 'userSession', new ScopedUserSession($this->user));
     }
 
-    public function assertPrincipal(bool $requiresAdmin = false): void {
-        if (!$this->apps->isEnabledForUser('forms', $this->user) || !$this->apps->isEnabledForUser('mcp', $this->user)) {
+    public function assertPrincipal(bool $requiresAdmin = false, bool $requiresMcp = true): void {
+        if (!$this->apps->isEnabledForUser('forms', $this->user) || ($requiresMcp && !$this->apps->isEnabledForUser('mcp', $this->user))) {
             throw new \RuntimeException('Forms principal app access is unavailable');
         }
         if ($requiresAdmin && !$this->groups->isAdmin($this->user->getUID())) {

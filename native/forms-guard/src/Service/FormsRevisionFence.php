@@ -11,6 +11,11 @@ use OCP\Server;
 final class FormsRevisionFence
 {
     private int $depth = 0;
+    private array $transactionCallbacks = [];
+    public function afterTransaction(callable $callback): void {
+        if (!$this->active()) {throw new \LogicException("Transaction completion callback requires active fence");}
+        $this->transactionCallbacks[]=$callback;
+    }
     /** Per outer transaction; discarded on commit and rollback. */
     private array $resultSourcesTouched = [];
     private array $linkedSourcesTouched = [];
@@ -173,9 +178,13 @@ final class FormsRevisionFence
             throw $error;
         } finally {
             $this->depth = 0;
+            $callbacks=$this->transactionCallbacks;
+            $this->transactionCallbacks=[];
+            foreach ($callbacks as $callback) {$callback();}
             $this->resultSourcesTouched = [];
             $this->linkedSourcesTouched = [];
         }
+        try {Server::get(\OCA\Forms\Mcp\Comments\CommentsOutbox::class)->drain();} catch (\Throwable) {}
         Server::get(ManagedSharePhase::class)->drain();
         // No transport/event failure can roll back a committed answer set.
         try {

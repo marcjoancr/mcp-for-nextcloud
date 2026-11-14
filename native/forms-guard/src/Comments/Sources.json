@@ -1,0 +1,14 @@
+{
+  "lib/private/Comments/Manager.php": "56be0da4966e11e1182d4ee8c7cc2d6f9a6380413dcfb0616fa0edab0d9801de",
+  "lib/private/Comments/Comment.php": "a132bc1bdcd253fd68fea3064a384d64756473329d1c437fa861645c88ae623f",
+  "lib/private/Comments/ManagerFactory.php": "b74634beebd63ac7b2a836830664f309f93d6e9804f1950f400bc0fa60b0eda5",
+  "lib/private/Config.php": "069d1a5bbdeecea31360cc56af0dd20f6530e761b0c33a416bd968f06db6a430",
+  "lib/private/Server.php": "ca8b7707e59796e0a28bedc62fc03f56bc1dceb07a73a73bf73c6c7f39724115",
+  "lib/private/App/AppManager.php": "5e2382c24ad5dbbdd6ad79e5bc890426e3e9493b1c9b4e5b525f0743fbb0db99",
+  "lib/OC.php": "24053d5edb03c34e186ddd9d41ea8cd26b5b91ec59392c3c8f5847616fd90047",
+  "lib/public/Comments/CommentsEvent.php": "c772af35a161989cc5e9782f736125989778f86d306229375a87609092d7d416",
+  "lib/public/Comments/Events/CommentAddedEvent.php": "b48345d95efabfd04435ca999ff8d96294d847424d658c1884ddfcd330b71093",
+  "lib/public/Comments/Events/BeforeCommentUpdatedEvent.php": "e50de04b504df784a4cb7a69b066ea4bdb0bd2f3b67e8257c2231ca23baf58cd",
+  "lib/public/Comments/Events/CommentUpdatedEvent.php": "864cfc63a72613826664c2ea5c6de975b32d2a641e73478963eccba0fc87ddff",
+  "lib/public/Comments/Events/CommentDeletedEvent.php": "2595199f664490a9e8c1ba3fdbd79fb706f8fa920ddc106679faddf95d0de3d5"
+}

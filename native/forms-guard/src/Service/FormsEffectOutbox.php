@@ -13,6 +13,7 @@ final class FormsEffectOutbox {
     private array $pending=[];
     private static ?array $dispatch=null;
     public function __construct(private IDBConnection $db,private FormsRevisionFence $fence) {}
+    public function operationKey(): ?string {return $this->operation;}
     public function operation(?string $key): void {$this->operation=$key;}
     public static function capture(string $kind,int $formId,int $entityId): bool {
         $self=Server::get(self::class);

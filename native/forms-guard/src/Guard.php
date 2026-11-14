@@ -23,8 +23,59 @@ final class Guard {
         $fileLocks=$config->getSystemValue('filelocking.enabled',true)===true && $config->getSystemValue('memcache.locking','')==='' && $config->getSystemValue('filelocking.excluded',[])===[] && $config->getSystemValue('filelocking.debug',false)===false;
         $schemaReady=$db->executeQuery('SELECT version FROM *PREFIX*migrations WHERE app = ? AND version = ?',['forms','050402Date20261113060000'])->fetchOne()!==false;
         $qualified = $schemaReady && $identity && \OCA\Forms\Mcp\Service\SharingIdentity::verify() && $runtimeQualified && $fileLocks && empty($config->getSystemValue('dbreplica', []));
-        return ['protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
-            'database'=>$provider,'actions'=>$qualified ? array_merge(NativeActions::WRITES,['forms_read_own_response','forms_read_submission_form']) : [],'own_response_pages'=>$qualified,'public_submission_form'=>$qualified, 'answers_preflight'=>$qualified,'file_sinks'=>$qualified,'linked_exports'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified,'files_share_types'=>$qualified?[0,1]:[],'event_delivery'=>'independently_reported'];
+        $comments=$qualified && \OCA\Forms\Mcp\Comments\CommentsRuntime::approved() && \OCA\Forms\Mcp\Comments\CommentsRuntime::available() && Server::get(\OCP\Comments\ICommentsManager::class) instanceof \OCA\Forms\Mcp\Comments\GuardedCommentsManager;
+        return ['comments'=>$comments,'protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
+            'database'=>$provider,'actions'=>$qualified ? array_merge(NativeActions::WRITES,['forms_read_own_response','forms_read_submission_form'],$comments?['forms_list_comments','forms_add_comment','forms_update_comment','forms_delete_comment']:[]) : [],'own_response_pages'=>$qualified,'public_submission_form'=>$qualified, 'answers_preflight'=>$qualified,'file_sinks'=>$qualified,'linked_exports'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified,'files_share_types'=>$qualified?[0,1]:[],'event_delivery'=>'independently_reported'];
+    }
+    private function commentsAdmission(string $uid,string $action,array $input): void {
+        if (!in_array($action,['forms_list_comments','forms_add_comment','forms_update_comment','forms_delete_comment'],true)
+            || !($this->capabilities()['comments']??false) || strlen(json_encode($input,JSON_THROW_ON_ERROR))>1048576) {
+            throw new BeforeEffect('Forms comments are unavailable');
+        }
+        if (\OCA\Forms\Mcp\Comments\CommentsRuntime::actor()!==$uid) {throw new BeforeEffect('Comment actor changed');}
+        \OCA\Forms\Mcp\Comments\CommentsRuntime::admit($uid,(int)($input['id']??0));
+        if (in_array($action,['forms_update_comment','forms_delete_comment'],true)) {
+            $id=$input['comment_id']??'';
+            if (!is_string($id) || !ctype_digit($id) || (int)$id<1) {throw new BeforeEffect('Invalid comment identifier');}
+            $row=Server::get(\OCP\IDBConnection::class)->executeQuery('SELECT * FROM *PREFIX*comments WHERE id = ?',[(int)$id])->fetch();
+            if (!$row || $row['object_type']!=='forms' || (int)$row['object_id']!==(int)$input['id'] || $row['actor_type']!=='users' || $row['actor_id']!==$uid) {throw new BeforeEffect('Comment is unavailable to its original author');}
+        }
+    }
+    public function commentsSnapshot(string $uid,string $action,array $input,?callable $snapshot=null): array {
+        return OriginContext::within($uid,$input['_mcp_origin']??[],$action,$input,function()use($uid,$action,$input,$snapshot):array {
+            $before=$this->fence->revision();
+            $this->commentsAdmission($uid,$action,$input);
+            $form=Server::get(FormMapper::class)->findById((int)$input['id']);
+            $comment=$snapshot===null?[]:$snapshot();
+            $this->commentsAdmission($uid,$action,$input);
+            if ($before!==$this->fence->revision()) {throw new BeforeEffect('Comments changed during preview');}
+            $result=['revision'=>$before,'form'=>['id'=>$form->getId(),'title'=>$form->getTitle(),'allowComments'=>$form->getAllowComments()],
+                'comment'=>$comment,'comment_data'=>hash('sha256',json_encode($comment,JSON_THROW_ON_ERROR)), 'file_manifest'=>[], 'config'=>[],
+                'source'=>'066573fd592513a06f8b8624def8244e911efdfd','summary'=>['form_id'=>$form->getId(),'action'=>$action],
+                'impact'=>['database'=>$action!=='forms_list_comments','files'=>false,'events'=>$action!=='forms_list_comments']];
+            if (strlen(json_encode($result,JSON_THROW_ON_ERROR))>1048576) {throw new BeforeEffect('Comment preview exceeds budget');}
+            return $result;
+        });
+    }
+    public function commentsRead(string $uid,array $input,callable $read): array {
+        return OriginContext::within($uid,$input['_mcp_origin']??[],'forms_list_comments',$input,function()use($uid,$input,$read):array {
+            $before=$this->fence->revision();
+            $this->commentsAdmission($uid,'forms_list_comments',$input);
+            $limit=$input['limit']??50;$offset=$input['offset']??0;
+            if (!is_int($limit) || $limit<1 || $limit>100 || !is_int($offset) || $offset<0) {throw new BeforeEffect('Invalid comment page');}
+            $result=$read();
+            $this->commentsAdmission($uid,'forms_list_comments',$input);
+            if ($before!==$this->fence->revision() || strlen(json_encode($result,JSON_THROW_ON_ERROR))>1048576) {throw new BeforeEffect('Comment page changed or exceeds budget');}
+            return $result;
+        });
+    }
+    public function commentsApply(string $uid,string $action,array $input,string $revision,string $key,callable $persist): array {
+        if ($action==='forms_list_comments') {throw new BeforeEffect('Read-only comments action');}
+        return OriginContext::within($uid,$input['_mcp_origin']??[],$action,$input,fn()=> $this->operations->apply($uid,$action,$input,$revision,$key,
+            fn()=> $this->commentsAdmission($uid,$action,$input),function()use($persist,$input):array {
+                $result=$persist();
+                return ['data'=>$result,'references'=>['form_id'=>(int)$input['id'],'comment_id'=>(string)$result['id']]];
+            }));
     }
     /** Current native principal authority without borrowing a request or worker session. */
     public function assertPrincipal(string $uid, bool $requiresAdmin = false): void {
