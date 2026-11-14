@@ -745,6 +745,9 @@ class Application extends App implements IBootstrap {
             static fn():?string => $c->get(IUserSession::class)->getUser()?->getUID(),
             static fn(string $token):string => $c->get(\OCP\IURLGenerator::class)->linkToRouteAbsolute('mcp.forms_download.download',['token'=>$token])
         ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Execution\FormsBulkImpactCursor::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Execution\FormsBulkImpactCursor(
+            $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\ActorIdentity::class),$c->get(\OCA\Mcp\OAuth\ConnectionContext::class),$c->get(\OCP\Security\ICrypto::class)
+        ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Integration\FormsGateway::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Integration\FormsNativeGateway(
             $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsCapabilities::class), static fn() => $c->get('OCA\\Forms\\Mcp\\Guard'),
             $c->get(\OCA\Mcp\Modules\Forms\Attachments\FormsAnswerUploads::class), $c->get(\OCA\Mcp\Modules\Forms\Attachments\FormsAnswerFiles::class),

@@ -66,6 +66,8 @@ final class FormsWriteCoordinator {
         return $this->journal->plan($tool,$uid,$args,$plan);
     }
     private function state(string $tool,string $uid,array $args,array $snapshot):string {
+        // Encrypted read locators rotate their nonce; all approved intent, counts and digests remain bound.
+        foreach($snapshot['impact']['bulk']['collections']??[] as $kind=>$collection)if(is_array($collection))unset($snapshot['impact']['bulk']['collections'][$kind]['cursor']);
         return $this->proof->of($tool,$uid,FormsOperationJournal::canonical([
             'actor'=>$this->journal->actor($uid),'connection'=>$this->journal->connection(),
             'arguments'=>$this->effect($args),'snapshot'=>$snapshot]));

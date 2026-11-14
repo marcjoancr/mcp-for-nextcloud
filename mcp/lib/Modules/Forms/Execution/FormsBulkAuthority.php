@@ -8,7 +8,7 @@ use OCA\Mcp\Access\Grants\GrantPolicy;
 final class FormsBulkAuthority {
     public static function checked(mixed $authority):array {
         if(!is_array($authority)||count($authority)!==3
-            ||!in_array($authority['tool']??null,FormsBulkWorkflow::ACTIONS,true))
+            ||!in_array($authority['tool']??null,[...FormsBulkWorkflow::ACTIONS,'forms_update','forms_update_share','forms_unshare','forms_delete_question'],true))
             throw new FormsBeforeEffect('The original Forms bulk authority is unavailable.');
         foreach(['required_operations'=>'forms','files_operations'=>'files'] as $key=>$module) {
             $operations=$authority[$key]??null;
@@ -18,7 +18,8 @@ final class FormsBulkAuthority {
                 throw new FormsBeforeEffect('The original Forms bulk authority is invalid.');
             if(count(array_unique($operations))!==count($operations))throw new FormsBeforeEffect('The original Forms bulk authority is invalid.');
         }
-        if(!in_array(FormsCommands::commands()[$authority['tool']]['operation'],$authority['required_operations'],true))
+        $minimum=in_array($authority['tool'],['forms_update_share','forms_unshare'],true)?['share','public_link']:[FormsCommands::commands()[$authority['tool']]['operation']];
+        if(array_intersect($minimum,$authority['required_operations'])===[])
             throw new FormsBeforeEffect('The original Forms bulk grant is missing.');
         return $authority;
     }

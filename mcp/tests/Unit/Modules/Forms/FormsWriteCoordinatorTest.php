@@ -28,7 +28,7 @@ final class FormsWriteCoordinatorTest extends TestCase {
     private FormsWriteCoordinator $coordinator;
     protected function setUp():void {
         $gateway=$this->createMock(FormsGateway::class);
-        $gateway->method('snapshot')->willReturnCallback(fn():array=>$this->snapshotFails?throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Unavailable'):['revision'=>$this->revision,'form'=>['id'=>4,'title'=>'Before','ownerId'=>'alice','isAnonymous'=>false],'impact'=>['database'=>true]]+$this->extraSnapshot);
+        $gateway->method('snapshot')->willReturnCallback(fn():array=>$this->snapshotFails?throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Unavailable'):array_replace(['revision'=>$this->revision,'form'=>['id'=>4,'title'=>'Before','ownerId'=>'alice','isAnonymous'=>false],'impact'=>['database'=>true]],$this->extraSnapshot));
         $gateway->method('apply')->willReturnCallback(function():array{$this->effects++;if($this->failApply)throw new \RuntimeException('Lost native reply');if($this->outcome!==[])return $this->outcome;return ['state'=>'succeeded','data'=>['id'=>4,'title'=>'After','shares'=>[['token'=>'private']]],'references'=>['form_id'=>4]];});
         $gateway->method('read')->willReturn(['id'=>4,'title'=>'Before','ownerId'=>'alice','isAnonymous'=>false,'questions'=>[],'shares'=>[['token'=>'private']]]);
         $config=(new InMemoryConfig())->mock($this);$proof=new PlanState($config);
@@ -48,6 +48,20 @@ final class FormsWriteCoordinatorTest extends TestCase {
         self::assertSame('After',$p['changes']['title']);self::assertArrayHasKey('plan_state',$p);
         self::assertArrayHasKey('operation_id',$p);
         self::assertStringNotContainsString('private',json_encode($p));
+    }
+    public function testFreshInspectionLocatorNonceDoesNotChangeApprovedEffects():void {
+        $this->extraSnapshot=['impact'=>['bulk'=>['collections'=>['files'=>['total'=>2,'digest'=>'same','cursor'=>'sealed-nonce-one']]]]];
+        $args=['id'=>4,'fields'=>['title'=>'After']];$plan=$this->coordinator->preview('forms_update','alice',$args);
+        $this->extraSnapshot['impact']['bulk']['collections']['files']['cursor']='sealed-nonce-two';
+        $this->coordinator->call('forms_update','alice',$args+['confirm'=>true,'plan_state'=>$plan['plan_state'],'operation_id'=>$plan['operation_id']]);
+        self::assertSame(1,$this->effects);
+    }
+    public function testChangedInspectionDigestStillInvalidatesApproval():void {
+        $this->extraSnapshot=['impact'=>['bulk'=>['collections'=>['files'=>['total'=>2,'digest'=>'old','cursor'=>'sealed-nonce-one']]]]];
+        $args=['id'=>4,'fields'=>['title'=>'After']];$plan=$this->coordinator->preview('forms_update','alice',$args);
+        $this->extraSnapshot['impact']['bulk']['collections']['files']=['total'=>2,'digest'=>'changed','cursor'=>'sealed-nonce-two'];
+        try{$this->coordinator->call('forms_update','alice',$args+['confirm'=>true,'plan_state'=>$plan['plan_state'],'operation_id'=>$plan['operation_id']]);self::fail('Changed effects admitted.');}
+        catch(PlanChanged){self::assertSame(0,$this->effects);}
     }
     public function testSourceChangedAfterPreviewRefusesEffect():void {
         $a=['id'=>4,'fields'=>['title'=>'After']];$p=$this->coordinator->preview('forms_update','alice',$a);$this->revision='2';
