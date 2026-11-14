@@ -22,7 +22,8 @@ final class FormsRecoveryReadsTest extends TestCase {
     private bool $allowed=true;
     private function setupReads():void {
         $connection=new ConnectionContext();$connection->set(12);$proof=new PlanState((new InMemoryConfig())->mock($this));$actors=new OperationActors();
-        $this->cursors=new FormsBulkImpactCursor($proof,$actors,$connection);
+        $crypto=$this->createMock(\OCP\Security\ICrypto::class);$crypto->method('encrypt')->willReturnCallback(static fn(string $v):string=>base64_encode($v));$crypto->method('decrypt')->willReturnCallback(static fn(string $v):string=>base64_decode($v,true));
+        $this->cursors=new FormsBulkImpactCursor($proof,$actors,$connection,$crypto);
         $this->reads=new FormsRecoveryReads(new FormsBulkWorkflow($this->cursors),$this->cursors,new FormsRecoveredCommentsReader(new FormsRecoveredCommentsCursor($proof,$actors,$connection)));
     }
     private function capture():\Closure {
@@ -60,6 +61,37 @@ final class FormsRecoveryReadsTest extends TestCase {
         self::assertStringNotContainsString('hidden',json_encode($page));
         $current=array_values(array_filter($this->captures,static fn(array $c):bool=>$c[0]==='forms_read_operation_impact'));
         self::assertGreaterThanOrEqual(3,count($current));self::assertSame(['share'],$current[array_key_last($current)][2]['bulk_authority']['files_operations']);
+    }
+    public function testShareImpactTraversesReaderWithPreliminaryEmptyOriginalAuthority():void {
+        $this->setupReads();
+        foreach(['forms_update_share','forms_unshare'] as $tool)foreach([0=>'share',3=>'public_link'] as $type=>$expected) {
+            $guard=new class($type) {
+                public function __construct(private int $type) {}
+                public function bulkSnapshot(string $uid,string $tool,array $input):array {return ['revision'=>'b1:42:'.str_repeat('a',64),'form'=>['id'=>4,'ownerId'=>$uid],'counts'=>['files'=>0,'managed_shares'=>0],
+                    'authoring'=>['share_before'=>['id'=>7,'type'=>$this->type,'permissions'=>['submit']]],
+                    'file_manifest'=>['files_share'=>false],'destination'=>null,'recovery'=>'non_restorable_effect_evidence','folders'=>'retained','linked_outputs'=>'retained'];}
+                public function bulkPreviewPage(string $uid,string $tool,array $input,string $revision,string $kind,int $cursor,int $limit):array {return ['items'=>[],'total'=>0,'complete'=>true,'next_cursor'=>null,'revision'=>$revision];}
+            };
+            $input=['id'=>4,'share_id'=>7]+($tool==='forms_update_share'?['permissions'=>['submit']]:[]);
+            $args=['cursor'=>$this->cursors->create('alice',$tool,$input,'b1:42:'.str_repeat('a',64),'managed_shares',0)];
+            $current=0;$capture=static function(string $action,array $input,array $view)use(&$current,$expected):array {
+                if($action==='forms_read_operation_impact') {
+                    $current++;$checked=\OCA\Mcp\Modules\Forms\Execution\FormsBulkAuthority::checked($view['bulk_authority']);
+                    self::assertSame([$expected],$checked['required_operations']);
+                }
+                return ['tool'=>$action,'operations'=>\OCA\Mcp\Modules\Forms\Access\FormsAuthorization::operations($action,$input,$view),'references'=>[]];
+            };
+            $snapshot=$this->reads->snapshot('alice','forms_read_operation_impact',$args,$guard,$this->history(),$capture);
+            $page=$this->reads->read('alice','forms_read_operation_impact',$args,$snapshot,$guard,$capture,static function():void{});
+            self::assertSame('managed_shares',$page['collection']);self::assertFalse($page['hasMore']);self::assertGreaterThanOrEqual(3,$current);
+            $this->expectReaderDenied($args,$snapshot,$guard,$capture);
+        }
+    }
+    private function expectReaderDenied(array $args,array $snapshot,object $guard,\Closure $original):void {
+        try{$this->reads->read('alice','forms_read_operation_impact',$args,$snapshot,$guard,static function(string $tool,array $input,array $view)use($original):array {
+            if($tool==='forms_read_operation_impact')throw new ToolFailure('Current reader withdrawn.');
+            return $original($tool,$input,$view);
+        },static function():void{});self::fail('Reader revocation admitted.');}catch(ToolFailure){self::assertTrue(true);}
     }
     public function testImpactCannotReuseAStaleNativeRevision():void {
         $this->setupReads();$guard=$this->guard();$guard->changed=true;$args=['cursor'=>$this->cursors->create('alice','forms_transfer',['id'=>4,'owner_id'=>'bob'],'b1:42:'.str_repeat('a',64),'files',0)];

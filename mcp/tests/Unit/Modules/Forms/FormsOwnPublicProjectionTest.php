@@ -15,6 +15,23 @@ use PHPUnit\Framework\TestCase;
 
 final class FormsOwnPublicProjectionTest extends TestCase {
 
+    public function testHistoricalFileAnswersRemainOmittedAfterTheirFileReferenceIsCleared():void {
+        $row=['id'=>9,'formId'=>3,'answers'=>[
+            ['id'=>1,'questionId'=>7,'fileId'=>null,'text'=>'private-historical-filename.pdf','_mcp_file_answer'=>true],
+            ['id'=>2,'questionId'=>8,'fileId'=>null,'text'=>'Ordinary text','_mcp_file_answer'=>false],
+        ]];
+        $page=['_mcp_page'=>['offset'=>0,'hasMore'=>false,'nextOffset'=>null]];
+        foreach(['forms_read_response','forms_read_own_response','forms_read_own_responses'] as $tool) {
+            $input=$tool==='forms_read_own_responses'?['submissions'=>[$row]]+$page:$row+$page;
+            $out=FormsProjection::read($tool,$input,[]);
+            $response=$tool==='forms_read_own_responses'?$out['submissions'][0]:$out;
+            self::assertSame([2],array_column($response['answers'],'id'));
+            self::assertTrue($response['fileAnswersOmitted']);
+            self::assertStringNotContainsString('private-historical-filename',json_encode($out));
+            self::assertStringNotContainsString('_mcp_file_answer',json_encode($out));
+        }
+    }
+
     public function testBulkMutationProgressSurvivesProjectionWithoutPrivateNestedEvidence():void {
         $raw=['bulk_id'=>str_repeat('a',64),'state'=>'pending','phase'=>'capture','version'=>7,'progress'=>['done'=>0,'total'=>103,'origin'=>'private'],
             'retained_files'=>['recovery'=>3,'evidence_id'=>'opaque','backup_sealed'=>true,'path'=>'private'],

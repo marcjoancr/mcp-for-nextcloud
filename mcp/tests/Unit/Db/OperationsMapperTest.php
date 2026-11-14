@@ -156,6 +156,53 @@ final class OperationsMapperTest extends TestCase {
         }
     }
 
+    public function testFreshJournalRetainsNewUncertainEvidenceWithoutReleasingItsClaim():void {
+        foreach([
+            ['forms_update',['edit'],'authoring_effects_v1','none'],
+            ['forms_update_share',['public_link'],'authoring_effects_v1','none'],
+            ['forms_delete_question',['edit_questions'],'bulk_history_v2','whole_form_with_unavailable_history'],
+            ['forms_restore',['restore'],'bulk_history_v2','whole_form_with_unavailable_history'],
+        ] as [$tool,$ops,$format,$scope]) {
+            $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
+            $connection=new ConnectionContext();$connection->set(12);$proof=new PlanState((new InMemoryConfig())->mock($this));
+            $clock=$this->createMock(ITimeFactory::class);$clock->method('getTime')->willReturn(1000);
+            $make=fn()=>new \OCA\Mcp\Modules\Forms\Execution\FormsOperationJournal($store,$proof,$connection,$clock,new \OCA\Mcp\Tests\Support\OperationActors(),$store);
+            $journal=$make();$args=['id'=>4,'plan_state'=>'proof'];$plan=$journal->plan($tool,'alice',$args,['plan_state'=>'proof']);$args['operation_id']=$plan['operation_id'];$effects=0;
+            $journal->execute($tool,'alice',$args,static function(string $key,\Closure $checkpoint)use($tool,$ops,&$effects):array {
+                $checkpoint(['bulk_authority'=>['tool'=>$tool,'required_operations'=>$ops,'files_operations'=>[]]]);
+                $effects++;throw new \RuntimeException('Lost native acknowledgement.');
+            });
+            $bulk=str_repeat('a',64);$evidence=['bulk_id'=>$bulk,'bulk_action'=>$tool,'backup_format'=>$format,'recovery_scope'=>$scope,'evidence_id'=>$bulk];
+            if($format==='bulk_history_v2')$evidence['backup_id']=$format.':'.str_repeat('b',64);
+            $receipt=$make()->get('alice',$args['operation_id'],static function():void{},static fn():array=>['state'=>'uncertain','references'=>$evidence]);
+            self::assertSame($format,$receipt['references']['backup_format']??null);self::assertSame($scope,$receipt['references']['recovery_scope']??null);
+            self::assertFalse($receipt['safe_to_retry']);self::assertSame(1,$effects);
+            $lookup=$proof->of('forms_scope_v1','alice',[12]);$old=$store->get($lookup,$args['operation_id']);
+            self::assertNotNull($old['target_key']);self::assertSame('uncertain',$old['state']);
+            self::assertFalse($store->reserve(array_replace($old,['operation_id'=>'repeat'])));
+            $replayed=$make()->execute($tool,'alice',$args,static function()use(&$effects):array{$effects++;return [];});
+            self::assertSame('uncertain',$replayed['operation']['state']);self::assertSame(1,$effects);
+        }
+    }
+    public function testNewUncertainEvidenceRejectsWrongActionFormatScopeAndBackupPrefix():void {
+        $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
+        foreach(['forms_update'=>'edit','forms_delete_question'=>'edit_questions'] as $tool=>$op) {
+            $bulk=str_repeat('a',64);$metadata=$tool==='forms_update';
+            $refs=['actor_incarnation'=>'actor','connection_id'=>12,'native_key'=>str_repeat('c',64),
+                'bulk_authority'=>['tool'=>$tool,'required_operations'=>[$op],'files_operations'=>[]]];
+            $row=['scope_key'=>'scope','operation_id'=>$tool,'actor_uid'=>'alice','tool_name'=>$tool,'effect_digest'=>'approved','target_key'=>$tool,'state'=>'running','resource_refs'=>$refs,'created_at'=>100,'updated_at'=>100];
+            self::assertTrue($store->reserve($row));$old=$store->get('scope',$tool);
+            $evidence=$refs+['bulk_id'=>$bulk,'bulk_action'=>$tool,'backup_format'=>$metadata?'authoring_effects_v1':'bulk_history_v2','recovery_scope'=>$metadata?'none':'whole_form_with_unavailable_history','evidence_id'=>$bulk];
+            if(!$metadata)$evidence['backup_id']='bulk_history_v2:'.str_repeat('b',64);
+            $changes=[['backup_format'=>'unknown'],['recovery_scope'=>'whole_form'],['evidence_id'=>str_repeat('d',64)],['backup_id'=>'bulk_v1:'.str_repeat('b',64)]];
+            if($metadata)$changes[]=['backup_format'=>'bulk_history_v2','recovery_scope'=>'whole_form_with_unavailable_history'];
+            else $changes[]=['backup_format'=>'authoring_effects_v1','recovery_scope'=>'none','backup_id'=>null];
+            foreach($changes as $change)self::assertFalse($store->retainUncertain($old,array_replace($evidence,$change),101));
+            self::assertSame($old,$store->get('scope',$tool));
+            self::assertTrue($store->retainUncertain($old,$evidence,101));
+        }
+    }
+
     public function testDeliveryReceiptSurvivesCompactionWithoutContentOrPrivateArtifact():void {
         $db=new SqliteDatabase($this,[new Version002700Date20261107000000()]);$store=new OperationsMapper($db->connection());
         $row=['scope_key'=>'scope','operation_id'=>'send','actor_uid'=>'alice','tool_name'=>'mail_send','effect_digest'=>'digest','target_key'=>null,'state'=>'running','resource_refs'=>[],'created_at'=>100,'updated_at'=>100];

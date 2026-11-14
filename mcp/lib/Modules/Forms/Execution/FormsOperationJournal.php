@@ -18,7 +18,7 @@ use OCP\AppFramework\Utility\ITimeFactory;
 
 /** Forms has independent signatures and receipts; native evidence is never permission to repeat an effect. */
 final class FormsOperationJournal {
-    private const REFERENCES = ['form_id','question_id','option_id','submission_id','share_id','comment_id','file_id','job_id','backup_id','native_operation','bulk_id','bulk_action','backup_format','restored_form_id','database','files','notifications','linked_export'];
+    private const REFERENCES = ['form_id','question_id','option_id','submission_id','share_id','comment_id','file_id','job_id','backup_id','native_operation','bulk_id','bulk_action','backup_format','evidence_id','recovery_scope','restored_form_id','database','files','notifications','linked_export'];
     public function __construct(private OperationStore $store, private PlanState $proof, private ConnectionContext $connection,
         private ITimeFactory $clock, private ActorIdentity $actors,private ?FormsOutcomeStore $outcomes=null) {}
 

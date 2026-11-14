@@ -24,7 +24,7 @@ final class FormsProjection {
     public static function read(string $tool,array $raw,array $args):array {
         if(in_array($tool,['forms_search','forms_read_result'],true))return self::bounded($raw);
         if($tool==='forms_read_operation_impact') {
-            $allowed=($raw['collection']??null)==='files'?['file_id','path','name','size','etag','owner','action','destination','recovery']:
+            $allowed=($raw['collection']??null)==='files'?['file_id','path','name','size','etag','owner','action','destination','recovery','availability','unavailable_cause']:
                 ['native_share_id','recipient','type','folder_ids','managed_share_ids','action','destination','destination_owner','source_action','permissions'];
             return self::bounded(array_intersect_key($raw,array_flip(['collection','total','hasMore','nextCursor']))+
                 ['items'=>array_map(static fn(array $row):array=>array_intersect_key($row,array_flip($allowed)),$raw['items']??[])]);
@@ -76,7 +76,7 @@ final class FormsProjection {
         $all=$raw['answers']??[];$offset=$args['offset']??0;$limit=$args['limit']??50;$answers=[];$files=false;
         if(isset($raw['_mcp_page'])&&count($all)>$limit)throw new ToolFailure('The native Forms answer page exceeds its bound.');
         foreach(isset($raw['_mcp_page'])?$all:array_slice($all,$offset,$limit) as $answer) {
-            if(($answer['fileId']??0)>0){$files=true;continue;}
+            if(($answer['fileId']??0)>0||($answer['_mcp_file_answer']??false)===true){$files=true;continue;}
             $answers[]=array_intersect_key($answer,array_flip(['id','submissionId','questionId','text']));
         }
         return self::bounded($out+['answers'=>$answers,'fileAnswersOmitted'=>$files]+(isset($raw['_mcp_page'])?self::nativePage($raw,$args):self::paging(count($all),$offset,min($limit,max(0,count($all)-$offset)))));
@@ -84,9 +84,9 @@ final class FormsProjection {
     public static function mutation(mixed $raw,string $tool=''):mixed {
         if(!is_array($raw))return null;
         if(isset($raw['bulk_id'])&&in_array($tool,[...\OCA\Mcp\Modules\Forms\Execution\FormsBulkWorkflow::ACTIONS,'forms_continue_operation','forms_cancel_operation'],true)) {
-            $out=array_intersect_key($raw,array_flip(['bulk_id','state','phase','version','complete','continuation','next']));
+            $out=array_intersect_key($raw,array_flip(['bulk_id','state','phase','version','complete','continuation','next','historical_unavailable_files']));
             $out['progress']=array_intersect_key($raw['progress']??[],array_flip(['done','total','captured','capture_total']));
-            $out['retained_files']=array_intersect_key($raw['retained_files']??[],array_flip(['recovery','copies','evidence_id','backup_sealed']));
+            $out['retained_files']=array_intersect_key($raw['retained_files']??[],array_flip(['recovery','copies','evidence_id','backup_sealed','historical_unavailable','bytes_complete']));
             return self::bounded($out);
         }
         if($tool==='forms_upload_response_files')return self::bounded(['files'=>array_map(static fn(array $f):array=>array_intersect_key($f,array_flip(['handle','name','size','expires_at'])),$raw['files']??[])]);

@@ -18,18 +18,29 @@ final class FormsPlan {
             if(isset($args['option_id']))foreach($q['options']??[] as $o)if($o['id']===$args['option_id'])$before['option']=$o;
         }
         if(isset($args['share_id']))foreach($snapshot['shares']??[] as $share)if($share['id']===$args['share_id'])$before['share']=array_intersect_key($share,array_flip(['id','shareType','permissions','displayName']));
+        $authoring=$snapshot['authoring']??[];
+        if(isset($authoring['fields_before']))$before=array_replace($before,FormsProjection::form($authoring['fields_before']));
+        if(isset($authoring['share_before'])) {
+            $before['share']=array_intersect_key($authoring['share_before'],array_flip(['id','type','recipient','public_link','permissions']));
+        }
+        if(isset($authoring['question_before']))$before['question']=array_intersect_key($authoring['question_before'],array_flip(['id','text','description','type','name','isRequired','extraSettings','accept','order']));
         if(isset($snapshot['comment']))$before['comment']=$snapshot['comment'];
         if(str_contains($tool,'admin_settings'))$before=FormsProjection::read('forms_read_admin_settings',$snapshot['config']??[],[]);
         $changes=$args['fields']??$args;
         unset($changes['confirm'],$changes['plan_state'],$changes['operation_id'],$changes['confirm_shared']);
         $impact=$snapshot['impact']??[];$manifest=$snapshot['file_manifest']??[];
         if($manifest!==[]) {
-            $files=array_map(static fn(array $f):array=>array_intersect_key($f,array_flip(['file_id','name','size','sha256'])),$manifest['files']??[]);
+            $files=array_map(static fn(array $f):array=>array_intersect_key($f,array_flip(['file_id','name','size','sha256','availability','unavailable_cause','action','recovery'])),$manifest['files']??[]);
             $impact['files']=['files'=>$files]+array_intersect_key($manifest,array_flip(['delete_file_ids','files_share','recovery','folders','restore','backup_id']));
+            if(isset($manifest['share_impact'])) {
+                $share=$manifest['share_impact'];$impact['files']['share_impact']=array_intersect_key($share,array_flip(['native_share_id','recipient','type','folder_ids','create','permissions','new_permissions']));
+                $impact['files']['share_impact']['managed_share_ids']=array_column($share['managed_shares']??[],'files_share_id');
+            }
             if(($manifest['share_removals']??[])!==[])$impact['files']['share_removals']=array_map(static fn(array $removal):array=>
                 array_intersect_key($removal,array_flip(['native_share_id','recipient','type','folder_ids']))
                 +['managed_share_ids'=>array_column($removal['managed_shares']??[],'files_share_id')],$manifest['share_removals']);
         }
+        if(array_key_exists('share_after',$authoring))$impact['share_after']=$authoring['share_after']===null?null:array_intersect_key($authoring['share_after'],array_flip(['permissions','token_changed']));
         if(isset($snapshot['file_sources']))$impact['sources']=$snapshot['file_sources'];
         if(isset($snapshot['file_destination']))$impact['destination']=$snapshot['file_destination']['plan'];
         if($tool==='forms_transfer')$impact['transfer']='Verified managed files are copied to the new owner; originals and recovery copies are retained. Shares and automatic exports are reviewed separately.';

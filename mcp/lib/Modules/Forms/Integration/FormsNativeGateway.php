@@ -50,14 +50,15 @@ final class FormsNativeGateway implements FormsGateway {
                 $snapshot['native_runtime']=FormsGuardIdentity::INSTALLED_MANIFEST_SHA256;
                 $this->snapshots[$this->key($uid,$action,$input)]=$snapshot;return $snapshot;
             }
-            if($this->wantsBulk($action,$input)&&($nativeCapabilities['bulk_lifecycle']??false)===true) {
+            if($this->wantsBulk($action,$input,$nativeCapabilities)) {
+                if(($nativeCapabilities['bulk_lifecycle']??false)!==true)throw new FormsBeforeEffect('Qualified bounded Forms lifecycle is unavailable.');
                 $snapshot=$this->bulk->preview($uid,$action,$input,$guard,
                     fn(string $tool,array $args,array $view):array=>$this->authorization->capture($uid,$tool,$args,$view),
                     fn(array $origin,string $tool,array $manifest)=>$this->authorization->assertFiles($origin,$tool,$manifest));
                 $snapshot['native_runtime']=FormsGuardIdentity::INSTALLED_MANIFEST_SHA256;
                 $this->snapshots[$this->key($uid,$action,$input)]=$snapshot;return $snapshot;
             }
-            if($action==='forms_restore'&&str_starts_with($input['backup_id']??'','bulk_v1:'))throw new FormsBeforeEffect('Qualified bounded Forms recovery is unavailable.');
+            if($action==='forms_restore'&&(str_starts_with($input['backup_id']??'','bulk_v1:')||str_starts_with($input['backup_id']??'','bulk_history_v2:')))throw new FormsBeforeEffect('Qualified bounded Forms recovery is unavailable.');
             $previewOrigin=$this->authorization->capture($uid,$action,$input,[]);$read=$this->source($uid,$guard,$previewOrigin);
             if(in_array($action,\OCA\Mcp\Modules\Forms\Comments\FormsComments::ACTIONS,true)) {
                 $private=array_replace($input,['_mcp_origin'=>$previewOrigin]);
@@ -270,9 +271,7 @@ final class FormsNativeGateway implements FormsGateway {
     private function source(string $uid,object $guard,array $origin):\Closure {
         return static fn(string $action,array $args):array=>$action==='snapshot'?$guard->snapshot($uid,'forms_results_metadata',$args+['_mcp_origin'=>$origin]):$guard->read($uid,$action,$args+['_mcp_origin'=>$origin]);
     }
-    private function wantsBulk(string $action,array $input):bool {
-        return in_array($action,FormsBulkWorkflow::ACTIONS,true)&&($action!=='forms_restore'||str_starts_with($input['backup_id']??'','bulk_v1:'));
-    }
+    private function wantsBulk(string $action,array $input,array $native):bool {return FormsBulkWorkflow::wantsBulk($action,$input,$native);}
     private function controlOrigin(string $uid,string $action,array $references):array {
         $references['required_operations']=[\OCA\Mcp\Modules\Forms\Execution\FormsCommands::commands()[$action]['operation']];
         $references['files_operations']=[];

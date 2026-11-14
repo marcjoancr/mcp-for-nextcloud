@@ -24,7 +24,7 @@ final class FormsRecoveryReads {
         $target=$this->cursors->verify($uid,$args['cursor']);$origin=$capture($target['tool'],$target['input'],[]);
         $snapshot=$guard->bulkSnapshot($uid,$target['tool'],FormsBulkWorkflow::nativeInput($target['tool'],$target['input'])+['_mcp_origin'=>$origin]);
         if(($snapshot['revision']??null)!==$target['revision'])throw new ToolFailure('The Forms effect preview changed. Request a new approval.');
-        if(!in_array($target['tool'],['forms_delete_form','forms_transfer'],true))$snapshot['file_manifest']['files_share']=false;
+        $snapshot=FormsBulkWorkflow::authorizationSnapshot($target['tool'],$snapshot);
         $origin=$capture($target['tool'],$target['input'],$snapshot);$authority=$this->authority($origin);
         $capture($tool,[],['bulk_authority'=>$authority]);
         return FormsProjection::bounded(['revision'=>'impact-read:'.hash('sha256',json_encode([$target['revision'],$args['cursor'],$args['limit']??100],JSON_THROW_ON_ERROR)),
@@ -38,8 +38,10 @@ final class FormsRecoveryReads {
         }
         if($tool!=='forms_read_operation_impact')throw new ToolFailure('Unknown Forms recovery read.');
         return $this->bulk->inspect($uid,$args['cursor'],$args['limit']??100,$guard,
-            function(string $original,array $input,array $view)use($tool,$capture):array {
-                $origin=$capture($original,$input,$view);$capture($tool,[],['bulk_authority'=>$this->authority($origin)]);return $origin;
+            function(string $original,array $input,array $view)use($tool,$capture,$snapshot):array {
+                $origin=$capture($original,$input,$view);
+                $authority=$view===[]?FormsBulkAuthority::checked($snapshot['bulk_authority']):$this->authority($origin);
+                $capture($tool,[],['bulk_authority'=>$authority]);return $origin;
             },$files);
     }
     private function authority(array $origin):array {

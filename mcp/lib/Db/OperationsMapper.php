@@ -228,8 +228,18 @@ final class OperationsMapper implements OperationStore, \OCA\Mcp\Modules\Forms\E
         // New phase evidence may advance, but original authority, actor, exact step and existing backup identity cannot change.
         foreach($old as $key=>$value)if(!in_array($key,['database','files','notifications','native_operation','linked_export'],true)
             &&(!array_key_exists($key,$refs)||$refs[$key]!==$value))return false;
-        if(isset($refs['backup_id'])&&(!is_string($refs['backup_id'])||preg_match('/^bulk_v1:[a-f0-9]{64}$/D',$refs['backup_id'])!==1))return false;
-        if(isset($refs['backup_format'])&&$refs['backup_format']!=='bulk_v1')return false;
+        $metadata=\OCA\Mcp\Modules\Forms\Execution\FormsBulkWorkflow::metadata($authority['tool']);
+        $format=$refs['backup_format']??'bulk_v1';
+        if($metadata) {
+            if($format!=='authoring_effects_v1'||isset($refs['backup_id'])||($refs['recovery_scope']??null)!=='none'
+                ||($refs['evidence_id']??null)!==$refs['bulk_id'])return false;
+        } else {
+            if(!in_array($format,['bulk_v1','bulk_history_v2'],true))return false;
+            $scope=$format==='bulk_history_v2'?'whole_form_with_unavailable_history':'whole_form';
+            if(($format==='bulk_history_v2'&&!isset($refs['recovery_scope']))||(isset($refs['recovery_scope'])&&$refs['recovery_scope']!==$scope))return false;
+            if(isset($refs['backup_id'])&&(!is_string($refs['backup_id'])||preg_match('/^'.preg_quote($format,'/').':[a-f0-9]{64}$/D',$refs['backup_id'])!==1))return false;
+            if(isset($refs['evidence_id'])&&$refs['evidence_id']!==$refs['bulk_id'])return false;
+        }
         return $this->compareAndSwapOutcome($expected,'uncertain',$refs,$time,true);
     }
 

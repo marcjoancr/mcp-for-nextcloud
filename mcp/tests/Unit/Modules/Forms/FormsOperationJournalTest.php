@@ -63,6 +63,18 @@ final class FormsOperationJournalTest extends TestCase {
         self::assertStringNotContainsString('not retained',json_encode($this->rows));
     }
 
+    public function testNonRestorableAuthoringEvidenceSurvivesFreshHistoryWithoutPrivateInput():void {
+        $args=$this->approved(['id'=>4,'fields'=>['title'=>'private proposed label']],'forms_update');$bulk=str_repeat('b',64);
+        $this->journal->execute('forms_update','alice',$args,static function(string $key,\Closure $checkpoint)use($bulk):array {
+            $checkpoint(['bulk_authority'=>['tool'=>'forms_update','required_operations'=>['edit'],'files_operations'=>[]]]);
+            return ['state'=>'succeeded','references'=>['form_id'=>4,'bulk_id'=>$bulk,'bulk_action'=>'forms_update','backup_format'=>'authoring_effects_v1',
+                'evidence_id'=>$bulk,'recovery_scope'=>'none','private'=>'secret']];
+        });
+        $status=$this->journal->get('alice',$args['operation_id'],static function():void{});
+        self::assertSame($bulk,$status['references']['evidence_id']);self::assertSame('none',$status['references']['recovery_scope']);
+        self::assertArrayNotHasKey('backup_id',$status['references']);self::assertStringNotContainsString('private proposed label',json_encode($status));
+        self::assertStringNotContainsString('secret',json_encode($status));
+    }
     public function testExistingCommentTargetIsRetainedBeforeTheNativeReplyCanBeLost():void {
         $args=$this->approved(['id'=>4,'comment_id'=>'9','message'=>'approved edit'],'forms_update_comment');
         $this->journal->execute('forms_update_comment','alice',$args,static fn()=>throw new \RuntimeException('lost reply'));
