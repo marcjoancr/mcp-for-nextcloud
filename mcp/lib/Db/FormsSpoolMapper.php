@@ -32,6 +32,11 @@ final class FormsSpoolMapper {
         $r=$q->select('*')->from('mcp_forms_spool')->where($q->expr()->eq('job_id',$q->createNamedParameter($job)))->executeQuery();
         try {$row=$r->fetch();return $row===false?null:$row;}finally{$r->closeCursor();}
     }
+    /** Read-only proof only; it never authorizes content access or resumes a writer. */
+    public function sealed(string $job,string $uid):bool {
+        $row=$this->row($job);
+        return $row!==null&&$row['actor_uid']===$uid&&$row['state']==='sealed'&&($row['io_token']??'')===''&&(int)($row['sql_bytes']??-1)>=0;
+    }
     private function lock(string $job):array {
         $this->identity($job);$q=$this->db->getQueryBuilder();
         $n=$q->update('mcp_forms_spool')->set('version',$q->createFunction('version + 1'))

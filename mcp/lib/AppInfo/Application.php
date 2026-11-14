@@ -676,6 +676,51 @@ class Application extends App implements IBootstrap {
             static fn():bool => (new \OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity())->matches($c->get(IAppManager::class)->getAppPath('forms')),
             $c->get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class), $c->get(GrantPolicy::class)
         ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedAudience::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedAudience(
+            $c->get(IRootFolder::class),$c->get(\OCP\IDBConnection::class),static fn():int=>$c->get(\OCP\AppFramework\Utility\ITimeFactory::class)->getTime()
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedRecovery::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedRecovery(
+            $c->get(IRootFolder::class),$c->get(IUserManager::class),static fn():object=>$c->get('OCA\\Files_Versions\\Versions\\IVersionManager'),
+            static fn(string $uid):bool=>$c->get(\OCA\Mcp\Access\BackupPolicy\BackupCopies::class)->required($uid)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedRetirement::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedRetirement(
+            $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsJobStore::class),
+            static fn(string $job,string $uid):bool=>$c->get(\OCA\Mcp\Db\FormsSpoolMapper::class)->sealed($job,$uid)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedFileSink::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedFiles(
+            $c->get(IRootFolder::class),$c->get(GrantPolicy::class),
+            static fn(array $origin):array=>$c->get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assert($origin),
+            static fn():object=>$c->get('OCA\\Forms\\Mcp\\Guard'),
+            $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsExportDestination::class),$c->get(\OCA\Mcp\Modules\Forms\Exports\FormsExportJobs::class),
+            $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedAudience::class),$c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedRecovery::class),
+            $c->get(\OCA\Mcp\Modules\Forms\Attachments\FormsAnswerFiles::class),$c->get(\OCA\Mcp\Modules\Forms\Attachments\FormsFileImpact::class),
+            $c->get(\OCP\IURLGenerator::class),$c->get(\OCA\Mcp\Access\BackupPolicy\BackupLocation::class)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportAuthority::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Integration\FormsNativeLinkedExportAuthority(
+            static fn():object=>$c->get('OCA\\Forms\\Mcp\\Guard'),
+            static function()use($c):bool {
+                if(!(new \OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity())->matches($c->get(IAppManager::class)->getAppPath('forms')))return false;
+                $guard=$c->get('OCA\\Forms\\Mcp\\Guard');$features=$guard->capabilities();
+                return ($features['qualified']??false)===true&&($features['file_sinks']??false)===true
+                    &&method_exists($guard,'initializeLinkedFiles')&&method_exists($guard,'linkedClaim')&&method_exists($guard,'syncLinkedFile');
+            },
+            static fn(array $origin):array=>$c->get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assert($origin),
+            $c->get(GrantPolicy::class),$c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedFileSink::class),
+            static fn(array $claim,array $cycle):array=>$c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedRetirement::class)->proof($claim,$cycle),
+            static function(array $origin)use($c):void {$c->get('OCA\\Forms\\Mcp\\Guard')->initializeLinkedFiles($origin);}
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportWorker::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportWorker(
+            $c->get(IUserSession::class),static fn(string $id):array=>$c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExport::class)->step($id)
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner(
+            $c->get(\OCA\Mcp\Platform\Process\NativeMutationProcess::class),static function()use($c):?array {
+                try {
+                    $root=dirname($c->get(IAppManager::class)->getAppPath('files'),2);$cli=PHP_BINDIR.'/php';
+                    if(!is_executable($cli)||!is_file($root.'/occ')||!is_file($root.'/lib/base.php'))return null;
+                    return ['command'=>[$cli,$root.'/occ','mcp:forms-linked-export','--no-interaction','--no-ansi'],'cwd'=>$root];
+                } catch(\Throwable) {return null;}
+            }
+        ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsDownloadAdmission::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsDownloadAdmission(
             $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsDownloadStore::class),
             static fn(string $uid,string $job):array => $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsExportJobs::class)->job($uid,$job),

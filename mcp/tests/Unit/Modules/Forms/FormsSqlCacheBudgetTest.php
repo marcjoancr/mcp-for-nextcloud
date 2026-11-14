@@ -42,6 +42,14 @@ final class FormsSqlCacheBudgetTest extends TestCase {
         $this->budget->reserve($this->id,'alice');self::assertTrue($this->jobs->create($job));return $this->jobs->get($this->id);
     }
     private function expire():void {$this->now+=FormsSpoolMapper::RETENTION_SECONDS;self::assertTrue($this->budget->retire($this->id));$this->budget->finish($this->id);}
+    public function testReadOnlyRetirementProofRequiresSealedMatchingActorAndNoPendingIo():void {
+        $this->create();self::assertFalse($this->budget->sealed($this->id,'alice'));
+        $this->budget->seal($this->id);$before=$this->sql->dbal->fetchAssociative('SELECT * FROM mcp_forms_spool');
+        self::assertTrue($this->budget->sealed($this->id,'alice'));self::assertFalse($this->budget->sealed($this->id,'bob'));
+        self::assertSame($before,$this->sql->dbal->fetchAssociative('SELECT * FROM mcp_forms_spool'));
+        $this->sql->dbal->executeStatement("UPDATE mcp_forms_spool SET io_token='unknown-writer'");
+        self::assertFalse($this->budget->sealed($this->id,'alice'));
+    }
     public function testCurrentEncryptedSqlPayloadIsChargedWithBlobReservations():void {
         $old=$this->create();$row=$this->sql->dbal->fetchAssociative('SELECT * FROM mcp_forms_spool');$cipher=$this->sql->dbal->fetchOne('SELECT payload FROM mcp_forms_jobs');
         self::assertSame(strlen($cipher),(int)$row['sql_bytes']);self::assertSame(strlen($cipher),(int)$row['used_bytes']);
