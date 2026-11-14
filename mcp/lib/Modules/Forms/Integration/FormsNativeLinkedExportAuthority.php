@@ -27,8 +27,11 @@ final class FormsNativeLinkedExportAuthority implements FormsLinkedExportAuthori
         return $uid;
     }
     public function claim(string $associationId):?array {
-        $claim=$this->guard()->linkedClaim($associationId);
-        if($claim!==null) { $this->original($claim);($this->initializeRoot)($claim['origin']); }
+        $guard=$this->guard();$claim=$guard->linkedClaim($associationId);
+        if($claim!==null) {
+            try {$this->original($claim);($this->initializeRoot)($claim['origin']);}
+            catch(\Throwable $failure) {$guard->linkedPause($claim,'admission_failed');throw $failure;}
+        }
         return $claim;
     }
     public function source(array $claim):\Closure {

@@ -12,7 +12,7 @@ use OCA\Mcp\Modules\Forms\Exports\FormsLinkedFileSink;
 use OCA\Mcp\Modules\Forms\Integration\FormsNativeLinkedExportAuthority;
 use PHPUnit\Framework\TestCase;
 final class FormsNativeLinkedExportAuthorityTest extends TestCase {
-    private bool $allowed=true;private bool $qualified=true;private array $initialized=[];private object $guard;private FormsLinkedFileSink $files;private FormsNativeLinkedExportAuthority $authority;
+    private bool $allowed=true;private bool $qualified=true;private array $initialized=[];private bool $rootAllowed=true;private object $guard;private FormsLinkedFileSink $files;private FormsNativeLinkedExportAuthority $authority;
     private function claim():array {return ['association_id'=>str_repeat('a',64),'version'=>4,'lease_token'=>'original-lease','origin'=>['uid'=>'alice','connection'=>12,'tool'=>'forms_link_results_file'],'active_cycle'=>['job_id'=>str_repeat('b',64),'generation'=>2]];}
     protected function setUp():void {
         $this->guard=new class {
@@ -31,7 +31,7 @@ final class FormsNativeLinkedExportAuthorityTest extends TestCase {
         $this->authority=new FormsNativeLinkedExportAuthority(fn():object=>$this->guard,fn():bool=>$this->qualified,
             function(array $origin):array {if(!$this->allowed)throw new \RuntimeException('revoked');return $origin;},$policy,$this->files,
             static fn(array $claim,array $cycle):array=>['state'=>'cancelled','sealed'=>true],
-            function(array $origin):void {$this->initialized[]=$origin['uid'];});
+            function(array $origin):void {if(!$this->rootAllowed)throw new \RuntimeException('foreign root');$this->initialized[]=$origin['uid'];});
     }
     public function testOnlyQualifiedCanonicalClaimInitializesTheOriginalRoot():void {
         self::assertSame(['origin'=>['uid'=>'alice']],$this->authority->claim(str_repeat('a',64)));
@@ -39,6 +39,14 @@ final class FormsNativeLinkedExportAuthorityTest extends TestCase {
         $this->qualified=false;
         $this->expectException(\RuntimeException::class);$this->authority->claim(str_repeat('b',64));
     }
+    /** @dataProvider postClaimFailures */
+    public function testFailureAfterLeaseAcquisitionDurablyPausesTheExactClaim(string $failure):void {
+        if($failure==='authority')$this->allowed=false;else $this->rootAllowed=false;
+        try {$this->authority->claim(str_repeat('a',64));self::fail('Post-claim failure admitted');}catch(\RuntimeException) {}
+        self::assertSame(['pause',['origin'=>['uid'=>'alice']],'admission_failed'],$this->guard->calls[1]??null);
+        self::assertSame([],$this->initialized);
+    }
+    public static function postClaimFailures():iterable {yield ['authority'];yield ['root'];}
     public function testSourceCallbackRetainsLeaseAndRechecksOriginalAuthorityOnEveryRead():void {
         $claim=$this->claim();$read=$this->authority->source($claim);
         self::assertSame(['export_revision'=>'9'],$read('snapshot',['id'=>4]));
