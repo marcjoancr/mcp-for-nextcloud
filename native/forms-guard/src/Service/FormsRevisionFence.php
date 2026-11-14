@@ -12,6 +12,7 @@ final class FormsRevisionFence
 {
     private int $depth = 0;
     private array $transactionCallbacks = [];
+    /** Callbacks receive whether commit returned successfully. */
     public function afterTransaction(callable $callback): void {
         if (!$this->active()) {throw new \LogicException("Transaction completion callback requires active fence");}
         $this->transactionCallbacks[]=$callback;
@@ -158,6 +159,7 @@ final class FormsRevisionFence
             $this->db->executeStatement('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
         }
         $this->db->beginTransaction();
+        $committed = false;
         try {
             if ($provider === 'postgres') {
                 $this->db->executeStatement('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
@@ -171,6 +173,7 @@ final class FormsRevisionFence
             $this->depth = 1;
             $result = $work();
             $this->db->commit();
+            $committed = true;
         } catch (\Throwable $error) {
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
@@ -180,7 +183,7 @@ final class FormsRevisionFence
             $this->depth = 0;
             $callbacks=$this->transactionCallbacks;
             $this->transactionCallbacks=[];
-            foreach ($callbacks as $callback) {$callback();}
+            foreach ($callbacks as $callback) {$callback($committed);}
             $this->resultSourcesTouched = [];
             $this->linkedSourcesTouched = [];
         }

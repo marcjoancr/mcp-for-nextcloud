@@ -29,7 +29,11 @@ final class CommentsOutbox {
         $this->db->executeStatement('INSERT INTO *PREFIX*forms_mcp_comment_events (effect_key,payload) VALUES (?,?)',[$key,$encrypted]);
         $this->db->executeStatement('INSERT INTO *PREFIX*forms_mcp_effects (effect_key,operation_key,kind,form_id,entity_id,phase,payload_ref) VALUES (?,?,?,?,?,?,?)',
             [$key,$operation,'comment',(int)$comment->getObjectId(),(int)$comment->getId(),'pending',$key]);
-        $this->pending[]=[$key,$manager];
+        $this->pending[$key]=[$key,$manager];
+        $this->fence->afterTransaction(function(bool $committed)use($key):void {
+            // Rollback (including an ambiguous commit) must not consume the process event budget.
+            if (!$committed) {unset($this->pending[$key]);}
+        });
     }
     public function drain(): void {
         if ($this->delivering || $this->db->inTransaction()) {return;}
