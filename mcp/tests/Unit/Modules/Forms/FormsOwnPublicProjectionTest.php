@@ -14,6 +14,19 @@ use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 use PHPUnit\Framework\TestCase;
 
 final class FormsOwnPublicProjectionTest extends TestCase {
+
+    public function testBulkMutationProgressSurvivesProjectionWithoutPrivateNestedEvidence():void {
+        $raw=['bulk_id'=>str_repeat('a',64),'state'=>'pending','phase'=>'capture','version'=>7,'progress'=>['done'=>0,'total'=>103,'origin'=>'private'],
+            'retained_files'=>['recovery'=>3,'evidence_id'=>'opaque','backup_sealed'=>true,'path'=>'private'],
+            'complete'=>false,'continuation'=>true,'next'=>'forms_continue_operation','operation_key'=>'private'];
+        foreach(['forms_delete_form','forms_delete_responses','forms_transfer','forms_restore','forms_continue_operation','forms_cancel_operation'] as $tool) {
+            $out=FormsProjection::mutation($raw,$tool);
+            self::assertSame(7,$out['version']??null);self::assertSame(103,$out['progress']['total']??null);
+            self::assertSame(3,$out['retained_files']['recovery']??null);
+            self::assertStringNotContainsString('private',json_encode($out));
+        }
+    }
+
     public function testLinkedStatusIsIncludedInTheFinalProjectionByteBudget():void {
         $raw=['description'=>str_repeat('x',1048550)];
         self::assertSame($raw,FormsProjection::form($raw));

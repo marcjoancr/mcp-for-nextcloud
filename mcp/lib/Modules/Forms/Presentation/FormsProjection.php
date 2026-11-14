@@ -72,6 +72,12 @@ final class FormsProjection {
     }
     public static function mutation(mixed $raw,string $tool=''):mixed {
         if(!is_array($raw))return null;
+        if(isset($raw['bulk_id'])&&in_array($tool,[...\OCA\Mcp\Modules\Forms\Execution\FormsBulkWorkflow::ACTIONS,'forms_continue_operation','forms_cancel_operation'],true)) {
+            $out=array_intersect_key($raw,array_flip(['bulk_id','state','phase','version','complete','continuation','next']));
+            $out['progress']=array_intersect_key($raw['progress']??[],array_flip(['done','total','captured','capture_total']));
+            $out['retained_files']=array_intersect_key($raw['retained_files']??[],array_flip(['recovery','copies','evidence_id','backup_sealed']));
+            return self::bounded($out);
+        }
         if($tool==='forms_upload_response_files')return self::bounded(['files'=>array_map(static fn(array $f):array=>array_intersect_key($f,array_flip(['handle','name','size','expires_at'])),$raw['files']??[])]);
         if(in_array($tool,['forms_summarize_results','forms_download_results','forms_export_results','forms_link_results_file','forms_continue_operation','forms_cancel_operation'],true))return self::bounded(array_intersect_key($raw,array_flip(['job_id','state','done','total','source_revision','complete','bytes','format','continuation','step_budget_exhausted','cache_expires_at','next','file','download_url','expires_at','single_use'])));
         if($tool==='forms_generate_link_token')return self::bounded(array_intersect_key($raw,array_flip(['token'])));
