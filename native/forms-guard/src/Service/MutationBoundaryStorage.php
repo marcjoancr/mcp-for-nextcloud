@@ -10,6 +10,7 @@ use OCP\Files\Storage\IStorage;
 /** Checks trusted authority at the storage call reached after View acquires its write lock. */
 final class MutationBoundaryStorage extends \OC\Files\Storage\Wrapper\Wrapper {
     public bool $enabled = true;
+    private ?\RuntimeException $failure = null;
 
     public function __construct(
         IStorage $storage,
@@ -26,6 +27,7 @@ final class MutationBoundaryStorage extends \OC\Files\Storage\Wrapper\Wrapper {
         if (!$this->enabled || $path !== $this->target) {
             return;
         }
+        $this->assertAdmitted();
         try {
             $storage = $this->getWrapperStorage();
             StorageAdmission::storage($storage);
@@ -52,8 +54,28 @@ final class MutationBoundaryStorage extends \OC\Files\Storage\Wrapper\Wrapper {
             ($this->authorize)('content');
         } catch (\Throwable $error) {
             // The caller may already have created an empty file or a backup in an earlier stage.
-            throw new \RuntimeException('Forms file mutation admission failed', 0, $error);
+            $this->failure ??= new \RuntimeException('Forms file mutation admission failed', 0, $error);
+            throw $this->failure;
         }
+    }
+
+    /** Native View::touch can swallow an admission exception while emulating metadata updates. */
+    public function assertAdmitted(): void {
+        if ($this->failure !== null) {
+            throw $this->failure;
+        }
+    }
+
+    public function touch(string $path, ?int $mtime = null): bool {
+        if ($this->expectedId === null) {
+            $this->admit($path);
+        }
+        return parent::touch($path, $mtime);
+    }
+
+    public function mkdir(string $path): bool {
+        $this->admit($path);
+        return parent::mkdir($path);
     }
 
     public function file_put_contents(string $path, mixed $data): int|float|false {

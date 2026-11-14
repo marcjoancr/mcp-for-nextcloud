@@ -24,7 +24,7 @@ final class Guard {
         $schemaReady=$db->executeQuery('SELECT version FROM *PREFIX*migrations WHERE app = ? AND version = ?',['forms','050402Date20261113060000'])->fetchOne()!==false;
         $qualified = $schemaReady && $identity && \OCA\Forms\Mcp\Service\SharingIdentity::verify() && $runtimeQualified && $fileLocks && empty($config->getSystemValue('dbreplica', []));
         return ['protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
-            'database'=>$provider,'actions'=>$qualified ? array_merge(NativeActions::WRITES,['forms_read_own_response','forms_read_submission_form']) : [],'own_response_pages'=>$qualified,'public_submission_form'=>$qualified, 'answers_preflight'=>$qualified,'file_sinks'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified,'files_share_types'=>$qualified?[0,1]:[],'event_delivery'=>'independently_reported'];
+            'database'=>$provider,'actions'=>$qualified ? array_merge(NativeActions::WRITES,['forms_read_own_response','forms_read_submission_form']) : [],'own_response_pages'=>$qualified,'public_submission_form'=>$qualified, 'answers_preflight'=>$qualified,'file_sinks'=>$qualified,'linked_exports'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified,'files_share_types'=>$qualified?[0,1]:[],'event_delivery'=>'independently_reported'];
     }
     /** Current native principal authority without borrowing a request or worker session. */
     public function assertPrincipal(string $uid, bool $requiresAdmin = false): void {
@@ -313,18 +313,24 @@ final class Guard {
         if ($child!==null || !$node instanceof \OCP\Files\File) {throw new \RuntimeException('Deferred linked Forms requires an existing file');}
         return $this->boundary($uid,$origin,$node,null,\Closure::fromCallable($authorize),\Closure::fromCallable($write),true);
     }
+    /** Trusted private recovery allocation or copy during the original linked output's native writing cycle. */
+    public function deferredBackupBoundary(array $origin,\OCP\Files\Node $node,?string $child,callable $authorize,callable $write): mixed {
+        $uid=$origin['uid']??'';
+        DeferredFileContext::assert($uid);
+        return $this->boundary($uid,$origin,$node,$child,\Closure::fromCallable($authorize),\Closure::fromCallable($write),true,true);
+    }
     /** Trusted callback for one exact allocation or content write. No additional Forms transaction is opened. */
     public function fileBoundary(string $uid, array $origin, \OCP\Files\Node $node, ?string $childName, \Closure $authorize, \Closure $work): mixed {
         $this->actor($uid);
         return $this->boundary($uid,$origin,$node,$childName,$authorize,$work,false);
     }
-    private function boundary(string $uid,array $origin,\OCP\Files\Node $node,?string $childName,\Closure $authorize,\Closure $work,bool $deferred): mixed {
+    private function boundary(string $uid,array $origin,\OCP\Files\Node $node,?string $childName,\Closure $authorize,\Closure $work,bool $deferred,bool $backup=false): mixed {
         if (!in_array($origin['tool'] ?? '', ['forms_save_response_file', 'forms_export_results', 'forms_link_results_file'], true)) {
             throw new \RuntimeException('Unsupported Forms file origin');
         }
         $formId = (int)($origin['references']['form_id'] ?? 0);
         try {
-            return OriginContext::within($uid, $origin, $origin['tool'], ['id' => $formId], function () use ($uid, $origin, $node, $childName, $authorize, $work, $formId,$deferred): mixed {
+            return OriginContext::within($uid, $origin, $origin['tool'], ['id' => $formId], function () use ($uid, $origin, $node, $childName, $authorize, $work, $formId,$deferred,$backup): mixed {
                 if ($childName !== null) {
                     if (!$node instanceof \OCP\Files\Folder || $childName === '' || str_contains($childName, '/') || str_contains($childName, '\\')) {
                         throw new \InvalidArgumentException('Invalid Forms destination');
@@ -348,11 +354,15 @@ final class Guard {
                     throw new \RuntimeException('Forms destination mount is unavailable');
                 }
                 $target = $mount->getInternalPath($path);
-                $check = function (string $stage='preflight') use ($uid, $origin, $formId, $authorize, $path, $mount,$deferred,$node): void {
+                $check = function (string $stage='preflight') use ($uid, $origin, $formId, $authorize, $path, $mount,$deferred,$node,$backup): void {
                     OriginContext::assertFresh();
                     if ($deferred) {
                         DeferredFileContext::assert($uid);
-                        Server::get(LinkedMarkers::class)->assertWriting($origin,$node);
+                        if ($backup) {
+                            Server::get(LinkedMarkers::class)->assertWritingOutput($origin);
+                        } else {
+                            Server::get(LinkedMarkers::class)->assertWriting($origin,$node);
+                        }
                     } else {$this->actor($uid);}
                     if (Server::get(\OCP\Files\Mount\IMountManager::class)->find($path) !== $mount) {
                         throw new \RuntimeException('Forms destination mount changed');
@@ -378,7 +388,9 @@ final class Guard {
                     return $wrapper;
                 });
             try {
-                return $work();
+                $result = $work();
+                $wrapper?->assertAdmitted();
+                return $result;
             } finally {
                 if ($wrapper !== null) {
                     $wrapper->enabled = false;

@@ -416,6 +416,19 @@ final class LinkedMarkers {
         if ($metadata['export_revision']!==$revision || self::schemaDigest($metadata)!==$row['private']['schema_digest']) {throw new \RuntimeException('Linked Forms source changed');}
     }
 
+    /** Recovery destinations use the canonical original output for the writing-cycle preimage assertion. */
+    public function assertWritingOutput(array $origin): void {
+        $context=$this->writing??throw new \RuntimeException('Linked Forms write is outside its native cycle');
+        $this->fence->assertSession();
+        $row=$this->reference($context['claim'],true,true);
+        if ($row['private']['origin']!==$origin) {throw new \RuntimeException('Linked Forms recovery origin changed');}
+        $root=Server::get(IRootFolder::class)->getUserFolder($row['private']['original_owner_uid']);
+        $node=$root->get($row['private']['last_verified']['path']);
+        if (!$node instanceof File) {throw new \RuntimeException('Linked Forms original output is unavailable');}
+        StorageAdmission::node($node);
+        $this->assertWriting($origin,$node);
+    }
+
     /** Refreshed at preflight and the actual content call after its native storage lock and Versions listeners. */
     public function assertWriting(array $origin,File $node): void {
         $context=$this->writing??throw new \RuntimeException('Linked Forms write is outside its native cycle');
