@@ -13,6 +13,8 @@ use OCP\Lock\ILockingProvider;
 final class ManagedSharePhase
 {
     private array $pending = [];
+    private ?array $authoringStep = null;
+    private array $authoringCallbacks = [];
     private ?string $operation = null;
     private bool $draining = false;
     private array $completed = [];
@@ -23,6 +25,14 @@ final class ManagedSharePhase
     public function operation(?string $key): void
     {
         $this->operation = $key;
+    }
+    /** Attach only the exact expected intent in this business frame; independent nested origins do not inherit it. */
+    public function authoringStep(callable $work): mixed
+    {
+        if($this->authoringStep!==null){throw new \LogicException('Nested authoring share step is unavailable');}
+        $context=OriginContext::current();$authority=OriginContext::authoringStepAuthority();
+        $this->authoringStep=$authority+['form_id'=>(int)$context['input']['id'],'native_share_id'=>$context['input']['share_id']??null,'create'=>$context['file_impact']['share_impact']['create']??false];
+        try{return $work();}finally{$this->authoringStep=null;}
     }
     public static function nativeRun(callable $work): mixed
     {
@@ -65,8 +75,11 @@ final class ManagedSharePhase
         }
         $key = bin2hex(random_bytes(32));
         $envelope = ['form_id' => $form->getId(), 'owner_id' => $form->getOwnerId(), 'native_share_id' => $share->getId(), 'type' => $share->getShareType(), 'recipient' => $share->getShareWith(), 'create' => $create, 'context' => $context, 'native' => $nativeRequest, 'managed' => $managed, 'deleted_form' => $deletedForm, 'operation_key' => $self->operation, 'intent_key' => $key];
+        $step=$self->authoringStep;$sameStep=$step!==null&&($step['matches'])()&&$step['form_id']===$form->getId()&&$step['native_share_id']===$share->getId()&&$step['create']===$create;
+        if($sameStep){$envelope['step_callback_required']=true;}
         EffectEnvelope::put($key, $envelope);
         $self->db->executeStatement('INSERT INTO *PREFIX*forms_mcp_share_intents (intent_key,operation_key,form_id,native_share_id,phase) VALUES (?,?,?,?,?)', [$key, $self->operation ?? '', $form->getId(), $share->getId(), 'pending']);
+        if($sameStep){$self->authoringCallbacks[$key]=$step['assert'];}
         $self->pending[] = $key;
     }
     public static function removeForDeletedForm(Form $form): void
@@ -96,9 +109,27 @@ final class ManagedSharePhase
         }
         return 'native_files_shares_verified';
     }
+    /** Only the current provider write is an effect; the complete approved graph remains in the envelope. */
+    private function currentImpact(array $envelope, ?Folder $target): array
+    {
+        $impact = $envelope['context']['file_impact'];
+        if (($impact['authoring_effects'] ?? false) !== true) {
+            return $impact;
+        }
+        $impact['files'] = $target === null ? [] : ManagedShares::currentFolderFiles((int)$envelope['form_id'], $target, $impact['files']);
+        $impact['share_impact']['folder_ids'] = $target === null ? [] : [(int)$target->getId()];
+        $impact['share_impact']['managed_shares'] = $target === null ? [] : array_values(array_filter($impact['share_impact']['managed_shares'] ?? [], static fn(array $row): bool => (int)$row['folder_id'] === (int)$target->getId()));
+        return $impact;
+    }
     private function assertNative(array $envelope, ?Folder $target = null): Form
     {
         Server::get(FormsRevisionFence::class)->assertSession();
+        $impact = $envelope['context'] === null ? [] : $this->currentImpact($envelope, $target);
+        if($envelope['step_callback_required']??false){
+            $check=$this->authoringCallbacks[$envelope['intent_key']]??throw new \RuntimeException('Immediate authoring authority is unavailable; effect cannot replay');
+            if($target!==null){$impact['share_impact']['folder_ids']=array_values(array_unique(array_merge($impact['share_impact']['folder_ids']??[],[(int)$target->getId()])));}
+            $check($envelope['context']['file_action'],$impact);
+        }
         if (!Server::get(\OCA\Forms\Mcp\Guard::class)->capabilities()['qualified']) {
             throw new \RuntimeException('Forms sharing runtime changed');
         }
@@ -107,7 +138,7 @@ final class ManagedSharePhase
             throw new \RuntimeException('Original native sharing session changed');
         }
         if ($envelope['context'] !== null) {
-            OriginContext::assertFileEffect($target === null ? [] : [(int) $target->getId()]);
+            OriginContext::withFileImpact($envelope['context']['file_action'], $impact, fn() => OriginContext::assertFileEffect($target === null ? [] : [(int) $target->getId()]));
         } else {
             NativeShareRequest::assertCurrent($envelope['native']);
         }
@@ -150,6 +181,10 @@ final class ManagedSharePhase
         return ScopedShareManager::create($envelope['owner_id'], function (\OCP\Share\IShare $share, bool $create) use ($envelope, $folder, $expectedRow): void {
             $this->assertNative($envelope, $folder);
             StorageAdmission::node($folder);
+            if ($create && ($envelope['context']['file_impact']['authoring_effects'] ?? false)) {
+                $impact = $this->currentImpact($envelope, $folder);
+                FileRecovery::verifyShareFiles($impact['files'], Server::get(IRootFolder::class)->getUserFolder($envelope['owner_id']));
+            }
             if ($create !== $envelope['create'] || $share->getShareOwner() !== $envelope['owner_id'] || ($create && $share->getSharedBy() !== $envelope['owner_id']) || $share->getSharedWith() !== $envelope['recipient'] || $share->getShareType() !== $envelope['type'] || $share->getNodeId() !== $folder->getId() || $share->getPermissions() !== 1) {
                 throw new \RuntimeException('Approved native Files share tuple changed before persistence');
             }
@@ -212,6 +247,16 @@ final class ManagedSharePhase
         if (!$folder instanceof Folder) {
             throw new \RuntimeException('Native share target is unavailable');
         }
+        $folders=[(int)$folder->getId()=>$folder];
+        $impact=$envelope['context']['file_impact']??[];
+        if(($impact['authoring_effects']??false)===true){
+            foreach($impact['share_impact']['folder_ids']??[] as $folderId){
+                $approved=$root->getById((int)$folderId)[0]??null;
+                if(!$approved instanceof Folder){throw new \RuntimeException('Approved retained upload folder is unavailable');}
+                $folders[(int)$folderId]=$approved;
+            }
+        }
+        foreach($folders as $folder){
         StorageAdmission::node($folder);
         $folder->lock(ILockingProvider::LOCK_EXCLUSIVE);
         try {
@@ -219,7 +264,7 @@ final class ManagedSharePhase
             $manager = $this->shareManager($envelope, $folder);
             ManagedShares::assertCurrentFolder($form, $folder);
             if ($envelope['context'] !== null) {
-                FileRecovery::verifyShareFiles($envelope['context']['file_impact']['files'] ?? [], $root);
+                FileRecovery::verifyShareFiles($this->currentImpact($envelope, $folder)['files'] ?? [], $root);
             }
             $known = ManagedShares::rows($form->getId(), (int) $envelope['native_share_id']);
             $existingId = null;
@@ -246,7 +291,7 @@ final class ManagedSharePhase
             $share->setNode($folder);
             $share->setPermissions(1);
             $this->assertNative($envelope, $folder);
-            $event = $this->beginEvents($envelope, 'create');
+            $event = $this->beginEvents($envelope, 'create:'.$folder->getId());
             $created = $manager->createShare($share);
             Server::get(FormsRevisionFence::class)->assertSession();
             $this->finishEvents($event);
@@ -257,11 +302,12 @@ final class ManagedSharePhase
             $row = ['files_share_id' => $created->getFullId(), 'folder_id' => $folder->getId()];
             ManagedShares::assertIdentity($created, $envelope, $row);
             if ($created->getFullId() === $existingId) {
-                return;
+                continue;
             }
             $this->db->executeStatement('INSERT INTO *PREFIX*forms_mcp_file_shares (files_share_id,form_id,native_share_id,folder_id) VALUES (?,?,?,?)', [$created->getFullId(), $form->getId(), $envelope['native_share_id'], $folder->getId()]);
         } finally {
             $folder->unlock(ILockingProvider::LOCK_EXCLUSIVE);
+        }
         }
     }
     private function beginEvents(array $envelope, string $suffix): string
@@ -289,7 +335,7 @@ final class ManagedSharePhase
             $this->pending = [];
             foreach ($pending as $key) {
                 if ($this->db->executeStatement('UPDATE *PREFIX*forms_mcp_share_intents SET phase = ? WHERE intent_key = ? AND phase = ?', ['uncertain', $key, 'pending']) !== 1) {
-                    continue;
+                    unset($this->authoringCallbacks[$key]);continue;
                 }
                 try {
                     $envelope = EffectEnvelope::get($key);
@@ -311,7 +357,7 @@ final class ManagedSharePhase
                         $nativeFailure = $error;
                     }
                     /* Claimed intents never replay. */
-                }
+                } finally {unset($this->authoringCallbacks[$key]);}
             }
         } finally {
             $this->draining = false;

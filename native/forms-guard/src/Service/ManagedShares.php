@@ -137,7 +137,7 @@ final class ManagedShares
         }
         return $impacts;
     }
-    private static function assertFolder(int $id, Folder $folder, array $known): bool
+    private static function assertFolder(int $id, Folder $folder, array $known, array &$actual = []): bool
     {
         $managed = self::knownFolder($id, (int) $folder->getId());
         foreach ($folder->getDirectoryListing() as $node) {
@@ -145,9 +145,10 @@ final class ManagedShares
                 if (!isset($known[(int) $node->getId()])) {
                     throw new \RuntimeException('Unmanaged file in native Forms share path');
                 }
+                $actual[] = (int) $node->getId();
                 $managed = true;
             } elseif ($node instanceof Folder) {
-                $managed = self::assertFolder($id, $node, $known) || $managed;
+                $managed = self::assertFolder($id, $node, $known, $actual) || $managed;
             } else {
                 throw new \RuntimeException('Unsupported native Forms share node');
             }
@@ -157,8 +158,26 @@ final class ManagedShares
         }
         return true;
     }
+    /** Enumerate the actual locked effect tree; path filtering alone misses moved-in approved IDs. */
+    public static function currentFolderFiles(int $formId, Folder $folder, array $files): array
+    {
+        $byId = array_column($files, null, 'file_id');
+        $actual = [];
+        self::assertFolder($formId, $folder, array_fill_keys(array_keys($byId), true), $actual);
+        $expected = array_column(array_filter($files, static fn(array $meta): bool => str_starts_with($meta['path'], rtrim($folder->getPath(), '/') . '/')), 'file_id');
+        sort($actual, SORT_NUMERIC);
+        sort($expected, SORT_NUMERIC);
+        if ($actual !== $expected) {
+            throw new \RuntimeException('Approved Forms share folder descendants changed');
+        }
+        return array_values(array_intersect_key($byId, array_fill_keys($actual, true)));
+    }
     public static function assertCurrentFolder(Form $form, Folder $folder): void
     {
+        $impact=OriginContext::active()?(OriginContext::current()['file_impact']??[]):[];
+        if(($impact['authoring_effects']??false)===true){
+            self::assertFolder($form->getId(),$folder,array_fill_keys(array_column($impact['files'],'file_id'),true));return;
+        }
         $rows = Server::get(IDBConnection::class)->executeQuery('SELECT a.file_id FROM *PREFIX*forms_v2_answers a INNER JOIN *PREFIX*forms_v2_submissions s ON a.submission_id = s.id WHERE s.form_id = ? AND a.file_id IS NOT NULL LIMIT 101', [$form->getId()])->fetchAll();
         if (count($rows) > 100) {
             throw new \RuntimeException('Forms share files exceed budget');

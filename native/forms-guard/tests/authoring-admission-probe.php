@@ -1,0 +1,15 @@
+<?php
+/* SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+declare(strict_types=1);define('OC_CONSOLE',true);require '/var/www/html/lib/base.php';
+use OCP\Server;
+try{
+ Server::get(\OCP\App\IAppManager::class)->loadApp('forms');$uid='guard-owner';Server::get(\OCP\IUserSession::class)->setUser(Server::get(\OCP\IUserManager::class)->get($uid));require '/tmp/origin-fixture.php';$api=Server::get(\OCA\Forms\Controller\ApiController::class);$g=Server::get(\OCA\Forms\Mcp\Guard::class);$db=Server::get(\OCP\IDBConnection::class);$case=getenv('MCP_AUTHORING_CASE')?:'public';$id=$api->newForm()->getData()['id'];
+ $share=new \OCA\Forms\Db\Share();$share->setFormId($id);$share->setPermissions(['submit']);
+ if($case==='public'){$share->setShareType(3);$share->setShareWith(bin2hex(random_bytes(16)));$db->executeStatement('INSERT INTO *PREFIX*forms_mcp_artifacts (form_id,file_id) VALUES (?,?)',[$id,2147400000-$id]);}
+ else{$share->setShareType(0);$target='author-admit-'.bin2hex(random_bytes(4));Server::get(\OCP\IUserManager::class)->createUser($target,bin2hex(random_bytes(24)));$share->setShareWith($target);}
+ $share=Server::get(\OCA\Forms\Db\ShareMapper::class)->insert($share);$input=['id'=>$id,'share_id'=>$share->getId(),'permissions'=>$case==='public'?['submit']:['submit','results']];$input['_mcp_origin']=formsNativeOrigin($uid,'forms_update_share',$input);$checks=[];
+ if($case==='public'){(new \OCA\Forms\Mcp\Service\ScopedServices($uid))->get(\OCA\Forms\Controller\ShareApiController::class)->updateShare($id,$share->getId(),['permissions'=>['submit']]);$checks['native_control']=true;$p=$g->bulkSnapshot($uid,'forms_update_share',$input);$checks['public_token_not_projected']=$p['authoring']['share_before']['recipient']===null;$checks['irrelevant_files_not_captured']=$p['counts']['files']===0;$j=$g->bulkStart($uid,'forms_update_share',$input,$p['revision'],bin2hex(random_bytes(16)));$n=0;while($j['next']&&$n++<50){$j=$g->bulkStep($uid,$j['bulk_id'],$input['_mcp_origin'],$j['version'],bin2hex(random_bytes(16)));}$checks['public_change_completed']=$j['state']==='completed';$checks['stale_file_evidence_preserved']=$db->executeQuery('SELECT file_id FROM *PREFIX*forms_mcp_artifacts WHERE form_id = ?',[$id])->fetchOne()!==false;}
+ else{$p=$g->bulkSnapshot($uid,'forms_update_share',$input);$checks['dynamic_share_required']=$p['file_manifest']['files_share'];try{$g->bulkStart($uid,'forms_update_share',$input,$p['revision'],bin2hex(random_bytes(16)));$checks['underqualified_origin_refused']=false;}catch(\OCA\Forms\Mcp\BeforeEffect){$checks['underqualified_origin_refused']=true;}$checks['native_row_unchanged']=Server::get(\OCA\Forms\Db\ShareMapper::class)->findById($share->getId())->getPermissions()===['submit'];}
+ echo json_encode(['ok'=>!in_array(false,$checks,true),'checks'=>$checks]);exit(in_array(false,$checks,true)?1:0);
+}catch(Throwable$e){echo json_encode(['ok'=>false,'error'=>$e->getMessage(),'trace'=>$e->getTraceAsString()]);exit(1);}

@@ -24,7 +24,7 @@ final class Guard {
         $schemaReady=$db->executeQuery('SELECT version FROM *PREFIX*migrations WHERE app = ? AND version = ?',['forms','050402Date20261113060000'])->fetchOne()!==false;
         $qualified = $schemaReady && $identity && \OCA\Forms\Mcp\Service\SharingIdentity::verify() && $runtimeQualified && $fileLocks && empty($config->getSystemValue('dbreplica', []));
         $comments=$qualified && \OCA\Forms\Mcp\Comments\CommentsRuntime::approved() && \OCA\Forms\Mcp\Comments\CommentsRuntime::available() && Server::get(\OCP\Comments\ICommentsManager::class) instanceof \OCA\Forms\Mcp\Comments\GuardedCommentsManager;
-        return ['bulk_source_writer_ready'=>$comments,'bulk_source_writer_reason'=>$comments?null:'qualified_comments_writer_required','bulk_lifecycle'=>$qualified&&Service\BulkStore::ready(),'bulk_backup_format'=>1,'comments'=>$comments,'protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
+        return ['bulk_authoring_scale'=>$qualified&&Service\BulkStore::ready(),'bulk_authoring_actions'=>Service\AuthoringScale::ACTIONS,'bulk_source_writer_ready'=>$comments,'bulk_source_writer_reason'=>$comments?null:'qualified_comments_writer_required','bulk_lifecycle'=>$qualified&&Service\BulkStore::ready(),'bulk_backup_format'=>1,'bulk_backup_formats'=>Service\HistoricalFiles::ready()?[1,2]:[1],'bulk_history_format'=>Service\HistoricalFiles::ready()?Service\HistoricalFiles::FORMAT:null,'comments'=>$comments,'protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
             'database'=>$provider,'actions'=>$qualified ? array_merge(NativeActions::WRITES,['forms_read_own_response','forms_read_submission_form'],$comments?['forms_list_comments','forms_add_comment','forms_update_comment','forms_delete_comment']:[]) : [],'own_response_pages'=>$qualified,'public_submission_form'=>$qualified, 'answers_preflight'=>$qualified,'file_sinks'=>$qualified,'linked_exports'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified,'files_share_types'=>$qualified?[0,1]:[],'event_delivery'=>'independently_reported'];
     }
     private function bulkAdmission(string $uid): void {
@@ -338,7 +338,7 @@ final class Guard {
             'forms_read_settings'=>$forms->getForm(Server::get(FormMapper::class)->findById($id)),
             'forms_read_question'=>(new ScopedServices($uid))->get(\OCA\Forms\Controller\ApiController::class)->getQuestion($id,$i['question_id'])->getData(),
             'forms_list_shares','forms_read_links','forms_get_embed'=>$forms->getShares($id),
-            'forms_read_response'=>(new ScopedServices($uid))->get(\OCA\Forms\Controller\ApiController::class)->getSubmission($id,$i['submission_id'])->getData()+['isAnonymous'=>Server::get(FormMapper::class)->findById($id)->getIsAnonymous()],
+            'forms_read_response'=>Service\HistoricalFiles::markResponse((new ScopedServices($uid))->get(\OCA\Forms\Controller\ApiController::class)->getSubmission($id,$i['submission_id'])->getData()+['isAnonymous'=>Server::get(FormMapper::class)->findById($id)->getIsAnonymous()],$id),
             'forms_generate_link_token'=>(new ScopedServices($uid))->get(\OCA\Forms\Controller\ShareApiController::class)->generateToken()->getData(),
             'forms_read_admin_settings'=>(new ScopedServices($uid))->get(ConfigService::class)->getAppConfig(),
             default=>throw new \InvalidArgumentException('Unsupported Forms native read'),
@@ -505,7 +505,7 @@ final class Guard {
             ->andWhere($qb->expr()->gt('id',$qb->createNamedParameter($after,\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT)))->orderBy('id','ASC')->setMaxResults($limit+1);
         $rows=$qb->executeQuery()->fetchAll();$more=count($rows)>$limit;$submissions=[];$next=$after;
         foreach (array_slice($rows,0,$limit) as $row) {
-            $next=(int)$row['id'];$submissions[]=Server::get(\OCA\Forms\Service\SubmissionService::class)->getSubmission($next);
+            $next=(int)$row['id'];$submissions[]=Service\HistoricalFiles::markResponse(Server::get(\OCA\Forms\Service\SubmissionService::class)->getSubmission($next),$id);
             if (strlen(json_encode($submissions,JSON_THROW_ON_ERROR))>1048576-1024) {throw new \RuntimeException('Forms result page exceeds projection budget');}
         }
         return ['submissions'=>$submissions,'hasMore'=>$more,'nextId'=>$next,'isAnonymous'=>(bool)Server::get(FormMapper::class)->findById($id)->getIsAnonymous()];

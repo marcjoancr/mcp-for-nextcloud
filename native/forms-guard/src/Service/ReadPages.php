@@ -94,7 +94,7 @@ final class ReadPages
     private static function response(Submission $submission, int $offset, int $limit): array
     {
         $rows = self::rows('forms_v2_answers', 'submission_id', $submission->getId(), $offset, $limit);
-        return self::bounded($submission->read() + ['isAnonymous' => (bool) Server::get(FormMapper::class)->findById($submission->getFormId())->getIsAnonymous(), 'answers' => array_map(static fn(array $r): array => Answer::fromRow($r)->read(), array_slice($rows, 0, $limit)), '_mcp_page' => self::page($rows, $offset, $limit)]);
+        return self::bounded(HistoricalFiles::markResponse($submission->read() + ['isAnonymous' => (bool) Server::get(FormMapper::class)->findById($submission->getFormId())->getIsAnonymous(), 'answers' => array_map(static fn(array $r): array => Answer::fromRow($r)->read(), array_slice($rows, 0, $limit)), '_mcp_page' => self::page($rows, $offset, $limit)],$submission->getFormId()));
     }
     private static function own(string $uid, int $id, array $input, int $offset, int $limit): array
     {

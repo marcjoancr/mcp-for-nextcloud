@@ -8,6 +8,7 @@ use OCP\Server;
 /** Request-local verified provenance; no UID-only fallback exists for MCP artifacts. */
 final class OriginContext {
     private static ?array $current=null;
+    private static ?object $businessFrame=null;
     private static ?array $nextBulkFrame=null;
     private static ?array $frameBulkControl=null;
     private static bool $bulkControlActive=false;
@@ -27,11 +28,20 @@ final class OriginContext {
         if ($action!==$verified['tool'] && !$fileReferences && !in_array($action,['forms_results_metadata','forms_results_page','lookup','effect'],true)) {throw new \OCA\Forms\Mcp\BeforeEffect('Original Forms action does not match');}
         $bulk=self::$nextBulkFrame;
         if($bulk!==null && $bulk['original']!==$origin){throw new \OCA\Forms\Mcp\BeforeEffect('Bulk business frame does not match');}
-        $old=self::$current;$oldControl=self::$frameBulkControl;unset($input['_mcp_origin']);
+        $old=self::$current;$oldControl=self::$frameBulkControl;$oldFrame=self::$businessFrame;self::$businessFrame=new \stdClass();unset($input['_mcp_origin']);
         self::$current=['origin'=>$origin,'verified'=>$verified,'action'=>$action,'input'=>$input];
         self::$frameBulkControl=$bulk['control']??null;
         if($bulk!==null){self::$nextBulkFrame=null;}
-        try {return $work();} finally {self::$current=$old;self::$frameBulkControl=$oldControl;}
+        try {return $work();} finally {self::$current=$old;self::$frameBulkControl=$oldControl;self::$businessFrame=$oldFrame;}
+    }
+    /** Nonserializable request-local authority for one immediate authoring effect, not another origin frame. */
+    public static function authoringStepAuthority(): array {
+        $context=self::current();
+        if(!AuthoringScale::metadata($context['action'])||($context['file_impact']['authoring_effects']??false)!==true||self::$businessFrame===null){throw new \LogicException('Authoring business frame is unavailable');}
+        self::assertFresh();$frame=self::$businessFrame;$original=$context['origin'];$control=self::$frameBulkControl;$boundary=self::$fileBoundary;
+        return ['matches'=>static fn():bool=>self::$businessFrame===$frame,'assert'=>static function(string $action,array $manifest)use($original,$control,$boundary):void{
+            BulkDeadline::check();$authority=Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class);$authority->assert($original);if($control!==null){$authority->assert($control);}if($boundary!==null){$boundary($action,$manifest);}BulkDeadline::check();
+        }];
     }
     /** Attach additional signed authority to the next exact bulk business frame only. */
     public static function withBulkControl(string $tool,array $original,callable $work): mixed {

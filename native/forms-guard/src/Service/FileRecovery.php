@@ -43,21 +43,22 @@ final class FileRecovery {
         return ['digest'=>hash_hmac('sha256',json_encode($data,JSON_THROW_ON_ERROR),Server::get(\OCP\IConfig::class)->getSystemValueString('secret')),'form_id'=>(int)$input['id'],'files'=>$data['files'],
             'delete_file_ids'=>self::deletions($action,$input,$data),'files_share'=>$shareEffect||$removals!==[],'share_removals'=>$removals,
             'share_impact'=>$shareImpact,
-            'folders'=>'retained','recovery'=>str_starts_with($action,'forms_delete_') || str_starts_with($action,'forms_update_')];
+            'folders'=>'retained','recovery'=>!AuthoringScale::metadata($action) && (str_starts_with($action,'forms_delete_') || str_starts_with($action,'forms_update_'))];
     }
     private static function capture(int $id,string $action,array $input): array {
         $start=microtime(true);$db=Server::get(IDBConnection::class);
         $form=$db->executeQuery('SELECT * FROM *PREFIX*forms_v2_forms WHERE id = ?',[$id])->fetch();
         if (!$form) {throw new \RuntimeException('Form is unavailable');}
-        $questions=$db->executeQuery('SELECT * FROM *PREFIX*forms_v2_questions WHERE form_id = ? ORDER BY id LIMIT 1001',[$id])->fetchAll();
+        $metadata=AuthoringScale::metadata($action);
+        $questions=$metadata?[]:$db->executeQuery('SELECT * FROM *PREFIX*forms_v2_questions WHERE form_id = ? ORDER BY id LIMIT 1001',[$id])->fetchAll();
         $single=in_array($action,['forms_delete_response','forms_delete_own_response','forms_update_response','forms_update_own_response'],true);
         $newSubmission=$action==='forms_submit_response';
         $filter=$single?' AND s.id = ?':'';$params=$single?[$id,(int)$input['submission_id']]:[$id];
-        $submissions=$newSubmission?[]:$db->executeQuery('SELECT s.* FROM *PREFIX*forms_v2_submissions s WHERE s.form_id = ?'.$filter.' ORDER BY s.id LIMIT 101',$params)->fetchAll();
+        $submissions=($newSubmission||$metadata)?[]:$db->executeQuery('SELECT s.* FROM *PREFIX*forms_v2_submissions s WHERE s.form_id = ?'.$filter.' ORDER BY s.id LIMIT 101',$params)->fetchAll();
         if (count($submissions)>100) {throw new \RuntimeException('Recovery requires a bounded continuation for more than 100 responses');}
-        $answers=$newSubmission?[]:$db->executeQuery('SELECT a.* FROM *PREFIX*forms_v2_answers a INNER JOIN *PREFIX*forms_v2_submissions s ON a.submission_id = s.id WHERE s.form_id = ?'.$filter.' ORDER BY a.id LIMIT 1001',$params)->fetchAll();
-        $options=$db->executeQuery('SELECT o.* FROM *PREFIX*forms_v2_options o INNER JOIN *PREFIX*forms_v2_questions q ON o.question_id = q.id WHERE q.form_id = ? ORDER BY o.id LIMIT 1001',[$id])->fetchAll();
-        $uploads=$db->executeQuery('SELECT * FROM *PREFIX*forms_v2_uploaded_files WHERE form_id = ? ORDER BY id LIMIT 1001',[$id])->fetchAll();
+        $answers=($newSubmission||$metadata)?[]:$db->executeQuery('SELECT a.* FROM *PREFIX*forms_v2_answers a INNER JOIN *PREFIX*forms_v2_submissions s ON a.submission_id = s.id WHERE s.form_id = ?'.$filter.' ORDER BY a.id LIMIT 1001',$params)->fetchAll();
+        $options=$metadata?[]:$db->executeQuery('SELECT o.* FROM *PREFIX*forms_v2_options o INNER JOIN *PREFIX*forms_v2_questions q ON o.question_id = q.id WHERE q.form_id = ? ORDER BY o.id LIMIT 1001',[$id])->fetchAll();
+        $uploads=$metadata?[]:$db->executeQuery('SELECT * FROM *PREFIX*forms_v2_uploaded_files WHERE form_id = ? ORDER BY id LIMIT 1001',[$id])->fetchAll();
         foreach ([$questions,$answers,$options,$uploads] as $rows) {if(count($rows)>1000){throw new \RuntimeException('Recovery rows require bounded continuation');}}
         if ($newSubmission || $single) {
             $used=[];$seen=[];$actor=Server::get(\OCP\IUserSession::class)->getUser()?->getUID();
@@ -75,13 +76,14 @@ final class FileRecovery {
             $uploads=array_values(array_filter($uploads,static fn($upload)=>isset($used[(int)$upload['id']])));
         }
         foreach ($uploads as &$upload) {unset($upload['upload_token']);}unset($upload);
-        $artifacts=($newSubmission || $single)?[]:$db->executeQuery('SELECT * FROM *PREFIX*forms_mcp_artifacts WHERE form_id = ? ORDER BY file_id LIMIT 101',[$id])->fetchAll();
-        $data=compact('form','questions','submissions','answers','options','uploads','artifacts')+['scope'=>$single?'single_response':($newSubmission?'staged_submission':'whole_form')];
+        $artifacts=($newSubmission || $single || $metadata)?[]:$db->executeQuery('SELECT * FROM *PREFIX*forms_mcp_artifacts WHERE form_id = ? ORDER BY file_id LIMIT 101',[$id])->fetchAll();
+        $data=compact('form','questions','submissions','answers','options','uploads','artifacts')+['scope'=>$metadata?'authoring_effects_v1':($single?'single_response':($newSubmission?'staged_submission':'whole_form'))];
         if (strlen(json_encode($data,JSON_THROW_ON_ERROR))>1048576) {throw new \RuntimeException('Recovery metadata exceeds the projection limit');}
-        $ids=[];foreach (array_merge($answers,$uploads,$artifacts) as $row) {if ($row['file_id']??null) {$ids[(int)$row['file_id']]=true;}}ksort($ids);
+        $ids=[];foreach (array_merge($answers,$uploads,$artifacts) as $row) {if ($row['file_id']??null) {$ids[(int)$row['file_id']]=true;}}if($metadata){foreach($db->executeQuery('SELECT file_id FROM (SELECT a.file_id FROM *PREFIX*forms_v2_answers a JOIN *PREFIX*forms_v2_submissions s ON s.id=a.submission_id WHERE s.form_id = ? AND a.file_id IS NOT NULL UNION SELECT file_id FROM *PREFIX*forms_v2_uploaded_files WHERE form_id = ? UNION SELECT file_id FROM *PREFIX*forms_mcp_artifacts WHERE form_id = ?) authoring_files ORDER BY file_id LIMIT 101',[$id,$id,$id])->fetchAll() as $row){$ids[(int)$row['file_id']]=true;}}ksort($ids);
         if (count($ids)>100) {throw new \RuntimeException('Recovery file count exceeds the bounded step');}
         $root=Server::get(IRootFolder::class)->getUserFolder($form['owner_id']);$files=[];$total=0;
         foreach (array_keys($ids) as $fileId) {
+            if($metadata&&HistoricalFiles::unavailable($id,$fileId)!==null){continue;}
             $nodes=$root->getById($fileId);$file=$nodes[0]??null;
             if (!$file instanceof File) {throw new \RuntimeException('Managed Forms file is unavailable');}
             $meta=self::fileMeta($file);$total+=$meta['size'];
@@ -183,7 +185,7 @@ final class FileRecovery {
                 if (self::fileMeta($file)!==$meta) {throw new \OCA\Forms\Mcp\BeforeEffect('Managed file changed after approval');}
             }
             // Back up before database deletion as well: metadata contains form, questions, options and original answers.
-            if (str_starts_with($action,'forms_delete_') || $data['files']!==[]) {$backup=self::backup($uid,$operationKey,$data);}
+            if (!AuthoringScale::metadata($action) && (str_starts_with($action,'forms_delete_') || $data['files']!==[])) {$backup=self::backup($uid,$operationKey,$data);}
             $mounts=[];
             foreach ($locked as $file) {$mount=$file->getMountPoint();$key=$mount->getMountPoint();$mounts[$key]['mount']=$mount;$mounts[$key]['approved'][$file->getInternalPath()]=$current['files'][array_search((int)$file->getId(),array_column($current['files'],'file_id'),true)];}
             foreach ($mounts as $mount) {$mount['mount']->wrapStorage(function($path,$storage)use($mount,&$wrappers){$wrapper=new ManagedFileStorage($storage,$mount['approved']);$wrappers[]=$wrapper;return $wrapper;});}
@@ -297,6 +299,9 @@ final class FileRecovery {
     }
     private static function insert(string $kind,array $row): \OCP\AppFramework\Db\Entity {
         $mapper='OCA\\Forms\\Db\\'.$kind.'Mapper';return Server::get($mapper)->insert(self::entity($kind,$row));
+    }
+    public static function retainFolders(callable $work): mixed {
+        $old=self::$active;self::$active=true;try{return $work();}finally{self::$active=$old;}
     }
     private static function restore(string $uid,string $id): array {
         $data=self::readBackup($uid,$id);$row=$data['form'];$row['hash']=bin2hex(random_bytes(16));$row['owner_id']=$uid;$row['title'].=' (recovered)';
