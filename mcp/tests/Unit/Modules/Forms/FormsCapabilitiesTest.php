@@ -27,6 +27,18 @@ final class FormsCapabilitiesTest extends TestCase {
         self::assertFalse($legacy['completeMetadata']);
     }
 
+    public function testSourceWriterReadinessDoesNotDisableIndependentProtocolOrRecovery():void {
+        $guard=['qualified'=>true,'protocol'=>1,'bulk_lifecycle'=>true,'bulk_source_writer_ready'=>false,'bulk_source_writer_reason'=>'untrusted-private-detail'];
+        $result=$this->capabilities('5.4.2',static fn():array=>$guard)->forUser('alice');
+        self::assertTrue($result['guardedWrites']);self::assertTrue($result['bulkLifecycle']);self::assertFalse($result['bulkSourceWrites']);
+        self::assertSame('qualified_comments_writer_required',$result['bulkSourceUnavailableReason']);
+        self::assertStringNotContainsString('untrusted-private-detail',json_encode($result));
+        $guard['bulk_source_writer_ready']=true;$ready=$this->capabilities('5.4.2',static fn():array=>$guard)->forUser('alice');
+        self::assertTrue($ready['bulkSourceWrites']);self::assertNull($ready['bulkSourceUnavailableReason']);
+        $guard['bulk_lifecycle']=false;$missing=$this->capabilities('5.4.2',static fn():array=>$guard)->forUser('alice');
+        self::assertFalse($missing['bulkLifecycle']);self::assertFalse($missing['bulkSourceWrites']);self::assertSame('native_bulk_unqualified',$missing['bulkSourceUnavailableReason']);
+    }
+
     public function testUnknownVersionNeverEnablesWrites(): void {
         foreach (['', '5.99.0', '5.4.2.2'] as $version) {
             $result = $this->capabilities($version, static fn(): array => ['qualified' => true])->forUser('alice');
@@ -45,7 +57,7 @@ final class FormsCapabilitiesTest extends TestCase {
 
     public function testCapabilitiesRevealNoFormOrShareData(): void {
         $result = $this->capabilities('5.4.2')->forUser('alice');
-        self::assertSame(['nativeVersion','legacyReads','completeMetadata','guardedWrites','writeUnavailableReason','questionTypes','creatableQuestionTypes','limits'], array_keys($result));
+        self::assertSame(['nativeVersion','legacyReads','completeMetadata','guardedWrites','writeUnavailableReason','bulkLifecycle','bulkSourceWrites','bulkSourceUnavailableReason','questionTypes','creatableQuestionTypes','limits'], array_keys($result));
         self::assertSame(100, $result['limits']['pageItems']);
         self::assertSame(1048576, $result['limits']['requestBytes']);
         self::assertStringNotContainsString('alice', json_encode($result, JSON_THROW_ON_ERROR));

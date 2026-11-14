@@ -30,12 +30,17 @@ final class FormsCapabilities {
         $known = in_array($version, ['5.4.2'], true);
         $guard = $enabled && $known ? ($this->guard)() : [];
         $qualified = $enabled && $known && ($guard['qualified'] ?? false) === true && ($guard['protocol'] ?? null) === 1;
+        $bulk=$qualified&&($guard['bulk_lifecycle']??false)===true;
+        $source=$bulk&&($guard['bulk_source_writer_ready']??false)===true;
         return [
             'nativeVersion'=>$version,
             'legacyReads'=>$enabled,
             'completeMetadata'=>$qualified,
             'guardedWrites'=>$qualified,
             'writeUnavailableReason'=>$qualified ? null : ($enabled && $known ? 'native_guard_unqualified' : 'native_version_unqualified'),
+            'bulkLifecycle'=>$bulk,
+            'bulkSourceWrites'=>$source,
+            'bulkSourceUnavailableReason'=>$source?null:($bulk?'qualified_comments_writer_required':'native_bulk_unqualified'),
             'questionTypes'=>self::QUESTION_TYPES,
             'creatableQuestionTypes'=>array_values(array_diff(self::QUESTION_TYPES, ['datetime'])),
             'limits'=>self::LIMITS,

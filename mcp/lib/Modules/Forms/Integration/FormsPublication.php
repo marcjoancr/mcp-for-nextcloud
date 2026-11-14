@@ -18,6 +18,8 @@ final class FormsPublication {
             &&($tool!=='forms_read_recovered_comments'||($native['comments']??false)===true);
         if(in_array($tool,['forms_list_comments','forms_add_comment','forms_update_comment','forms_delete_comment'],true))return in_array($tool,self::MCP,true)&&($native['qualified']??false)===true&&($native['protocol']??null)===1&&($native['comments']??false)===true;
         if(($native['qualified']??false)!==true||($native['protocol']??null)!==1)return false;
+        if(in_array($tool,['forms_delete_form','forms_delete_responses','forms_transfer'],true))return ($native['bulk_lifecycle']??false)===true
+            &&($native['bulk_source_writer_ready']??false)===true&&in_array($tool,$native['actions']??[],true);
         if(in_array($tool,['forms_link_results_file','forms_unlink_results_file'],true))return in_array($tool,self::MCP,true)&&($native['linked_exports']??false)===true&&($native['file_sinks']??false)===true;
         if($tool==='forms_read_own_response'&&($native['own_response_pages']??false)!==true)return false;
         if($tool==='forms_read_submission_form'&&($native['public_submission_form']??false)!==true)return false;

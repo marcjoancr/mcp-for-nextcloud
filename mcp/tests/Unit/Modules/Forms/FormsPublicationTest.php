@@ -10,6 +10,19 @@ namespace OCA\Mcp\Tests\Unit\Modules\Forms;
 use OCA\Mcp\Modules\Forms\Integration\FormsPublication;
 use PHPUnit\Framework\TestCase;
 final class FormsPublicationTest extends TestCase {
+    public function testSourceLifecycleNeverFallsBackWhenQualifiedWriterOrBulkProtocolIsMissing():void {
+        $source=['forms_delete_form','forms_delete_responses','forms_transfer'];
+        $native=['qualified'=>true,'protocol'=>1,'bulk_lifecycle'=>true,'bulk_source_writer_ready'=>false,'actions'=>[...$source,'forms_restore']];
+        foreach($source as $tool) {
+            self::assertFalse(FormsPublication::supported($tool,$native));
+            self::assertTrue(FormsPublication::supported($tool,array_replace($native,['bulk_source_writer_ready'=>true])));
+            self::assertFalse(FormsPublication::supported($tool,array_replace($native,['bulk_lifecycle'=>false,'bulk_source_writer_ready'=>true])));
+        }
+        self::assertTrue(FormsPublication::supported('forms_restore',$native));
+        self::assertTrue(FormsPublication::supported('forms_continue_operation',$native));
+        self::assertTrue(FormsPublication::supported('forms_cancel_operation',$native));
+    }
+
     public function testNativeCommentActionsAloneCannotPublishAnUnwiredMcpPath():void {
         $actions=['forms_list_comments','forms_add_comment','forms_update_comment','forms_delete_comment'];
         $native=['qualified'=>true,'protocol'=>1,'comments'=>true,'actions'=>$actions];
