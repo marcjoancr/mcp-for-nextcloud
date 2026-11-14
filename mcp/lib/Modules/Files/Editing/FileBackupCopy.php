@@ -38,11 +38,14 @@ final class FileBackupCopy {
 	 * @return string verified copy path
 	 * @throws ToolFailure on any copy, verification or lock failure
 	 */
-	public function copy(Folder $root, File $file, string $path, string $stamp, bool $asUser, string $userId): string {
+	public function copy(Folder $root, File $file, string $path, string $stamp, bool $asUser, string $userId, ?\Closure $mutationBoundary = null): string {
 		// The node the copy was working on when it failed, so a lock refusal names the backup and not the original.
 		$target = $root;
 		try {
-			$folder = NodeAccess::mutate(fn () => NodeAccess::ensureFolder($root, $this->location->current()['folder'] . dirname($path)), $this->visibilityGuard);
+			$relative = $this->location->current()['folder'] . dirname($path);
+			$folder = $mutationBoundary === null
+				? NodeAccess::mutate(fn () => NodeAccess::ensureFolder($root, $relative), $this->visibilityGuard)
+				: $this->guardedFolder($root, $relative, $mutationBoundary);
 			$target = $folder;
 			$base = $file->getName() . '.' . $stamp;
 			$name = $base . '.bak';
@@ -50,7 +53,8 @@ final class FileBackupCopy {
 				$name = $base . '-' . $i . '.bak';
 			}
 			// Establish privacy while the new backup contains no sensitive bytes.
-			$copy = NodeAccess::mutate(fn () => $folder->newFile($name), $this->visibilityGuard);
+			$create = fn () => $folder->newFile($name);
+			$copy = NodeAccess::mutate(fn () => $mutationBoundary === null ? $create() : $mutationBoundary($folder, $name, static fn () => null, $create), $this->visibilityGuard);
 			$target = $copy;
 			$this->visibilityGuard->copyHiddenTags($file, $copy);
 			$stream = $file->fopen('rb');
@@ -59,7 +63,9 @@ final class FileBackupCopy {
 			}
 			try {
 				// The new copy is checked right before the original goes into it: a WebDAV client may have locked it.
-				$put = static fn () => $copy->putContent($stream);
+				$put = static fn () => $mutationBoundary === null
+					? $copy->putContent($stream)
+					: $mutationBoundary($copy, null, static fn () => null, static fn () => $copy->putContent($stream));
 				NodeAccess::mutate(fn () => $this->locks === null ? $put() : $this->locks->run($put, $copy, $userId, null, $asUser), $this->visibilityGuard);
 			} finally {
 				if (is_resource($stream)) {
@@ -81,5 +87,19 @@ final class FileBackupCopy {
 			throw new ToolFailure(\OCA\Mcp\Platform\FileAccess\BackupMessages::failed());
 		}
 		return $root->getRelativePath($copy->getPath()) ?? '';
+	}
+
+	/** Internal backup paths retain their reserved/exclusion semantics; the trusted caller admits each effect. */
+	private function guardedFolder(Folder $root, string $relative, \Closure $boundary): Folder {
+		$segments = \OCA\Mcp\Platform\FileAccess\Paths\PathGuard::segments(\OCA\Mcp\Platform\FileAccess\Paths\PathGuard::normalize($relative));
+		if (count($segments) > 100) {throw new \RuntimeException('Backup folder depth exceeds its bounded limit.');}
+		$folder = $root;
+		foreach ($segments as $segment) {
+			if ($folder->nodeExists($segment)) {$next = $folder->get($segment);}
+			else {$next = NodeAccess::mutate(fn () => $boundary($folder, $segment, static fn () => null, fn () => $folder->newFolder($segment)), $this->visibilityGuard);}
+			if (!$next instanceof Folder) {throw new \RuntimeException('Backup path is not a folder.');}
+			$folder = $next;
+		}
+		return $folder;
 	}
 }

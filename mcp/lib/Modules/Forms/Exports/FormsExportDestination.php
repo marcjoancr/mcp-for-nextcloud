@@ -35,7 +35,7 @@ final class FormsExportDestination {
         return ['path'=>$path,'overwrite'=>true,'file_id'=>(int)$file->getId(),'etag'=>(string)$file->getEtag(),'preimage'=>\OCA\Mcp\Modules\Forms\Attachments\FormsFilePreimage::capture($file),
             'plan'=>$this->plans->describe($file,$uid,$path,['action'=>'forms_export_results','format'=>$args['format']??'csv','overwrite'=>true],$asUser)];
     }
-    public function save(string $uid,array $args,array $approved,string $content,?\Closure $mutationBoundary=null,bool $asUser=true):array {
+    public function save(string $uid,array $args,array $approved,string $content,?\Closure $mutationBoundary=null,bool $asUser=true,?\Closure $backupBoundary=null,?\Closure $backupReady=null):array {
         if(strlen($content)>26214400)throw new ToolFailure('The complete export exceeds its destination byte quota.');
         $current=$this->snapshot($uid,$args,$asUser);
         if($current!==$approved)throw new ToolFailure('The approved export destination changed. Preview a new export.');
@@ -47,7 +47,7 @@ final class FormsExportDestination {
         } else {
             $file=NodeAccess::requireFile(NodeAccess::get($root,$approved['path'],$this->access));
             if((int)$file->getId()!==$approved['file_id'])throw new ToolFailure('The export destination changed.');
-            $receipt=$this->writer->commit($root,$uid,$file,$approved['path'],$content,$approved['etag'],'',false,$mutationBoundary,$approved['preimage'],$asUser);
+            $receipt=$this->writer->commit($root,$uid,$file,$approved['path'],$content,$approved['etag'],'',false,$mutationBoundary,$approved['preimage'],$asUser,$backupBoundary,$backupReady);
             $file=NodeAccess::requireFile(NodeAccess::get($root,$approved['path'],$this->access));
         }
         $stream=$file->fopen('rb');if(!is_resource($stream))throw new ToolFailure('The export write could not be verified.');

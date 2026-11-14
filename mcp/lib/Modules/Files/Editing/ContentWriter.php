@@ -37,17 +37,20 @@ final class ContentWriter {
      * @param string|null $etag ETag the caller read before, null to skip the check
      * @param string $before content as read, for the diff
      * @param bool $asUser false when running without the originating user's session
+     * @param \Closure|null $backupBoundary trusted admission around each private backup allocation/content effect
+     * @param \Closure(string):void|null $backupReady verifies completed recovery before opening the original for writing
      * @return array{path:string, size:int, etag:string, access:array<string, mixed>, backup:string, diff:string}
      * @throws ToolFailure when the preparation or the write fails
      */
-    public function commit(Folder $root, string $userId, File $file, string $path, string $content, ?string $etag, string $before, bool $renderDiff = true, ?\Closure $mutationBoundary = null, ?array $expectedPreimage = null, bool $asUser = true): array {
+    public function commit(Folder $root, string $userId, File $file, string $path, string $content, ?string $etag, string $before, bool $renderDiff = true, ?\Closure $mutationBoundary = null, ?array $expectedPreimage = null, bool $asUser = true, ?\Closure $backupBoundary = null, ?\Closure $backupReady = null): array {
         $this->fileTypes->assertWritableName($file->getName());
         $policy = function () use ($file, $path): void {
             $this->fileTypes->assertWritableName($file->getName());$this->backup->assertWritablePath($path);
             $this->visibilityGuard->clearCache();$this->visibilityGuard->assertVisible($file);
         };
         if ($mutationBoundary !== null) {$mutationBoundary($file, null, $policy, static fn () => null, $expectedPreimage);}
-        $copy = $this->backup->prepare($root, $file, $path, $userId, $etag, $asUser);
+        $copy = $this->backup->prepare($root, $file, $path, $userId, $etag, $asUser, $backupBoundary);
+        if ($backupReady !== null) {$backupReady($copy);}
         $this->visibilityGuard->assertVisible($file);
         try {
             // Checked again right before the write: the backup took time, and files_lock does not refuse every lock.

@@ -53,13 +53,14 @@ class FileBackup {
      * @param string $userId authenticated user
      * @param string|null $etag ETag the caller read before, null to skip the check
      * @param bool $asUser whether the write runs as $userId; false on the checkout route without user session
+     * @param \Closure|null $mutationBoundary trusted admission for private backup allocations and content writes
      * @return string user-relative path of the verified copy, or empty for an authorized suspension
      * @throws ToolFailure when versioning is off, the file is not writable, the etag differs, a lock refuses the
      *         write ({@see \OCA\Mcp\Platform\FileAccess\Locks\LockWriteFailure}) or the copy fails
      */
-    public function prepare(Folder $root, File $file, string $path, string $userId, ?string $etag, bool $asUser = true): string {
+    public function prepare(Folder $root, File $file, string $path, string $userId, ?string $etag, bool $asUser = true, ?\Closure $mutationBoundary = null): string {
         return (new FileBackupPreparation($this->appManager, $this->userManager, $this->locks, $this->backupCopies, $this->backupLocation))
-            ->prepare($file, $path, $userId, $etag, $asUser, fn () => $this->copy($root, $file, $path, $userId, $asUser));
+            ->prepare($file, $path, $userId, $etag, $asUser, fn () => $this->copy($root, $file, $path, $userId, $asUser, $mutationBoundary));
     }
 
     /**
@@ -72,9 +73,9 @@ class FileBackup {
      * @param bool $asUser whether the write runs as $userId; false on the checkout route without user session
      * @throws ToolFailure when the copy cannot be created or its size differs, a {@see LockWriteFailure} when it is locked
      */
-    private function copy(Folder $root, File $file, string $path, string $userId, bool $asUser = true): string {
+    private function copy(Folder $root, File $file, string $path, string $userId, bool $asUser = true, ?\Closure $mutationBoundary = null): string {
         return (new FileBackupCopy($this->visibilityGuard, $this->locks, $this->backupLocation))
-            ->copy($root, $file, $path, $this->stamp($userId), $asUser, $userId);
+            ->copy($root, $file, $path, $this->stamp($userId), $asUser, $userId, $mutationBoundary);
     }
 
     /**

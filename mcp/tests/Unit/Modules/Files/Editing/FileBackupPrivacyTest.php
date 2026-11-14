@@ -47,7 +47,58 @@ final class FileBackupPrivacyTest extends FilesToolsTestCase {
         $this->assertSame("# Ata\nolá", $this->tree->nodes['/alice/files' . $path]['content']);
     }
 
-    private function backup(?string $failure): FileBackup {
+    public function testTrustedBoundaryCanRefuseBeforeAnyBackupAllocation():void {
+        $backup=$this->backup(null,false);
+        try {
+            $backup->prepare($this->tree->rootFolder(),$this->tree->node('/alice/files/Documentos/ata.md'),'/Documentos/ata.md','alice',null,false,
+                static function():never {throw new \RuntimeException('original authority revoked');});
+            self::fail('Revoked backup allocation admitted');
+        } catch(ToolFailure) {}
+        self::assertSame([],$this->tree->ops);
+    }
+    public function testTrustedBoundaryCoversEachFolderAllocationAndBackupByteWrite():void {
+        $backup=$this->backup(null);$calls=[];
+        $path=$backup->prepare($this->tree->rootFolder(),$this->tree->node('/alice/files/Documentos/ata.md'),'/Documentos/ata.md','alice',null,false,
+            static function($node,?string $child,\Closure $policy,\Closure $write)use(&$calls):mixed {
+                $policy();$calls[]=['path'=>$node->getPath(),'child'=>$child];return $write();
+            });
+        self::assertCount(4,$calls);
+        self::assertSame('MCP backups',$calls[0]['child']);self::assertSame('Documentos',$calls[1]['child']);
+        self::assertStringEndsWith('.bak',$calls[2]['child']);self::assertNull($calls[3]['child']);
+        self::assertSame("# Ata\nolá",$this->tree->nodes['/alice/files'.$path]['content']);
+    }
+    public function testRevocationAtBackupContentBoundaryKeepsOriginalAndEmptyCopy():void {
+        $backup=$this->backup(null);
+        try {
+            $backup->prepare($this->tree->rootFolder(),$this->tree->node('/alice/files/Documentos/ata.md'),'/Documentos/ata.md','alice',null,false,
+                static function($node,?string $child,\Closure $policy,\Closure $write):mixed {
+                    if($child===null)throw new \RuntimeException('original authority revoked after allocation');
+                    return $write();
+                });
+            self::fail('Revoked backup byte write admitted');
+        } catch(ToolFailure) {}
+        $copies=array_filter($this->tree->nodes,static fn(array $node,string $path):bool=>str_ends_with($path,'.bak'),ARRAY_FILTER_USE_BOTH);
+        self::assertCount(1,$copies);self::assertSame('',array_values($copies)[0]['content']);
+        self::assertSame("# Ata\nolá",$this->tree->nodes['/alice/files/Documentos/ata.md']['content']);
+    }
+
+    public function testCompletedBackupAdmissionRunsBeforeAnyOriginalByteWrite():void {
+        $file=$this->tree->node('/alice/files/Documentos/ata.md');$root=$this->tree->rootFolder();
+        $boundary=static fn()=>null;$backup=$this->createMock(FileBackup::class);
+        $backup->expects(self::once())->method('prepare')->with($root,$file,'/Documentos/ata.md','alice',null,false,$boundary)->willReturn('/copy.bak');
+        $writer=new \OCA\Mcp\Modules\Files\Editing\ContentWriter(
+            \OCA\Mcp\Tests\Support\Files\FileTypePolicies::guard($this),$backup,
+            new \OCA\Mcp\Platform\FileAccess\Sharing\NodeAccessInfo($this->users),$this->visibilityGuard);
+        try {
+            $writer->commit($root,'alice',$file,'/Documentos/ata.md','replacement',null,'',false,null,null,false,$boundary,
+                static function(string $copy):void {self::assertSame('/copy.bak',$copy);throw new \RuntimeException('Recovery proof failed');});
+            self::fail('Unverified recovery admitted');
+        } catch(\RuntimeException $error) {self::assertSame('Recovery proof failed',$error->getMessage());}
+        self::assertSame("# Ata\nolá",$this->tree->nodes['/alice/files/Documentos/ata.md']['content']);
+        self::assertSame([],$this->tree->ops);
+    }
+
+    private function backup(?string $failure,bool $assign=true): FileBackup {
         $this->config->app['mcp'][VisibilityGuard::CONFIG_KEY] = '["42"]';
         $mapper = $this->createMock(ISystemTagObjectMapper::class);
         $mapper->method('getTagIdsForObjects')->willReturnCallback(function (array $ids) use ($failure): array {
@@ -56,7 +107,7 @@ final class FileBackupPrivacyTest extends FilesToolsTestCase {
             }
             return array_fill_keys($ids, ['42']);
         });
-        $mapper->expects($failure === 'lookup' ? $this->never() : $this->once())->method('assignTags')
+        $mapper->expects($failure === 'lookup' || !$assign ? $this->never() : $this->once())->method('assignTags')
             ->willReturnCallback(function (string $id, string $type, array $tags) use ($failure): void {
                 $this->assertSame('files', $type);
                 $this->assertSame(['42'], $tags);
