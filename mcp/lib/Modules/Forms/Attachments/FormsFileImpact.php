@@ -11,6 +11,12 @@ use OCP\Files\IRootFolder;
 /** Checks native managed identities against current actor Files visibility before exposing or sharing them. */
 final class FormsFileImpact {
     public function __construct(private IRootFolder $root,private FilesAccessGuard $access) {}
+    /** The qualified native lifecycle supplies the actual node; traversal is metadata, never a write grant. */
+    public function assertDestination(\OCP\Files\Folder $folder,bool $create):void {
+        $this->access->clearCache();$this->access->assertScopeReadable();
+        if(!$folder->isReadable()||($create?(!$folder->isCreatable()||!$this->access->isVisible($folder)):!$this->access->isTraversable($folder)))
+            throw new \RuntimeException('Forms destination is outside the current Files access');
+    }
     public function assertVisible(string $uid,array $manifest): void {
         $this->access->clearCache();$this->access->assertScopeReadable();
         $parents=[];

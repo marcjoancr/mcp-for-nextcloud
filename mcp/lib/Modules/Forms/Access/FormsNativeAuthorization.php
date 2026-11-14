@@ -32,6 +32,13 @@ final class FormsNativeAuthorization {
     public function assertHistory(string $uid,string $tool,array $references):void {
         $this->fresh->assertTool($uid,$tool,['id'=>$references['form_id']??null],['historical'=>$references]);
     }
+    /** Server-only callback for actual user Files destinations, independent of the source owner's tree. */
+    public function assertDestination(array $origin,\OCP\Files\Folder $folder,bool $create):void {
+        $context=$this->assert($origin);
+        if(!in_array($context['tool'],['forms_restore','forms_transfer'],true))
+            throw new \RuntimeException('Forms destination authority is unavailable.');
+        $this->policy->resourceBoundary($context['uid'],fn()=>$this->impact->assertDestination($folder,$create));
+    }
     public function assertFiles(array $origin,string $action,array $manifest):void {
         $context=$this->assert($origin);
         if(($manifest['source_files']??[])!==[])$this->policy->resourceBoundary($context['uid'],fn()=>$this->impact->assertVisible($context['uid'],['files'=>$manifest['source_files']]));
