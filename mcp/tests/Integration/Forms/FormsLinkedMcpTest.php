@@ -20,5 +20,5 @@ final class FormsLinkedMcpTest extends TestCase {
         self::assertSame(0,proc_close($process),$out."\n".$err);$result=json_decode($out,true,64,JSON_THROW_ON_ERROR);self::assertTrue($result['ok']);
         foreach(['isolated_cycle','complete_source','revocation_pauses','restoration_does_not_resume'] as $check)self::assertTrue($result['checks'][$check],$check);
     }
-    public static function recoveryModes():iterable {yield 'native Versions'=>['mcp_worker'];yield 'private copy'=>['copies_true'];}
+    public static function recoveryModes():iterable {yield 'native Versions'=>['mcp_worker'];yield 'private copy'=>['copies_true'];yield 'real cron job'=>['cron'];}
 }

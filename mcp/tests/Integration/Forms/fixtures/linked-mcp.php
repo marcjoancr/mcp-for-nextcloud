@@ -95,8 +95,21 @@ try {
         $answer=new \OCA\Forms\Db\Answer();$answer->setSubmissionId($submission->getId());$answer->setQuestionId($question);$answer->setText('original-authority-answer');
         Server::get(\OCA\Forms\Db\AnswerMapper::class)->insert($answer);
         $runner=Server::get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner::class);
+        $advance=function()use($request,$runner,$association,$db):array {
+            if($request['case']!=='cron')return $runner->run($association);
+            $class=\OCA\Mcp\BackgroundJob\FormsLinkedExportJob::class;
+            Server::get(\OCP\BackgroundJob\IJobList::class)->add($class);
+            $jobId=$db->executeQuery('SELECT id FROM *PREFIX*jobs WHERE class = ? ORDER BY id ASC',[$class])->fetchOne();
+            if($jobId===false)throw new RuntimeException('Scheduled linked job was not registered.');
+            $process=proc_open([PHP_BINARY,'/var/www/html/occ','background-job:execute',(string)$jobId,'--force-execute','--no-interaction','--no-ansi'],
+                [0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes,'/var/www/html',null,['bypass_shell'=>true]);
+            if(!is_resource($process))throw new RuntimeException('Scheduled linked job did not start.');
+            fclose($pipes[0]);$out=stream_get_contents($pipes[1]);$err=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);
+            if(proc_close($process)!==0)throw new RuntimeException('Scheduled linked job failed.');
+            return ['status'=>'completed'];
+        };
         for($step=0;$step<5;$step++) {
-            $ack=$runner->run($association);
+            $ack=$advance();
             if(($ack['status']??null)!=='completed')throw new RuntimeException('The isolated MCP linked step did not complete.');
             $row=$db->executeQuery('SELECT state,dirty_generation,completed_generation FROM *PREFIX*forms_mcp_linked WHERE association_id = ?',[$association])->fetch();
             if($row['state']==='active'&&(int)$row['dirty_generation']===(int)$row['completed_generation'])break;
@@ -104,10 +117,10 @@ try {
         if($step===5||!str_contains($file->getContent(),'original-authority-answer'))throw new RuntimeException('The full MCP cycle did not deliver the complete source.');
         $verified=$file->getContent();
         $second=new Submission();$second->setFormId($id);$second->setUserId($uid);$second->setTimestamp(time());Server::get(SubmissionMapper::class)->insert($second);
-        $policy->setGrant($uid,'forms','link_results',false);$runner->run($association);
+        $policy->setGrant($uid,'forms','link_results',false);$advance();
         $row=$db->executeQuery('SELECT state FROM *PREFIX*forms_mcp_linked WHERE association_id = ?',[$association])->fetch();
         if($row['state']!=='paused'||$file->getContent()!==$verified)throw new RuntimeException('Revoked original authority did not pause without overwriting.');
-        $policy->setGrant($uid,'forms','link_results',true);$runner->run($association);
+        $policy->setGrant($uid,'forms','link_results',true);$advance();
         if($db->executeQuery('SELECT state FROM *PREFIX*forms_mcp_linked WHERE association_id = ?',[$association])->fetchOne()!=='paused'||$file->getContent()!==$verified)
             throw new RuntimeException('Restored grant resumed old consent automatically.');
         echo json_encode(['ok'=>true,'checks'=>['isolated_cycle'=>true,'complete_source'=>true,'revocation_pauses'=>true,'restoration_does_not_resume'=>true]],JSON_THROW_ON_ERROR)."\n";

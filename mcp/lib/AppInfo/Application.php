@@ -721,6 +721,14 @@ class Application extends App implements IBootstrap {
                 } catch(\Throwable) {return null;}
             }
         ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedSweep::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedSweep(
+            $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner::class),static function(int $limit)use($c):array {
+                if(!(new \OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity())->matches($c->get(IAppManager::class)->getAppPath('forms')))return [];
+                $guard=$c->get('OCA\\Forms\\Mcp\\Guard');$features=$guard->capabilities();
+                if(($features['qualified']??false)!==true||($features['linked_exports']??false)!==true||!method_exists($guard,'linkedPending'))return [];
+                return $guard->linkedPending($limit);
+            }
+        ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsDownloadAdmission::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsDownloadAdmission(
             $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsDownloadStore::class),
             static fn(string $uid,string $job):array => $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsExportJobs::class)->job($uid,$job),
