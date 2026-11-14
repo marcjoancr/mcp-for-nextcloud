@@ -35,9 +35,15 @@ final class FormsRecoveryReadsContractTest extends TestCase {
             self::assertTrue($denied,'A private native locator or mutation parameter reached a readonly tool.');
         }
     }
-    public function testNativeActionsCannotPublishUnqualifiedNewMcpReaders():void {
+    public function testReadConsumersPublishOnlyWithTheirQualifiedNativeCapabilities():void {
         $tools=['forms_read_operation_impact','forms_read_recovered_comments'];
         $native=['qualified'=>true,'protocol'=>1,'bulk_lifecycle'=>true,'comments'=>true,'actions'=>$tools];
-        foreach($tools as $tool)self::assertFalse(FormsPublication::supported($tool,$native));
+        foreach($tools as $tool) {
+            self::assertTrue(FormsPublication::supported($tool,$native));
+            foreach([['qualified'=>false],['protocol'=>2],['bulk_lifecycle'=>false]] as $missing)
+                self::assertFalse(FormsPublication::supported($tool,array_replace($native,$missing)));
+        }
+        self::assertFalse(FormsPublication::supported('forms_read_recovered_comments',array_replace($native,['comments'=>false])));
+        self::assertTrue(FormsPublication::supported('forms_read_operation_impact',array_replace($native,['comments'=>false])));
     }
 }
