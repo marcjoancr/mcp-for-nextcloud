@@ -16,6 +16,7 @@ use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 /** Native form admission and the Forms transaction are supplied by the qualified companion. */
 final class FormsComments {
+    public const ACTIONS=['forms_list_comments','forms_add_comment','forms_update_comment','forms_delete_comment'];
     public function __construct(private ICommentsManager $comments,private IUserManager $users,private IUserSession $session,
         private IDBConnection $db,private LoggerInterface $logger) {}
     public static function isAuthor(IComment $comment,string $uid):bool {return $comment->getActorType()==='users'&&$comment->getActorId()===$uid;}

@@ -12,7 +12,7 @@ use OCA\Mcp\Mcp\Operations\ActorIdentity;
 use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 /** Trusted origin descriptor for one admitted action, never a client-supplied delegation. */
 final class FormsOriginProof {
-    private const REFS=['form_id','owner_id','submission_id','share_id','source_digest','files_operations'];
+    private const REFS=['form_id','owner_id','submission_id','share_id','comment_id','source_digest','files_operations'];
     public function __construct(private PlanState $proof,private ActorIdentity $actors) {}
     public function create(string $uid,int $connection,string $tool,array $operations,array $references):array {
         if($uid===''||$connection<0||!str_starts_with($tool,'forms_')||array_diff(array_keys($references),self::REFS)!==[])throw new \InvalidArgumentException('Invalid Forms origin.');

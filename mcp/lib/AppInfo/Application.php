@@ -751,7 +751,8 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Forms\Attachments\FormsFileImpact::class), $c->get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class), $c->get(\OCP\IURLGenerator::class),
             $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsExportJobs::class), $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsExportDestination::class),
             $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsDownloadAdmission::class), $c->get(\OCA\Mcp\Modules\Forms\Execution\FormsOperationJournal::class),
-            $c->get(\OCA\Mcp\Modules\Forms\Reading\FormsListing::class), $c->get(\OCA\Mcp\Modules\Forms\Reading\FormsListingSource::class), $c->get(GrantPolicy::class), $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedFiles::class), $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner::class)
+            $c->get(\OCA\Mcp\Modules\Forms\Reading\FormsListing::class), $c->get(\OCA\Mcp\Modules\Forms\Reading\FormsListingSource::class), $c->get(GrantPolicy::class), $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedFiles::class), $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner::class),
+            static fn():\OCA\Mcp\Modules\Forms\Comments\FormsComments=>$c->get(\OCA\Mcp\Modules\Forms\Comments\FormsComments::class)
         ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Execution\FormsWriteCoordinator::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Execution\FormsWriteCoordinator(
             $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsGateway::class), $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),

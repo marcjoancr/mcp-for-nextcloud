@@ -27,12 +27,13 @@ final class FormsNativeGateway implements FormsGateway {
         private FormsNativeAuthorization $authorization,private IURLGenerator $urls,
         private FormsExportJobs $jobs,private FormsExportDestination $destination,private FormsDownloadAdmission $downloads,private \OCA\Mcp\Modules\Forms\Execution\FormsOperationJournal $journal,
         private \OCA\Mcp\Modules\Forms\Reading\FormsListing $listing,private \OCA\Mcp\Modules\Forms\Reading\FormsListingSource $inventory,
-        private \OCA\Mcp\Access\Grants\GrantPolicy $policy,private \OCA\Mcp\Modules\Forms\Exports\FormsLinkedFiles $linkedFiles,private \OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner $linkedRunner) {}
+        private \OCA\Mcp\Access\Grants\GrantPolicy $policy,private \OCA\Mcp\Modules\Forms\Exports\FormsLinkedFiles $linkedFiles,private \OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner $linkedRunner,private \Closure $commentService) {}
     public function capabilities(string $uid):array {return $this->features->forUser($uid);}
     private function native(string $uid):object {
         if(!$this->features->forUser($uid)['guardedWrites'])throw new ToolFailure('The installed Forms runtime has not been qualified for this capability.');
         return ($this->guard)();
     }
+    private function comments():\OCA\Mcp\Modules\Forms\Comments\FormsComments {return ($this->commentService)();}
     private function key(string $uid,string $action,array $input):string {
         return hash('sha256',json_encode([$uid,$action,FormsOperationJournal::canonical($input)],JSON_THROW_ON_ERROR));
     }
@@ -41,6 +42,12 @@ final class FormsNativeGateway implements FormsGateway {
             $guard=$this->native($uid);
             if(!FormsPublication::supported($action,$guard->capabilities()))throw new FormsBeforeEffect('This Forms workflow is not available on the qualified runtime.');
             $previewOrigin=$this->authorization->capture($uid,$action,$input,[]);$read=$this->source($uid,$guard,$previewOrigin);
+            if(in_array($action,\OCA\Mcp\Modules\Forms\Comments\FormsComments::ACTIONS,true)) {
+                $private=array_replace($input,['_mcp_origin'=>$previewOrigin]);
+                $snapshot=$guard->commentsSnapshot($uid,$action,$private,fn():array=>$this->comments()->snapshot($uid,$input['id'],$input['comment_id']??null));
+                $snapshot['native_runtime']=FormsGuardIdentity::INSTALLED_MANIFEST_SHA256;
+                $this->snapshots[$this->key($uid,$action,$input)]=$snapshot;return $snapshot;
+            }
             if(in_array($action,['forms_continue_operation','forms_cancel_operation','forms_read_result'],true)) {
                 $receipt=$this->journal->get($uid,$input['target_operation_id'],fn(string $tool,array $refs)=>$this->authorization->assertHistory($uid,$tool,$refs));
                 $jobId=$receipt['references']['job_id']??throw new ToolFailure('The original operation has no Forms job.');
@@ -103,6 +110,11 @@ final class FormsNativeGateway implements FormsGateway {
     }
     public function read(string $uid,string $action,array $input):array {
         try {
+            if($action==='forms_list_comments') {
+                $snapshot=$this->snapshots[$this->key($uid,$action,$input)]??throw new ToolFailure('A current comment snapshot is required.');
+                $origin=$this->authorization->capture($uid,$action,$input,$snapshot);
+                return $this->native($uid)->commentsRead($uid,array_replace($input,['_mcp_origin'=>$origin]),fn():array=>$this->comments()->read($uid,$input));
+            }
             if($action==='forms_search')return $this->listing->page($uid,$input,$this->inventory->rows($uid,$input));
             if($action==='forms_read_result') {
                 $snapshot=$this->snapshots[$this->key($uid,$action,$input)]??throw new ToolFailure('A current Forms job snapshot is required.');
@@ -170,7 +182,11 @@ final class FormsNativeGateway implements FormsGateway {
         } elseif($action==='forms_save_response_file') {
             $transfer=fn():array=>['data'=>$this->policy->resourceBoundary($uid,fn()=>$this->files->save($uid,$snapshot['file_destination'],$this->fileBoundary($uid,$guard,$origin,$snapshot['file_destination']['source']))),'references'=>['form_id'=>$input['id'],'submission_id'=>$input['submission_id'],'file_id'=>$input['file_id']],'files_phase'=>'saved_verified'];
         }
-        try {return $this->outcome($guard->apply($uid,$action,$input,$revision,$operationKey,$snapshot['file_manifest']??[],$transfer));}
+        try {
+            if(in_array($action,\OCA\Mcp\Modules\Forms\Comments\FormsComments::ACTIONS,true))
+                return $this->outcome($guard->commentsApply($uid,$action,$input,$revision,$operationKey,fn():array=>$this->comments()->apply($uid,$action,$input,$snapshot['comment']??[])));
+            return $this->outcome($guard->apply($uid,$action,$input,$revision,$operationKey,$snapshot['file_manifest']??[],$transfer));
+        }
         catch(\Throwable $failure) {
             if(is_a($failure,'OCA\\Forms\\Mcp\\BeforeEffect'))throw new FormsBeforeEffect('Forms refused the change before any effect. Review current permissions, settings and limits.');
             throw $failure;

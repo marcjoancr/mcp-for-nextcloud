@@ -49,6 +49,7 @@ final class FormsOperationJournal {
         $nativeKey=$this->proof->of('forms_native_operation_v1',$uid,[$scope,$id,$digest]);
         $refs=['actor_incarnation'=>$actor,'connection_id'=>$this->connection->current(),'native_key'=>$nativeKey];
         if(isset($arguments['id']))$refs['form_id']=$arguments['id'];
+        if(isset($arguments['comment_id']))$refs['comment_id']=$arguments['comment_id'];
         $target=isset($arguments['id'])?'form:'.$arguments['id']:'create:'.$uid;
         if($tool==='forms_generate_link_token')$target='candidate-token:'.$uid.':'.$id;
         if(in_array($tool,['forms_continue_operation','forms_cancel_operation'],true)) {

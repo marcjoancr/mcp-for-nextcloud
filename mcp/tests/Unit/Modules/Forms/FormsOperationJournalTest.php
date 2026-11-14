@@ -63,6 +63,15 @@ final class FormsOperationJournalTest extends TestCase {
         self::assertStringNotContainsString('not retained',json_encode($this->rows));
     }
 
+    public function testExistingCommentTargetIsRetainedBeforeTheNativeReplyCanBeLost():void {
+        $args=$this->approved(['id'=>4,'comment_id'=>'9','message'=>'approved edit'],'forms_update_comment');
+        $this->journal->execute('forms_update_comment','alice',$args,static fn()=>throw new \RuntimeException('lost reply'));
+        $status=$this->journal->get('alice',$args['operation_id'],static function():void{},static function(string $key,string $tool,array $references):array {
+            self::assertSame('9',$references['comment_id']??null);
+            return ['state'=>'succeeded','references'=>['form_id'=>4,'comment_id'=>'9']];
+        });
+        self::assertSame('9',$status['references']['comment_id']);
+    }
     public function testLostNativeResultIsUncertainAndNeverRepeated(): void {
         $args=$this->approved(['id'=>4]);$calls=0;
         $run=function()use(&$calls):array{$calls++;throw new \RuntimeException('native private response');};

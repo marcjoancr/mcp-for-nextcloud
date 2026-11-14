@@ -17,6 +17,7 @@ final class FormsNativeAuthorization {
         if(isset($args['id']))$references['form_id']=$args['id'];
         if(isset($args['submission_id']))$references['submission_id']=$args['submission_id'];
         if(isset($args['share_id']))$references['share_id']=$args['share_id'];
+        if(isset($args['comment_id']))$references['comment_id']=$args['comment_id'];
         if(isset($snapshot['form']['ownerId']))$references['owner_id']=$snapshot['form']['ownerId'];
         $files=FormsAuthorization::fileOperations($tool,$args,$snapshot);
         if($files!==[])$references['files_operations']=array_values(array_unique($files));
@@ -24,7 +25,7 @@ final class FormsNativeAuthorization {
     }
     public function captureHistory(string $uid,string $tool,array $references):array {
         $this->assertHistory($uid,$tool,$references);
-        $refs=array_intersect_key($references,array_flip(['form_id','submission_id','share_id','files_operations']));
+        $refs=array_intersect_key($references,array_flip(['form_id','submission_id','share_id','comment_id','files_operations']));
         return $this->proof->create($uid,$this->connection->current(),$tool,$references['required_operations']??FormsAuthorization::operations($tool,['id'=>$refs['form_id']??null],[]),$refs);
     }
     public function assertHistory(string $uid,string $tool,array $references):void {
