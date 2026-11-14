@@ -27,7 +27,7 @@ final class FormsNativeGateway implements FormsGateway {
         private FormsNativeAuthorization $authorization,private IURLGenerator $urls,
         private FormsExportJobs $jobs,private FormsExportDestination $destination,private FormsDownloadAdmission $downloads,private \OCA\Mcp\Modules\Forms\Execution\FormsOperationJournal $journal,
         private \OCA\Mcp\Modules\Forms\Reading\FormsListing $listing,private \OCA\Mcp\Modules\Forms\Reading\FormsListingSource $inventory,
-        private \OCA\Mcp\Access\Grants\GrantPolicy $policy) {}
+        private \OCA\Mcp\Access\Grants\GrantPolicy $policy,private \OCA\Mcp\Modules\Forms\Exports\FormsLinkedFiles $linkedFiles,private \OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner $linkedRunner) {}
     public function capabilities(string $uid):array {return $this->features->forUser($uid);}
     private function native(string $uid):object {
         if(!$this->features->forUser($uid)['guardedWrites'])throw new ToolFailure('The installed Forms runtime has not been qualified for this capability.');
@@ -61,9 +61,32 @@ final class FormsNativeGateway implements FormsGateway {
                 $snapshot['native_answers']=FormsAnswerPreview::validate($guard,$uid,$action,$input,$snapshot['form']['questions']??[],$previewOrigin,$snapshot['revision']);
             }
             if(in_array($action,FormsExportJobs::ACTIONS,true)) {
-                if(in_array($action,['forms_export_results','forms_link_results_file'],true))$snapshot['file_destination']=$this->policy->resourceBoundary($uid,fn()=>$this->destination->snapshot($uid,$input));
+                if($action==='forms_export_results')$snapshot['file_destination']=$this->policy->resourceBoundary($uid,fn()=>$this->destination->snapshot($uid,$input));
+                if($action==='forms_link_results_file') {
+                    if(!$this->linkedRunner->available())throw new ToolFailure('The qualified isolated Forms CLI worker is unavailable.');
+                    $snapshot['file_destination']=$this->linkedFiles->initialSnapshot($uid,$input);
+                }
                 if($action==='forms_link_results_file'&&(($snapshot['form']['ownerId']??null)!==$uid||$this->journal->connection()===0||!empty($snapshot['form']['fileId'])))throw new ToolFailure('A new owned association and a persistent original connection are required.');
                 $snapshot=$this->jobs->preview($uid,$action,$input,$snapshot,$read);
+                if($action==='forms_link_results_file') {
+                    $snapshot['linked_approval']=['arguments'=>$input,'native_runtime'=>FormsGuardIdentity::INSTALLED_MANIFEST_SHA256,
+                        'source_revision'=>FormsExportJobs::sourceRevision($snapshot),
+                        'schema_digest'=>\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExport::schemaDigest($snapshot['export_metadata']),
+                        'destination'=>$snapshot['file_destination']];
+                    $snapshot['impact']['linked_export']=['updates'=>'Future submissions update this complete export until unlink, revocation, or a source, owner, runtime or destination change.',
+                        'recipients'=>$snapshot['file_destination']['audience']['recipients'],'format'=>$input['format'],
+                        'respondents'=>(bool)($input['include_respondents']??false),'file_references'=>(bool)($input['include_files']??false),
+                        'recovery'=>'Every overwrite requires verified recovery of the old bytes. Unlink preserves the output file.'];
+                }
+            }
+            if($action==='forms_unlink_results_file') {
+                if(($snapshot['form']['ownerId']??null)!==$uid||!is_int($snapshot['form']['fileId']??null))
+                    throw new ToolFailure('An exact linked form owned by the current actor is required.');
+                $status=$guard->linkedStatus($uid,$input['id']);
+                $snapshot['unlink_approval']=['file_id'=>$snapshot['form']['fileId'],'file_format'=>$snapshot['form']['fileFormat']];
+                if(isset($status['association_id'],$status['version']))$snapshot['unlink_approval']+=['association_id'=>$status['association_id'],'version'=>$status['version']];
+                else $snapshot['unlink_approval']['native_ui']=true;
+                $snapshot['impact']['linked_export']=['updates'=>'Stop automatic updates and retain the output file.','state'=>$status['state']??'native_ui'];
             }
             if(in_array($action,['forms_update_share','forms_unshare'],true))$snapshot['shares']=$guard->read($uid,'forms_list_shares',['id'=>$input['id']]);
             if($action==='forms_upload_response_files')$snapshot['file_sources']=$this->policy->resourceBoundary($uid,fn()=>$this->uploads->snapshot($uid,$input['paths']));
@@ -86,7 +109,9 @@ final class FormsNativeGateway implements FormsGateway {
                 $status=$this->jobs->status($uid,$snapshot['job_id']);
                 return $status['complete']?$this->jobs->result($uid,$snapshot['job_id'],$input['offset']??0,$input['limit']??50):$status;
             }
-            $raw=$this->native($uid)->read($uid,$action,$input);
+            $native=$this->native($uid);$raw=$native->read($uid,$action,$input);
+            if($action==='forms_read_settings'&&($raw['ownerId']??null)===$uid&&method_exists($native,'linkedStatus'))
+                $raw['linkedExport']=$native->linkedStatus($uid,$input['id']);
             if($action==='forms_list_response_files')return ['files'=>$this->policy->resourceBoundary($uid,fn()=>$this->files->listing($uid,$raw['files']??[]))]+array_intersect_key($raw,['_mcp_page'=>true]);
             if(in_array($action,['forms_read_links','forms_get_embed'],true)) {
                 $shares=$raw['shares']??$raw;$out=[];
@@ -119,7 +144,7 @@ final class FormsNativeGateway implements FormsGateway {
             if($action==='forms_cancel_operation')$data=$this->jobs->cancel($uid,$jobId,$operationKey,$snapshot['job_version']);
             elseif($job['state']==='ready'&&$job['payload']['tool']==='forms_download_results')$data=$this->jobs->issueDownload($uid,$jobId,$operationKey,$snapshot['job_version'],fn():array=>$this->downloads->issue($uid,$jobId));
             elseif($job['state']==='ready'&&in_array($job['payload']['tool'],['forms_export_results','forms_link_results_file'],true)) {
-                $data=$this->jobs->deliver($uid,$jobId,$read,fn(string $content,array $claimed):array=>$this->policy->resourceBoundary($uid,fn()=>$this->destination->save($uid,$claimed['payload']['arguments'],$claimed['payload']['destination'],$content,$this->fileBoundary($uid,$guard,$claimed['payload']['origin'],array_map(static fn(int $id):array=>['file_id'=>$id],array_values($claimed['payload']['file_ids']??[])),fn()=>$this->jobs->assertDelivery($uid,$claimed,$read)))),$operationKey,$snapshot['job_version']);
+                $data=$this->jobs->deliver($uid,$jobId,$read,fn(string $content,array $claimed):array=>$claimed['payload']['tool']==='forms_link_results_file'?(new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedActivation())->activate($uid,$claimed,$guard,$read,fn():array=>$this->linkedFiles->initialWrite($uid,$claimed,$content,$read)):$this->policy->resourceBoundary($uid,fn()=>$this->destination->save($uid,$claimed['payload']['arguments'],$claimed['payload']['destination'],$content,$this->fileBoundary($uid,$guard,$claimed['payload']['origin'],array_map(static fn(int $id):array=>['file_id'=>$id],array_values($claimed['payload']['file_ids']??[])),fn()=>$this->jobs->assertDelivery($uid,$claimed,$read)))),$operationKey,$snapshot['job_version']);
             } else $data=$this->jobs->step($uid,$jobId,$read,function(array $submission,?\Closure $checkpoint=null)use($uid,$guard,$job):array {
                 $visible=\OCA\Mcp\Modules\Forms\Exports\FormsExportFileReferences::collect(
                     function(int $offset,int $limit)use($uid,$guard,$job,$submission):array {
@@ -137,6 +162,7 @@ final class FormsNativeGateway implements FormsGateway {
             $input['answers']=$snapshot['native_answers']??throw new FormsBeforeEffect('A validated typed-answer preview is required.');
         }
         $input['_mcp_origin']=$origin;$transfer=null;
+        if($action==='forms_unlink_results_file')$input['_mcp_unlink_approval']=$snapshot['unlink_approval']??throw new FormsBeforeEffect('An exact unlink approval is required.');
         if($action==='forms_upload_response_files') {
             $input['_mcp_sources']=$snapshot['file_sources'];
             $transfer=fn():array=>$this->policy->resourceBoundary($uid,fn()=>$this->uploads->withSources($uid,$snapshot['file_sources'],

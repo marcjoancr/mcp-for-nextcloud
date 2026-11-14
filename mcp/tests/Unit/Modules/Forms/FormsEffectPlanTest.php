@@ -21,6 +21,13 @@ final class FormsEffectPlanTest extends TestCase {
         self::assertStringNotContainsString('/alice/files',json_encode($p));self::assertStringNotContainsString('origin',json_encode($p));
         self::assertSame(['share'],\OCA\Mcp\Modules\Forms\Access\FormsAuthorization::fileOperations('forms_delete_form',['id'=>4],['file_manifest'=>['files_share'=>true]]));
     }
+    public function testFutureLinkedAudienceNeedsSharedConfirmationAndExposesOnlyConsent():void {
+        $consent=['updates'=>'future submissions until unlink, revocation or a source/destination change','recipients'=>[['type'=>0,'recipient'=>'bob','permissions'=>1]],'format'=>'csv'];
+        $p=FormsPlan::build('forms_link_results_file',['id'=>4],['form'=>['ownerId'=>'alice'],'file_destination'=>['plan'=>[],'audience'=>['digest'=>'private']],'impact'=>['linked_export'=>$consent]],'alice');
+        self::assertTrue($p['requiresSharedConfirmation']);
+        self::assertSame($consent,$p['impact']['linked_export']);
+        self::assertStringNotContainsString('private',json_encode($p));
+    }
     public function testQuestionUpdateShowsCurrentTargetRatherThanUnrelatedFormOnly():void {
         $p=FormsPlan::build('forms_update_question',['id'=>4,'question_id'=>7,'fields'=>['text'=>'New']],['form'=>['ownerId'=>'alice','questions'=>[['id'=>7,'text'=>'Old','type'=>'short']]]],'alice');
         self::assertSame('Old',$p['before']['question']['text']);

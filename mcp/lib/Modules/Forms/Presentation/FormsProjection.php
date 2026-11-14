@@ -25,7 +25,7 @@ final class FormsProjection {
         if(in_array($tool,['forms_search','forms_read_result'],true))return self::bounded($raw);
         if($tool==='forms_read_submission_form')return self::submissionForm($raw,$args);
         if($tool==='forms_read_own_response'){self::nativePage($raw,$args);return self::response($raw,$args);}
-        if($tool==='forms_read_settings')return self::form($raw,$args);
+        if($tool==='forms_read_settings')return self::bounded(self::form($raw,$args)+(isset($raw['linkedExport'])?['linkedExport'=>array_intersect_key($raw['linkedExport'],array_flip(['form_id','association_id','version','state','pending','last_completed_generation']))]:[]));
         if($tool==='forms_read_question') {
             $out=array_intersect_key($raw,array_flip(self::QUESTION_FIELDS));$offset=$args['offset']??0;$limit=$args['limit']??50;
             $options=$raw['options']??[];

@@ -14,13 +14,17 @@ use OCP\IUserManager;
  * The caller separately admits original authority, backup privacy and supported storage at each effect.
  */
 final class FormsLinkedRecovery {
-    public function __construct(private IRootFolder $root,private IUserManager $users,private \Closure $versions,private \Closure $copiesRequired) {}
-    private function manager(File $file):object {
+    public function __construct(private IRootFolder $root,private IUserManager $users,private \Closure $versions,private \Closure $copiesRequired,private \Closure $versionsEnabled) {}
+    private function manager(\OCP\Files\Node $file):object {
         $manager=($this->versions)();
         if(get_class($manager)!=='OCA\\Files_Versions\\Versions\\VersionManager'
             ||get_class($manager->getBackendForStorage($file->getStorage()))!=='OCA\\Files_Versions\\Versions\\LegacyVersionsBackend')
             throw new \RuntimeException('The qualified native Versions backend is unavailable.');
         return $manager;
+    }
+    public function qualify(string $uid,\OCP\Files\Node $node):void {
+        if(($this->versionsEnabled)($uid)!==true)throw new \RuntimeException('Native Versions must be enabled before linking a future Forms export.');
+        if(!($this->copiesRequired)($uid))$this->manager($node);
     }
     public function capture(string $uid,File $file,array $preimage):array {
         if(!is_int($preimage['size']??null)||$preimage['size']<0||$preimage['size']>26214400

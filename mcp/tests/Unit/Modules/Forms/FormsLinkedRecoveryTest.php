@@ -14,12 +14,17 @@ use OCP\Files\File;
 use OCP\IUserManager;
 use PHPUnit\Framework\TestCase;
 final class FormsLinkedRecoveryTest extends TestCase {
-    private function fixture(string $bytes,bool $copies=true):array {
+    private function fixture(string $bytes,bool $copies=true,bool $versionsEnabled=true):array {
         $root=$this->createMock(IRootFolder::class);$home=$this->createMock(Folder::class);$file=$this->createMock(File::class);$backup=$this->createMock(File::class);
         $root->method('getUserFolder')->with('alice')->willReturn($home);$home->method('get')->with('MCP backups/results.csv.bak')->willReturn($backup);$file->method('getId')->willReturn(17);$backup->method('getId')->willReturn(18);
         $backup->method('fopen')->willReturnCallback(static function()use($bytes){$stream=fopen('php://memory','w+b');fwrite($stream,$bytes);rewind($stream);return $stream;});
-        $service=new FormsLinkedRecovery($root,$this->createMock(IUserManager::class),static fn():object=>new \stdClass(),static fn(string $uid):bool=>$copies);
+        $service=new FormsLinkedRecovery($root,$this->createMock(IUserManager::class),static fn():object=>new \stdClass(),static fn(string $uid):bool=>$copies,static fn(string $uid):bool=>$versionsEnabled);
         return [$service,$file];
+    }
+    public function testInitialNewOutputCannotPromiseOverwritesWithoutVersionsEvenWithCopies():void {
+        [$recovery,$file]=$this->fixture('old',true,false);
+        $this->expectException(\RuntimeException::class);$this->expectExceptionMessage('Versions must be enabled');
+        $recovery->qualify('alice',$file);
     }
     public function testExactBackupPreimageIsRequiredBeforeTheDestinationCanOpen():void {
         [$recovery,$file]=$this->fixture('old');$proof=$recovery->capture('alice',$file,['size'=>3,'sha256'=>hash('sha256','old')]);

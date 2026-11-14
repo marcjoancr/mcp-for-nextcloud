@@ -21,6 +21,24 @@ final class FormsLinkedProcessTest extends TestCase {
         $runner=new FormsLinkedExportRunner($process,static fn():array=>['command'=>$command,'cwd'=>'/srv/nextcloud']);
         self::assertSame(['status'=>'unknown'],$runner->run($id,60000));
     }
+    public function testReadOnlyHealthUsesTheRealBoundedChildAndNeverClaimsAnAssociation():void {
+        $process=$this->createMock(NativeMutationProcess::class);
+        $process->expects(self::once())->method('run')->with(['/usr/bin/php','/srv/occ','mcp:forms-linked-export'],'/srv',['health'=>true],5000)->willReturn(['status'=>'completed']);
+        $runner=new FormsLinkedExportRunner($process,static fn():array=>['command'=>['/usr/bin/php','/srv/occ','mcp:forms-linked-export'],'cwd'=>'/srv']);
+        self::assertTrue($runner->available());
+        $session=$this->createMock(IUserSession::class);$session->method('getUser')->willReturn(null);
+        $worker=new FormsLinkedExportWorker($session,static fn()=>self::fail('Health started an association.'),'cli',static fn():bool=>true);
+        self::assertSame(['status'=>'completed'],$worker->run(['health'=>true]));
+        self::assertSame(['status'=>'refused'],$worker->run(['health'=>true,'association_id'=>str_repeat('a',64)]));
+    }
+    public function testHealthRefusalDoesNotTurnAnUnknownRuntimeIntoAnAvailableWriter():void {
+        $process=$this->createMock(NativeMutationProcess::class);$process->method('run')->willReturn(['status'=>'unknown']);
+        $runner=new FormsLinkedExportRunner($process,static fn():array=>['command'=>['/usr/bin/php','/srv/occ'],'cwd'=>'/srv']);
+        self::assertFalse($runner->available());
+        $session=$this->createMock(IUserSession::class);$session->method('getUser')->willReturn(null);
+        $worker=new FormsLinkedExportWorker($session,static fn()=>self::fail('Health started an association.'),'cli',static fn():bool=>false);
+        self::assertSame(['status'=>'refused'],$worker->run(['health'=>true]));
+    }
     public function testUnavailableCliAndMalformedIdentityNeverStartAWriter():void {
         $process=$this->createMock(NativeMutationProcess::class);$process->expects(self::never())->method('run');
         $runner=new FormsLinkedExportRunner($process,static fn():?array=>null);

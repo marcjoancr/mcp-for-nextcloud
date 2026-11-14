@@ -41,6 +41,7 @@ final class FormsExportJobs {
         $job=['job_id'=>$id,'actor_uid'=>$uid,'version'=>1,'state'=>'collecting','updated_at'=>($this->time)(),
             'payload'=>['origin'=>$origin,'cache_protocol'=>2,'native_runtime'=>\OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity::INSTALLED_MANIFEST_SHA256,'tool'=>$tool,'arguments'=>$args,'source_revision'=>self::sourceRevision($snapshot),
                 'cache_expires_at'=>($this->time)()+604800,'metadata'=>$snapshot['export_metadata'],'destination'=>$snapshot['file_destination']??null,'done'=>0,'after_id'=>0,'bytes'=>0,'parts'=>[],'file_ids'=>[]]];
+        if($tool==='forms_link_results_file'&&isset($snapshot['linked_approval']))$job['payload']['linked_approval']=$snapshot['linked_approval'];
         try {$this->spool->reserve($id,$uid);}catch(\Throwable){throw new \OCA\Mcp\Modules\Forms\Execution\FormsBeforeEffect('Forms temporary result capacity is unavailable. No result job or Files write was started.');}
         if(!$this->store->create($job))throw new ToolFailure('Forms job admission conflicted; inspect its receipt.');
         return $this->receipt($id);

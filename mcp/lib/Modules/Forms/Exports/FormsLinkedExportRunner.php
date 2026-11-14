@@ -11,15 +11,19 @@ use OCA\Mcp\Platform\Process\NativeMutationProcess;
 /** Only the opaque association enters a fresh child. Native SQL retains its own original approval. */
 final class FormsLinkedExportRunner {
     public function __construct(private NativeMutationProcess $process,private \Closure $command) {}
+    public function available():bool {return $this->execute(['health'=>true],5000)['status']==='completed';}
     public function run(string $associationId,int $budgetMs=20000):array {
         if(preg_match('/^[a-f0-9]{64}$/D',$associationId)!==1)return ['status'=>'refused'];
+        return $this->execute(['association_id'=>$associationId],max(1,min(20000,$budgetMs)));
+    }
+    private function execute(array $ticket,int $budgetMs):array {
         try {
             $entry=($this->command)();
             if(!is_array($entry)||!is_array($entry['command']??null)||!array_is_list($entry['command'])||$entry['command']===[]
                 ||!is_string($entry['cwd']??null)||!str_starts_with($entry['cwd'],'/'))return ['status'=>'refused'];
             foreach($entry['command'] as $arg)if(!is_string($arg)||$arg==='')return ['status'=>'refused'];
         } catch(\Throwable) {return ['status'=>'refused'];}
-        try {return $this->process->run($entry['command'],$entry['cwd'],['association_id'=>$associationId],max(1,min(20000,$budgetMs)));}
+        try {return $this->process->run($entry['command'],$entry['cwd'],$ticket,$budgetMs);}
         catch(\Throwable) {return ['status'=>'unknown'];}
     }
 }

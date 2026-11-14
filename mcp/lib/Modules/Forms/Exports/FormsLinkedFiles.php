@@ -22,6 +22,81 @@ final class FormsLinkedFiles implements FormsLinkedFileSink {
         private \Closure $native,private FormsExportDestination $destination,private FormsExportJobs $jobs,
         private FormsLinkedAudience $audience,private FormsLinkedRecovery $recovery,
         private FormsAnswerFiles $files,private FormsFileImpact $impact,private IURLGenerator $urls,private BackupLocation $backups) {}
+    /** Initial HTTP approval also qualifies recovery for the later overwrites of a new output. */
+    public function initialSnapshot(string $uid,array $arguments):array {
+        return $this->policy->resourceBoundary($uid,function()use($uid,$arguments):array {
+            $snapshot=$this->destination->snapshot($uid,$arguments);
+            $home=$this->root->getUserFolder($uid);$relative=ltrim($snapshot['path'],'/');
+            $parent=dirname($relative);$node=$snapshot['overwrite']?$home->get($relative):($parent==='.'?$home:$home->get($parent));
+            $this->recovery->qualify($uid,$node);
+            $snapshot['audience']=$this->audience->snapshot($uid,$snapshot['path']);
+            if($snapshot['overwrite']) {
+                if(!$node instanceof File)throw new \RuntimeException('The original linked output is unavailable.');
+                $snapshot['_linked_recovery']=$this->recovery->capture($uid,$node,$snapshot['preimage']);
+            }
+            return $snapshot;
+        });
+    }
+    /** The native activation owns the transaction; these callbacks fence each actual interactive Files effect. */
+    public function initialWrite(string $uid,array $job,string $content,\Closure $source):array {
+        $p=$job['payload'];$origin=$p['origin'];$native=($this->native)();
+        if($this->initialSnapshot($uid,$p['arguments'])!==$p['destination'])
+            throw new \RuntimeException('The original linked destination or recovery approval changed.');
+        $approved=$p['destination'];$proof=$approved['_linked_recovery']??null;$copy='';$allocatedId=null;
+        $admitted=function()use($uid,$job,$source,$origin,$approved):void {
+            $context=($this->authorize)($origin);
+            if(($context['uid']??null)!==$uid)throw new \RuntimeException('Original linked Files authority changed.');
+            $this->jobs->assertDelivery($uid,$job,$source);
+            if($this->audience->snapshot($uid,$approved['path'])!==$approved['audience'])
+                throw new \RuntimeException('The approved linked Files audience changed.');
+            $refs=array_map(static fn(int $id):array=>['file_id'=>$id],array_values($job['payload']['file_ids']??[]));
+            if($approved['overwrite'])$refs[]=['file_id'=>$approved['file_id']];
+            $this->impact->assertVisible($uid,['files'=>$refs]);
+        };
+        $output=function(Node $node,?string $child,\Closure $policy,\Closure $write,?array $preimage=null)use($uid,$native,$origin,$approved,$proof,$admitted,&$copy,&$allocatedId):mixed {
+            $authorize=function(string $stage='preflight')use($uid,$node,$child,$policy,$preimage,$approved,$proof,$admitted,&$copy,&$allocatedId):void {
+                $this->policy->resourceBoundary($uid,function()use($uid,$node,$child,$policy,$preimage,$stage,$approved,$proof,$admitted,&$copy,&$allocatedId):void {
+                    $admitted();$policy();
+                    if($approved['overwrite']) {
+                        if($child!==null||!$node instanceof File||(int)$node->getId()!==$approved['file_id'])
+                            throw new \RuntimeException('The initial linked output identity changed.');
+                        FormsFilePreimage::assert($node,$preimage??throw new \RuntimeException('The initial linked preimage is unavailable.'));
+                        if($stage==='content')$this->recovery->assert($uid,$node,$proof,$copy,'content');
+                    } else {
+                        $path=trim((string)$this->root->getUserFolder($uid)->getRelativePath($node->getPath()),'/').($child===null?'':'/'.$child);
+                        if(ltrim($path,'/')!==ltrim($approved['path'],'/')
+                            ||($child!==null?((int)$node->getId()!==$approved['folder_id']||$allocatedId!==null):
+                                (!$node instanceof File||(int)$node->getId()!==$allocatedId)))
+                            throw new \RuntimeException('The initial linked allocation changed.');
+                        if($child===null)FormsFilePreimage::assert($node,['size'=>0,'sha256'=>hash('sha256','')]);
+                    }
+                });
+            };
+            $result=$native->fileBoundary($uid,$origin,$node,$child,$authorize,$write);
+            if(!$approved['overwrite']&&$child!==null) {
+                if(!$result instanceof File||(int)$result->getId()<1)throw new \RuntimeException('The initial linked allocation is unverified.');
+                $allocatedId=(int)$result->getId();
+            }
+            return $result;
+        };
+        $backup=function(Node $node,?string $child,\Closure $policy,\Closure $write)use($uid,$native,$origin,$admitted):mixed {
+            $authorize=function(string $stage='preflight')use($uid,$node,$child,$policy,$admitted):void {
+                $this->policy->resourceBoundary($uid,function()use($uid,$node,$child,$policy,$admitted):void {
+                    $admitted();$policy();$path=$this->backupPath($uid,$node,$child);
+                    if($this->audience->snapshot($uid,$path)['recipients']!==[])
+                        throw new \RuntimeException('The private recovery copy has additional recipients.');
+                });
+            };
+            return $native->fileBoundary($uid,$origin,$node,$child,$authorize,$write);
+        };
+        $ready=function(string $path)use($uid,$approved,$proof,&$copy):void {
+            $file=$this->root->getUserFolder($uid)->get($approved['path']);
+            if(!$file instanceof File||$proof===null)throw new \RuntimeException('The initial linked recovery proof is unavailable.');
+            $this->recovery->assert($uid,$file,$proof,$path,'after_backup');$copy=$path;
+        };
+        unset($approved['audience'],$approved['_linked_recovery']);
+        return $this->policy->resourceBoundary($uid,fn():array=>$this->destination->save($uid,$p['arguments'],$approved,$content,$output,true,$backup,$ready));
+    }
     private function original(array $claim):string {
         $origin=$claim['origin'];$context=($this->authorize)($origin);
         if(($context['uid']??null)!==($origin['uid']??null))throw new \RuntimeException('Original linked Files authority changed.');

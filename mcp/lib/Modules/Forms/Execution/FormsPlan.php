@@ -35,7 +35,7 @@ final class FormsPlan {
         if($tool==='forms_transfer')$impact['transfer']='Verified managed files are copied to the new owner; originals and recovery copies are retained. Shares and automatic exports are reviewed separately.';
         return FormsProjection::bounded(['action'=>$tool,'before'=>$before,'changes'=>self::redact($changes),
             'impact'=>self::redact($impact),
-            'requiresSharedConfirmation'=>(isset($form['ownerId'])&&$form['ownerId']!==$uid)||($snapshot['file_destination']['plan']['requiresSharedConfirmation']??false),
+            'requiresSharedConfirmation'=>(isset($form['ownerId'])&&$form['ownerId']!==$uid)||($snapshot['file_destination']['plan']['requiresSharedConfirmation']??false)||($snapshot['impact']['linked_export']['recipients']??[])!==[],
             'message'=>'Nothing has been changed. Review the complete change, affected data and native notifications before confirming.']);
     }
     private static function redact(array $value):array {

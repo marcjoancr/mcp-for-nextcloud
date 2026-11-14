@@ -14,6 +14,16 @@ use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 use PHPUnit\Framework\TestCase;
 
 final class FormsOwnPublicProjectionTest extends TestCase {
+    public function testLinkedStatusIsIncludedInTheFinalProjectionByteBudget():void {
+        $raw=['description'=>str_repeat('x',1048550)];
+        self::assertSame($raw,FormsProjection::form($raw));
+        $this->expectException(ToolFailure::class);
+        FormsProjection::read('forms_read_settings',$raw+['linkedExport'=>['state'=>'active']],[]);
+    }
+    public function testLinkedStatusDropsPrivateAuthorityAndFileMetadata():void {
+        $raw=['id'=>4,'linkedExport'=>['form_id'=>4,'state'=>'active','association_id'=>'opaque','origin'=>['proof'=>'private'],'path'=>'private.csv','sha256'=>'private']];
+        self::assertSame(['id'=>4,'linkedExport'=>['form_id'=>4,'state'=>'active','association_id'=>'opaque']],FormsProjection::read('forms_read_settings',$raw,[]));
+    }
     public function testOwnAnswerContinuationProjectsAlreadyPagedNativeRowsExactlyOnce():void {
         $answers=[];for($i=1;$i<=61;$i++)$answers[]=['id'=>$i,'questionId'=>$i,'text'=>'Answer '.$i,'secret'=>'excluded'];
         $base=['id'=>9,'formId'=>3,'timestamp'=>1000,'userId'=>'alice','userDisplayName'=>'Alice'];

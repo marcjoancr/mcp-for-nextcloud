@@ -681,13 +681,14 @@ class Application extends App implements IBootstrap {
         ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedRecovery::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedRecovery(
             $c->get(IRootFolder::class),$c->get(IUserManager::class),static fn():object=>$c->get('OCA\\Files_Versions\\Versions\\IVersionManager'),
-            static fn(string $uid):bool=>$c->get(\OCA\Mcp\Access\BackupPolicy\BackupCopies::class)->required($uid)
+            static fn(string $uid):bool=>$c->get(\OCA\Mcp\Access\BackupPolicy\BackupCopies::class)->required($uid),
+            static fn(string $uid):bool=>$c->get(\OCA\Mcp\Access\BackupPolicy\BackupCopies::class)->versionsAvailable($uid)
         ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedRetirement::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedRetirement(
             $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsJobStore::class),
             static fn(string $job,string $uid):bool=>$c->get(\OCA\Mcp\Db\FormsSpoolMapper::class)->sealed($job,$uid)
         ));
-        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedFileSink::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedFiles(
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedFiles::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedFiles(
             $c->get(IRootFolder::class),$c->get(GrantPolicy::class),
             static fn(array $origin):array=>$c->get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assert($origin),
             static fn():object=>$c->get('OCA\\Forms\\Mcp\\Guard'),
@@ -696,6 +697,7 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Forms\Attachments\FormsAnswerFiles::class),$c->get(\OCA\Mcp\Modules\Forms\Attachments\FormsFileImpact::class),
             $c->get(\OCP\IURLGenerator::class),$c->get(\OCA\Mcp\Access\BackupPolicy\BackupLocation::class)
         ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedFileSink::class, static fn(ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedFiles::class));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportAuthority::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Integration\FormsNativeLinkedExportAuthority(
             static fn():object=>$c->get('OCA\\Forms\\Mcp\\Guard'),
             static function()use($c):bool {
@@ -710,7 +712,12 @@ class Application extends App implements IBootstrap {
             static function(array $origin)use($c):void {$c->get('OCA\\Forms\\Mcp\\Guard')->initializeLinkedFiles($origin);}
         ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportWorker::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportWorker(
-            $c->get(IUserSession::class),static fn(string $id):array=>$c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExport::class)->step($id)
+            $c->get(IUserSession::class),static fn(string $id):array=>$c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExport::class)->step($id),PHP_SAPI,
+            static function()use($c):bool {
+                if(!(new \OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity())->matches($c->get(IAppManager::class)->getAppPath('forms')))return false;
+                $native=$c->get('OCA\\Forms\\Mcp\\Guard');$features=$native->capabilities();
+                return ($features['qualified']??false)===true&&($features['linked_exports']??false)===true&&($features['file_sinks']??false)===true;
+            }
         ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner(
             $c->get(\OCA\Mcp\Platform\Process\NativeMutationProcess::class),static function()use($c):?array {
@@ -744,7 +751,7 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Forms\Attachments\FormsFileImpact::class), $c->get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class), $c->get(\OCP\IURLGenerator::class),
             $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsExportJobs::class), $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsExportDestination::class),
             $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsDownloadAdmission::class), $c->get(\OCA\Mcp\Modules\Forms\Execution\FormsOperationJournal::class),
-            $c->get(\OCA\Mcp\Modules\Forms\Reading\FormsListing::class), $c->get(\OCA\Mcp\Modules\Forms\Reading\FormsListingSource::class), $c->get(GrantPolicy::class)
+            $c->get(\OCA\Mcp\Modules\Forms\Reading\FormsListing::class), $c->get(\OCA\Mcp\Modules\Forms\Reading\FormsListingSource::class), $c->get(GrantPolicy::class), $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedFiles::class), $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner::class)
         ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Execution\FormsWriteCoordinator::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Execution\FormsWriteCoordinator(
             $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsGateway::class), $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),

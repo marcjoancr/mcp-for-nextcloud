@@ -10,9 +10,14 @@ namespace OCA\Mcp\Modules\Forms\Exports;
 use OCP\IUserSession;
 /** One bounded step; the step service is lazy so native claim initializes the first original Files root. */
 final class FormsLinkedExportWorker {
-    public function __construct(private IUserSession $session,private \Closure $step,private string $sapi=PHP_SAPI) {}
+    public function __construct(private IUserSession $session,private \Closure $step,private string $sapi=PHP_SAPI,private ?\Closure $health=null) {}
     public function run(array $input):array {
-        if($this->sapi!=='cli'||$this->session->getUser()!==null||array_keys($input)!==['association_id']
+        if($this->sapi!=='cli'||$this->session->getUser()!==null)return ['status'=>'refused'];
+        if($input===['health'=>true]) {
+            try {return ['status'=>$this->health!==null&&($this->health)()===true&&$this->session->getUser()===null?'completed':'refused'];}
+            catch(\Throwable) {return ['status'=>'refused'];}
+        }
+        if(array_keys($input)!==['association_id']
             ||!is_string($input['association_id'])||preg_match('/^[a-f0-9]{64}$/D',$input['association_id'])!==1)
             return ['status'=>'refused'];
         try {

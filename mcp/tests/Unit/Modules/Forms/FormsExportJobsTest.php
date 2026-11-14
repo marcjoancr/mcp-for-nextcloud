@@ -31,6 +31,16 @@ final class FormsExportJobsTest extends TestCase {
         $rows=array_values(array_filter($this->source,fn(array $r):bool=>$r['id']>($args['after_id']??0)));$more=count($rows)>$args['limit'];$rows=array_slice($rows,0,$args['limit']);
         return ['submissions'=>$rows,'hasMore'=>$more,'nextId'=>$rows===[]?$args['after_id']:end($rows)['id']];
     }
+    public function testOnlyTrustedSnapshotCanRetainFutureLinkedConsent():void {
+        $args=['id'=>4,'format'=>'csv','_mcp_link_approval'=>['forged'=>true]];
+        $preview=$this->engine->preview('alice','forms_link_results_file',$args,['revision'=>'4'],$this->native(...));
+        $approval=['arguments'=>['id'=>4,'format'=>'csv'],'native_runtime'=>'qualified','source_revision'=>'4','schema_digest'=>'schema','destination'=>['path'=>'/results.csv','audience'=>['digest'=>'private']]];
+        $preview['linked_approval']=$approval;
+        $id=$this->engine->start('alice','forms_link_results_file',$args,$preview,'linked-consent',['uid'=>'alice','connection'=>12],$this->native(...))['references']['job_id'];
+        self::assertSame($approval,$this->jobs[$id]['payload']['linked_approval']??null);
+        $plain=$this->engine->start('alice','forms_export_results',$args,array_diff_key($preview,['linked_approval'=>true]),'plain-export',['uid'=>'alice','connection'=>12],$this->native(...))['references']['job_id'];
+        self::assertArrayNotHasKey('linked_approval',$this->jobs[$plain]['payload']);
+    }
     private function start():array {
         $preview=$this->engine->preview('alice','forms_download_results',['id'=>4,'format'=>'csv'],['revision'=>'4','form'=>['id'=>4,'ownerId'=>'alice']]+($this->exportRevision===null?[]:['export_revision'=>$this->exportRevision]),$this->native(...));
         return $this->engine->start('alice','forms_download_results',['id'=>4,'format'=>'csv'],$preview,'job-key',['uid'=>'alice','connection'=>12],$this->native(...));
