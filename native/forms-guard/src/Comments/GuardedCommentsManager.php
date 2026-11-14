@@ -77,7 +77,7 @@ final class GuardedCommentsManager extends \OC\Comments\Manager {
                 $parent=$this->get($comment->getParentId());
                 if ($parent->getObjectType()!=='forms' || $parent->getObjectId()!==$comment->getObjectId()) {throw new \RuntimeException('Comment parent belongs to another object');}
             }
-            if (!parent::save($comment)) {throw new \RuntimeException('Native comment persistence failed');}
+            if (!parent::save($comment)) {throw new \RuntimeException('Native comment persistence failed');}\OCA\Forms\Mcp\Service\BulkEpoch::touch((int)$comment->getObjectId());
             return true;
         });
     }
@@ -97,21 +97,33 @@ final class GuardedCommentsManager extends \OC\Comments\Manager {
             CommentsRuntime::admit($uid,(int)$comment->getObjectId());
             CommentsRuntime::mutation('forms_delete_comment',$comment->getId());
             CommentsRuntime::author($comment,$uid);
-            if (!parent::delete($id)) {throw new \RuntimeException('Native comment deletion failed');}
+            if (!parent::delete($id)) {throw new \RuntimeException('Native comment deletion failed');}\OCA\Forms\Mcp\Service\BulkEpoch::touch((int)$comment->getObjectId());
             return true;
         });
     }
     public function deleteReferencesOfActor($actorType,$actorId): bool {
         // Account cleanup can affect Forms and other objects in one native bulk UPDATE.
-        return $this->mutate(fn()=>parent::deleteReferencesOfActor($actorType,$actorId));
+        return $this->mutate(function()use($actorType,$actorId){\OCA\Forms\Mcp\Service\BulkEpoch::touch(0);return parent::deleteReferencesOfActor($actorType,$actorId);});
+    }
+    /** Exact native whole-form comment cleanup: native bulk cleanup emits no individual events. */
+    public function deleteApprovedFormComment(int $formId,int $commentId): int {
+        $fence=Server::get(FormsRevisionFence::class);
+        if(!$fence->active()){throw new \LogicException('Exact cleanup requires its native fence');}
+        $origin=\OCA\Forms\Mcp\Service\OriginContext::current();
+        \OCA\Forms\Mcp\Service\OriginContext::assertFresh();
+        $form=Server::get(\OCA\Forms\Db\FormMapper::class)->findById($formId);
+        if($origin['action']!=='forms_delete_form'||(int)($origin['input']['id']??0)!==$formId||$form->getOwnerId()!==$origin['verified']['uid']){throw new \RuntimeException('Exact cleanup lacks current form-owner authority');}
+        $fence->afterTransaction(fn()=> $this->commentsCache->clear());
+        $count=$this->dbConn->executeStatement("DELETE FROM *PREFIX*comments WHERE id = ? AND object_type = 'forms' AND object_id = ?",[$commentId,(string)$formId]);
+        $this->commentsCache->clear();if($count>0){\OCA\Forms\Mcp\Service\BulkEpoch::touch($formId);}return $count;
     }
     public function deleteCommentsAtObject($objectType,$objectId): bool {
         if ($objectType!=='forms') {return parent::deleteCommentsAtObject($objectType,$objectId);}
         // Native owner-authorized form cleanup also runs after the form row was deleted.
-        return $this->mutate(fn()=>parent::deleteCommentsAtObject($objectType,$objectId));
+        return $this->mutate(function()use($objectType,$objectId){\OCA\Forms\Mcp\Service\BulkEpoch::touch((int)$objectId);return parent::deleteCommentsAtObject($objectType,$objectId);});
     }
     public function deleteCommentsExpiredAtObject(string $objectType,string $objectId=''): bool {
         if ($objectType!=='forms') {return parent::deleteCommentsExpiredAtObject($objectType,$objectId);}
-        return $this->mutate(fn()=>parent::deleteCommentsExpiredAtObject($objectType,$objectId));
+        return $this->mutate(function()use($objectType,$objectId){\OCA\Forms\Mcp\Service\BulkEpoch::touch((int)$objectId);return parent::deleteCommentsExpiredAtObject($objectType,$objectId);});
     }
 }

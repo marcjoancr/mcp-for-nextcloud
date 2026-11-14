@@ -145,3 +145,43 @@ Installation, update, reactivation, and rollback require coordinated writer quie
 The stable factory selects core's own factory when qualified Forms code is unavailable. Missing app directories and keep-data removal preserve global Comments. Qualified native Forms comments remain guarded with MCP disabled, while effects carrying original MCP proofs continue to require current MCP authority. The factory declaration and configuration loader depend only on core interfaces and resolve services after configuration loading.
 
 `NativeFormsCommentsTest` exercises real PostgreSQL comment SQL and HTTP DAV, both event interfaces, rollback cache state, author-only checks, original grant and selected-profile revocation, one-shot ambiguous consumers, parent metadata, bulk form cleanup, and fresh-process installation/removal/rollback. These tests use recording handlers and disposable accounts. Web-facing MCP tool publication remains an adapter-level qualification step.
+
+## Private bounded recovery lifecycle
+
+The optional `050402Date20261113080000` and `050402Date20261113090000` migrations add permanent encrypted bulk-operation/recovery records and per-form writer epochs. `bulk_lifecycle` requires the exact qualified runtime and the latter migration. Existing guard qualification retains its `60000` floor, and comments retain their separate `70000` activation. This private interface does not itself publish additional MCP tools or claim full Forms parity.
+
+The server-only entrypoints are `bulkSnapshot(uid, action, input)`, `bulkStart(uid, action, input, revision, operationKey, trustedFilesBoundary=null)`, `bulkStep(uid, bulkId, origin, expectedVersion, stepKey, trustedFilesBoundary=null)`, `bulkStatus(uid, bulkId, origin)`, `bulkLookup(uid, operationKey, origin)`, and `bulkCancel(uid, bulkId, origin, expectedVersion, stepKey)`. Actions are whole-form deletion, all-response deletion, ownership transfer, and restoration of this bulk recovery format. Legacy one-shot recovery remains available through its existing interface. Bulk backup references identify `bulk_v1`; they must not be passed to the legacy manifest reader.
+
+The callback signature is `callable(string action, array pageManifest): void`. It is trusted server code and is never serialized or supplied through a model-visible tool argument. Native original-authority checks and the callback run again at guarded Files storage boundaries after native lock waits. Manual continuation requires the authenticated native actor; this protocol introduces no sessionless worker authority. Status and lookup return retained evidence and never replay effects.
+
+Preview revisions are opaque `b1` values binding the native generation and exact managed Files IDs, storage, path, ETag and size. Start compares that approval under the global writer fence. Continuation follows the affected form's own epoch, so another form's activity does not invalidate it. Restore follows its new private partial form. Native cross-form account/expiry cleanup has its own conservative global epoch. Each operation also retains its exact installed native manifest identity; source upgrades cannot resume effects approved under older semantics.
+
+Metadata capture, verification, exact SQL effects and restore use ascending IDs, at most100 rows and1MiB of projections per page. Complete recovery is verified and sealed before source deletion. There are finite limits of100000 retained rows,1000 managed files,128MiB of charged ciphertext/copy reservations per operation and1GiB across retained operations. Each Files step handles one file of at most25MiB. Processing deadlines stop additional work; an unknown filesystem outcome retains its claim and reservation and cannot be replayed. Recovery has no expiry or automatic pruning and uses the private `forms_mcp_bulk_recovery` namespace, separate from expiring result spools.
+
+Transfer stages and verifies copies while retaining original bytes. Its final transaction checks the locked original/destination identities, pages exact reference updates, and changes ownership atomically. Deadline exhaustion rolls back those database changes while retaining the staged copies. A live managed Files share currently causes a pre-effect refusal: staging corresponding target-owned shares is a required remaining parity variant and must be qualified separately. The protocol never silently removes the old owner's shares or leaves the old live form pointing at target-owned files between steps.
+
+Whole-form deletion removes only frozen native descendants and exact approved managed files. Folders, unrelated files and retained linked outputs survive. Final form removal refuses residual children. Bounded native comment cleanup preserves core whole-form cleanup's absence of individual comment events and clears its cache after transaction completion. Managed Files-share cleanup uses exact previously recorded IDs and frozen owner/recipient/folder/type tuples. Verified database cleanup can finish with `state=partial`, `phase=complete`, and events marked `attempted_unverified`; invoking a consumer is not proof of delivery. Recovery recreates a private closed form with new IDs and verified files, without restoring live shares, tokens, jobs or confirmation email.
+
+`NativeFormsBulkTest` runs five focused disposable PostgreSQL probes covering large complete recovery,101 managed files with an unmanaged sibling, persistent origin/replay/source and byte boundaries, transfer atomicity and unknown copies, and103 native comments plus exact managed-share cleanup. These tests require the separately installed native overlay and the same explicit opt-in as the existing native boundary suite. They do not establish a new provider/storage matrix or whole-module completeness.
+
+
+The private `bulkPreviewPage(uid, action, input, revision, kind, cursor=0, limit=50)`
+API returns `items`, `total`, `next_cursor`, `complete`, and `revision` for
+`files` or `managed_shares`. It is read-only and revalidates the same preview
+revision before and after each page. The adapter must consume all pages for
+approval and Files scopes, and expose an actor-bound public continuation rather
+than a native cursor. Each page contains at most100 items and1MiB. File items
+identify the exact owner, path, ID, size, ETag and intended delete/copy/retain
+action; share items identify native and managed share IDs, recipients, types
+and folders. Copy destinations specify the canonical parent and a new private
+child template, with overwrite prohibited. Restore always creates a new private,
+closed form; its final form ID is intentionally unknown at preview.
+
+One request deadline covers the fence wait, authority checks, fingerprints,
+metadata, hashing and effects. Ordinary row pages yield after16s to reserve checkpoint time. SQL work checks
+the hard18s budget before commit and rolls back on exhaustion; the atomic
+transfer commit and indivisible file operations retain that hard deadline. A durable claim still prohibits replay when an external effect
+cannot be verified within the deadline. Cancellation or source drift after a
+verified recovery allocation or staged copy reports partial effects, including
+retained-file counts and the durable operation evidence ID. An unsealed recovery
+is not automatically restorable and never permits source destruction.

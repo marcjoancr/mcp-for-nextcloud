@@ -24,9 +24,36 @@ final class Guard {
         $schemaReady=$db->executeQuery('SELECT version FROM *PREFIX*migrations WHERE app = ? AND version = ?',['forms','050402Date20261113060000'])->fetchOne()!==false;
         $qualified = $schemaReady && $identity && \OCA\Forms\Mcp\Service\SharingIdentity::verify() && $runtimeQualified && $fileLocks && empty($config->getSystemValue('dbreplica', []));
         $comments=$qualified && \OCA\Forms\Mcp\Comments\CommentsRuntime::approved() && \OCA\Forms\Mcp\Comments\CommentsRuntime::available() && Server::get(\OCP\Comments\ICommentsManager::class) instanceof \OCA\Forms\Mcp\Comments\GuardedCommentsManager;
-        return ['comments'=>$comments,'protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
+        return ['bulk_lifecycle'=>$qualified&&Service\BulkStore::ready(),'bulk_backup_format'=>1,'comments'=>$comments,'protocol'=>1,'qualified'=>$qualified,'version'=>'5.4.2','source'=>'066573fd592513a06f8b8624def8244e911efdfd',
             'database'=>$provider,'actions'=>$qualified ? array_merge(NativeActions::WRITES,['forms_read_own_response','forms_read_submission_form'],$comments?['forms_list_comments','forms_add_comment','forms_update_comment','forms_delete_comment']:[]) : [],'own_response_pages'=>$qualified,'public_submission_form'=>$qualified, 'answers_preflight'=>$qualified,'file_sinks'=>$qualified,'linked_exports'=>$qualified,'files_recovery'=>true,'files_shares'=>$qualified,'files_share_types'=>$qualified?[0,1]:[],'event_delivery'=>'independently_reported'];
     }
+    private function bulkAdmission(string $uid): void {
+        $this->assertPrincipal($uid);
+        if(!Service\BulkStore::ready()){throw new BeforeEffect('Native bulk migration is unavailable');}
+    }
+    public function bulkSnapshot(string $uid,string $action,array $input): array {
+        $this->bulkAdmission($uid);
+        return Service\BulkDeadline::run(fn()=>OriginContext::within($uid,$input['_mcp_origin']??[],$action,$input,fn()=>Server::get(Service\BulkOperations::class)->snapshot($uid,$action,$input,fn()=> $this->authorize($uid,$action,$input))));
+    }
+    /** Private keyset cursor; public adapters must wrap it in their own actor-bound continuation. */
+    public function bulkPreviewPage(string $uid,string $action,array $input,string $revision,string $kind,int $cursor=0,int $limit=50):array {
+        $this->bulkAdmission($uid);
+        return Service\BulkDeadline::run(fn()=>OriginContext::within($uid,$input['_mcp_origin']??[],$action,$input,fn()=>Server::get(Service\BulkOperations::class)->previewPage($uid,$action,$input,$revision,$kind,$cursor,$limit,fn()=> $this->authorize($uid,$action,$input))));
+    }
+    public function bulkStart(string $uid,string $action,array $input,string $revision,string $key,?callable $trustedFilesBoundary=null): array {
+        $this->bulkAdmission($uid);
+        return Service\BulkDeadline::run(fn()=>OriginContext::within($uid,$input['_mcp_origin']??[],$action,$input,fn()=>Server::get(Service\BulkOperations::class)->start($uid,$action,$input,$revision,$key,fn()=> $this->authorize($uid,$action,$input))));
+    }
+    public function bulkStep(string $uid,string $id,array $origin,int $version,string $key,?callable $trustedFilesBoundary=null): array {
+        $this->bulkAdmission($uid);
+        return Service\BulkDeadline::run(fn()=>OriginContext::within($uid,$origin,'lookup',[],function()use($uid,$id,$version,$key,$trustedFilesBoundary):array {
+            $j=Server::get(Service\BulkStore::class)->load($id);
+            return Server::get(Service\BulkOperations::class)->step($uid,$id,$version,$key,fn()=> $this->authorize($uid,$j['action'],$j['input']),$trustedFilesBoundary);
+        }));
+    }
+    public function bulkStatus(string $uid,string $id,array $origin): array {$this->bulkAdmission($uid);return OriginContext::within($uid,$origin,'lookup',[],fn()=>Server::get(Service\BulkOperations::class)->status($uid,$id));}
+    public function bulkLookup(string $uid,string $key,array $origin): ?array {$this->bulkAdmission($uid);return OriginContext::within($uid,$origin,'lookup',[],fn()=>Server::get(Service\BulkOperations::class)->lookup($uid,$key));}
+    public function bulkCancel(string $uid,string $id,array $origin,int $version,string $key): array {$this->bulkAdmission($uid);return OriginContext::within($uid,$origin,'lookup',[],fn()=>Server::get(Service\BulkOperations::class)->cancel($uid,$id,$version,$key));}
     private function commentsAdmission(string $uid,string $action,array $input): void {
         if (!in_array($action,['forms_list_comments','forms_add_comment','forms_update_comment','forms_delete_comment'],true)
             || !($this->capabilities()['comments']??false) || strlen(json_encode($input,JSON_THROW_ON_ERROR))>1048576) {
@@ -49,7 +76,7 @@ final class Guard {
             $comment=$snapshot===null?[]:$snapshot();
             $this->commentsAdmission($uid,$action,$input);
             if ($before!==$this->fence->revision()) {throw new BeforeEffect('Comments changed during preview');}
-            $result=['revision'=>$before,'form'=>['id'=>$form->getId(),'title'=>$form->getTitle(),'allowComments'=>$form->getAllowComments()],
+            $result=['revision'=>$before,'form'=>['id'=>$form->getId(),'title'=>$form->getTitle(),'ownerId'=>$form->getOwnerId(),'allowComments'=>$form->getAllowComments()],
                 'comment'=>$comment,'comment_data'=>hash('sha256',json_encode($comment,JSON_THROW_ON_ERROR)), 'file_manifest'=>[], 'config'=>[],
                 'source'=>'066573fd592513a06f8b8624def8244e911efdfd','summary'=>['form_id'=>$form->getId(),'action'=>$action],
                 'impact'=>['database'=>$action!=='forms_list_comments','files'=>false,'events'=>$action!=='forms_list_comments']];

@@ -13,6 +13,7 @@ final class NewFileStorage extends \OC\Files\Storage\Wrapper\Wrapper {
         if ($this->enabled && OriginContext::active()) {OriginContext::assertFileEffect();}
         if ($this->enabled && $path===$this->target && $this->authorize!==null) {($this->authorize)();}
         if ($this->enabled && $path===$this->target && $this->getWrapperStorage()->file_exists($path)) {throw new \RuntimeException('Forms destination already exists');}
+        BulkDeadline::check();
     }
     public function file_put_contents(string $path,mixed $data): int|float|false {$this->free($path);return parent::file_put_contents($path,$data);}
     public function mkdir(string $path): bool {

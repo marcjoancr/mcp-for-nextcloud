@@ -52,6 +52,8 @@ final class CommentsRuntime {
         if (OriginContext::active()) {
             OriginContext::assertFresh();
             $verified=OriginContext::current()['verified'];
+            if(in_array($verified['tool'],['forms_list_comments','forms_add_comment','forms_update_comment','forms_delete_comment'],true)
+                && !$scope->get(\OCA\Forms\Service\ConfigService::class)->getAllowComments()){throw new \RuntimeException('MCP Forms comments are disabled by the current global setting');}
             if ($verified['uid']!==$uid || (int)($verified['references']['form_id']??0)!==$formId) {
                 throw new \RuntimeException('Original comment principal or form changed');
             }

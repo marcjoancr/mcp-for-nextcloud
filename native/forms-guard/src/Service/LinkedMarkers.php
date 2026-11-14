@@ -308,7 +308,7 @@ final class LinkedMarkers {
     public function formMutation(Form $form,string $method,callable $work): mixed {
         return $this->fence->transaction(function()use($form,$method,$work): mixed {
             $before=Server::get(FormMapper::class)->findById($form->getId());
-            $result=$work();
+            $result=$work();BulkEpoch::touch($form->getId());
             $after=$method==='delete'?null:Server::get(FormMapper::class)->findById($form->getId());
             if ($after===null || $before->getFileId()!==$after->getFileId() || $before->getFileFormat()!==$after->getFileFormat()) {
                 $this->retire($form->getId());

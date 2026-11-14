@@ -92,7 +92,7 @@ try {
     }
     \OCP\Server::get(\OCP\App\IAppManager::class)->loadApp('forms');
     // Every explicit activation/validation retires previews from any unguarded maintenance interval.
-    \OCP\Server::get(\OCA\Forms\Mcp\Service\FormsRevisionFence::class)->transaction(static fn()=>null);
+    \OCP\Server::get(\OCA\Forms\Mcp\Service\FormsRevisionFence::class)->transaction(static function():void {if(class_exists(\OCA\Forms\Mcp\Service\BulkEpoch::class)){\OCA\Forms\Mcp\Service\BulkEpoch::touch(0);}});
     $metadata['native_manifest']=hash_file('sha256',\OCP\Server::get(\OCP\App\IAppManager::class)->getAppPath('forms').'/mcp-guard-installed.json');
     $metadata['active']=true;atomicFile($metadataPath,json_encode($metadata,JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR)."\n");
     echo json_encode($verified+['installed'=>true,'requires_process_turnover'=>true])."\n";

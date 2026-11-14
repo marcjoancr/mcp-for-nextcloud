@@ -5,8 +5,10 @@ declare(strict_types=1);
 define('OC_CONSOLE',true);require '/var/www/html/lib/base.php';
 use OCP\Server;
 use OCA\Forms\Mcp\Service\{FormsRevisionFence,OriginContext};
+$oldGlobal=null;$failed=false;
 try {
     Server::get(\OCP\App\IAppManager::class)->loadApp('forms');
+    $global=Server::get(\OCP\IAppConfig::class);$oldGlobal=$global->getValueBool('forms','allowComments',false);$global->setValueBool('forms','allowComments',true);
     $users=Server::get(\OCP\IUserManager::class);$owner=$users->get('guard-owner');
     $uid='collaborator-'.bin2hex(random_bytes(6));$other=$users->createUser($uid,bin2hex(random_bytes(24)));
     $session=Server::get(\OCP\IUserSession::class);$session->setUser($owner);
@@ -74,4 +76,5 @@ try {
     $api->deleteForm($id);
     $checks['bulk_form_cleanup']=$db->executeQuery('SELECT id FROM *PREFIX*comments WHERE object_type = ? AND object_id = ?',['forms',(string)$id])->fetchOne()===false;
     echo json_encode(['ok'=>!in_array(false,$checks,true),'checks'=>$checks],JSON_THROW_ON_ERROR)."\n";
-}catch(Throwable $e){echo json_encode(['ok'=>false,'error'=>$e->getMessage(),'trace'=>$e->getTraceAsString()]);exit(1);}
+}catch(Throwable $e){echo json_encode(['ok'=>false,'error'=>$e->getMessage(),'trace'=>$e->getTraceAsString()]);$failed=true;}finally{if($oldGlobal!==null){Server::get(\OCP\IAppConfig::class)->setValueBool('forms','allowComments',$oldGlobal);}}
+if($failed){exit(1);}

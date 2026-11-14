@@ -132,6 +132,7 @@ final class FormsRevisionFence
     }
     public function touchLinkedSource(int $formId): void
     {
+        BulkEpoch::touch($formId);
         if (!$this->active()) {throw new \LogicException('Linked Forms mutation requires its native fence');}
         if (isset($this->linkedSourcesTouched[$formId])) {return;}
         if ($this->db->executeQuery("SELECT association_id FROM *PREFIX*forms_mcp_linked WHERE form_id = ? AND state <> 'unlinked' AND dirty_generation >= 9223372036854775805",[$formId])->fetchOne()!==false) {

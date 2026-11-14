@@ -97,7 +97,7 @@ final class ManagedShares
         }
         return $shares;
     }
-    private static function historicalShare(int $formId, int $nativeId): Share
+    public static function historicalShare(int $formId, int $nativeId): Share
     {
         $owner = Server::get(\OCA\Forms\Db\FormMapper::class)->findById($formId)->getOwnerId();
         $rows = Server::get(IDBConnection::class)->executeQuery('SELECT intent_key FROM *PREFIX*forms_mcp_share_intents WHERE form_id = ? AND native_share_id = ? AND phase = ? ORDER BY intent_key LIMIT 101', [$formId, $nativeId, 'verified'])->fetchAll();

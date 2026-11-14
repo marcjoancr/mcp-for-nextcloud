@@ -121,6 +121,12 @@ final class StorageAdmission {
         self::path('/appdata_' . $instance . '/forms_mcp_recovery', true);
     }
 
+    public static function bulkRecovery(): string {
+        $instance=Server::get(IConfig::class)->getSystemValueString('instanceid');
+        if($instance===''||!preg_match('/^[a-zA-Z0-9]+$/D',$instance)){throw new \RuntimeException('Bulk recovery storage is unavailable');}
+        $path='appdata_'.$instance.'/forms_mcp_bulk_recovery';self::path('/'.$path,true);return $path;
+    }
+
     public static function node(Node $node): void {
         self::storage($node->getStorage());
         // Resolve the live mount too. Cached FileInfo objects can retain a previous wrapper stack.

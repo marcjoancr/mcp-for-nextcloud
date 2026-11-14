@@ -14,6 +14,7 @@ final class ManagedFileStorage extends \OC\Files\Storage\Wrapper\Wrapper {
         if ($meta===null || (int)$storage->getCache()->getId($path)!==$meta['file_id']) {throw new \RuntimeException('Unapproved native file mutation');}
         $stream=$storage->fopen($path,'rb');if (!is_resource($stream)) {throw new \RuntimeException('Managed file is unavailable');}
         try {$ctx=hash_init('sha256');$size=hash_update_stream($ctx,$stream,AnswerFiles::MAX_BYTES+1);$sha=hash_final($ctx);}finally{if (is_resource($stream)) {fclose($stream);}}
+        BulkDeadline::check();
         if ($size!==$meta['size'] || !hash_equals($sha,$meta['sha256'])) {throw new \RuntimeException('Managed file changed before native mutation');}
     }
     public function unlink(string $path): bool {

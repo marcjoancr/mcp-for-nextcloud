@@ -124,6 +124,8 @@ for (const entity of ['Form','Question','Option','Share','Answer','Submission','
   let mutation=`\\OCA\\Forms\\Mcp\\Service\\FormsRevisionFence::run(fn()=>parent::${method}($entity))`;
   if (['Answer','Submission'].includes(entity)) {
    mutation=`\\OCA\\Forms\\Mcp\\Service\\ResultSourceRevision::mutate('${entity}', '${method}', $entity, fn()=>parent::${method}($entity))`;
+  } else if (['Share','UploadedFile'].includes(entity)) {
+   mutation=`\\OCA\\Forms\\Mcp\\Service\\BulkEpoch::mutate('${entity}',$entity,fn()=>parent::${method}($entity))`;
   } else if (entity==='Form' && method==='delete') {
    mutation="\\OCP\\Server::get(\\OCA\\Forms\\Mcp\\Service\\LinkedMarkers::class)->formMutation($entity,'delete',fn()=>parent::delete($entity))";
   } else if (['Question','Option'].includes(entity)) {
@@ -143,6 +145,11 @@ for (const [file,lookup] of [['Db/QuestionMapper.php','$formId'],['Db/OptionMapp
  if(source.split(statement).length!==2)throw new Error('Pinned linked schema delete changed: '+file);
  source=source.replace(statement,'$mcpLinkedForm='+lookup+';\n $mcpRows=$qb->executeStatement();\n if ($mcpRows>0 && $mcpLinkedForm!==false) { \\OCP\\Server::get(\\OCA\\Forms\\Mcp\\Service\\LinkedMarkers::class)->dirty((int)$mcpLinkedForm); }');
  writeFileSync(p,source);
+}
+for (const file of ['Db/ShareMapper.php','Db/UploadedFileMapper.php']) {
+ const p=join(output,'lib',file);let source=readFileSync(p,'utf8');const statement='$qb->executeStatement();';
+ if(source.split(statement).length!==2)throw new Error('Pinned bulk source delete changed: '+file);
+ source=source.replace(statement,'$mcpRows=$qb->executeStatement(); if ($mcpRows>0) { \\OCA\\Forms\\Mcp\\Service\\BulkEpoch::touch($formId); }');writeFileSync(p,source);
 }
 for (const [file,kind] of [['Db/AnswerMapper.php','answer'],['Db/SubmissionMapper.php','submission']]) {
  const p=join(output,'lib',file);let source=readFileSync(p,'utf8');

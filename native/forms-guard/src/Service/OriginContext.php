@@ -8,6 +8,11 @@ use OCP\Server;
 /** Request-local verified provenance; no UID-only fallback exists for MCP artifacts. */
 final class OriginContext {
     private static ?array $current=null;
+    private static ?\Closure $fileBoundary=null;
+    public static function withFileBoundary(?callable $callback,callable $work): mixed {
+        $old=self::$fileBoundary;self::$fileBoundary=$callback===null?null:\Closure::fromCallable($callback);
+        try{return $work();}finally{self::$fileBoundary=$old;}
+    }
     public static function within(string $uid,array $origin,string $action,array $input,callable $work): mixed {
         try {$verified=Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assert($origin);}
         catch(\Throwable $e){throw new \OCA\Forms\Mcp\BeforeEffect('Signed Forms authority is unavailable',0,$e);}
@@ -28,9 +33,13 @@ final class OriginContext {
         catch(\Throwable $e){throw new \RuntimeException('Original Forms authority changed',0,$e);}
     }
     public static function assertFiles(string $action,array $manifest): void {
+        BulkDeadline::check();
         $context=self::current();
+        if(self::$fileBoundary!==null){(self::$fileBoundary)($action,$manifest);}
+        BulkDeadline::check();
         try {Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assertFiles($context['origin'],$action,$manifest);}
         catch(\Throwable $e){throw new \RuntimeException('Original Forms file authority changed',0,$e);}
+        BulkDeadline::check();
     }
     /** Keep trusted file impact private to this operation, including streamed upload sources. */
     public static function withFileImpact(string $action, array $manifest, callable $work): mixed {
