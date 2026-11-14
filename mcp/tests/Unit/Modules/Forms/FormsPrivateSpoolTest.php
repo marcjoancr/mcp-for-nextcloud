@@ -58,6 +58,9 @@ final class FormsPrivateSpoolTest extends TestCase {
         try {$this->spool->put($this->job,'unapproved');self::fail('Unadmitted artifact written');}catch(\RuntimeException $error) {self::assertStringContainsString('reservation',$error->getMessage());}
         self::assertFalse($this->created);self::assertSame([],$this->files);self::assertFalse($this->locked);
     }
+    // Keep the large native hex fixture independent of retained whole-suite contract fixtures.
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    #[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
     public function testNativeHexEncryptionOverheadDoesNotRejectTheAllowed25MiB():void {
         $this->spool->reserve($this->job,'alice');$bytes=str_repeat('x',26214400);$part=$this->spool->put($this->job,$bytes);
         self::assertSame(52428996,strlen($this->files[$part['key']]));
