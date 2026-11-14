@@ -42,6 +42,28 @@ for (const [file,methods] of Object.entries(hooks)) {
  const result=spawnSync('php',[join(base,'transform.php'),join(output,'lib',file),...methods],{encoding:'utf8'});
  if(result.status!==0) throw new Error(result.stderr || result.stdout || `Patch failed: ${file}`);
 }
+// Stale queued jobs recheck the marker inside the global fence, before resolving or switching owner session.
+const linkedJobFile=join(output,'lib/BackgroundJob/SyncSubmissionsWithLinkedFileJob.php');
+let linkedJob=readFileSync(linkedJobFile,'utf8');
+const linkedFence='\\OCA\\Forms\\Mcp\\Service\\FormsRevisionFence::run(function () use ($argument) {';
+if (!linkedJob.includes(linkedFence)) throw new Error('Linked job fence hook missing');
+linkedJob=linkedJob.replace(linkedFence,linkedFence+'\n if (\\OCA\\Forms\\Mcp\\Service\\LinkedMarkers::suppress((int)$argument[\'form_id\'])) { return; }');
+writeFileSync(linkedJobFile,linkedJob);
+const linkedApiFile=join(output,'lib/Controller/ApiController.php');let linkedApi=readFileSync(linkedApiFile,'utf8');
+const linkedQueue='private function queueLinkedFileSync(Form $form): void {';
+if (!linkedApi.includes(linkedQueue)) throw new Error('Linked queue hook missing');
+linkedApi=linkedApi.replace(linkedQueue,linkedQueue+'\n if (\\OCA\\Forms\\Mcp\\Service\\LinkedMarkers::suppress($form->getId())) { return; }');
+for (const header of ["if (isset($keyValuePairs['path']) && isset($keyValuePairs['fileFormat'])) {", "if (array_key_exists('fileId', $keyValuePairs) && array_key_exists('fileFormat', $keyValuePairs) && !isset($keyValuePairs['fileFormat'])) {"]) {
+ if (!linkedApi.includes(header)) throw new Error('Explicit linked UI hook missing');
+ linkedApi=linkedApi.replace(header,header+'\n \\OCP\\Server::get(\\OCA\\Forms\\Mcp\\Service\\LinkedMarkers::class)->retire($form->getId());');
+}
+writeFileSync(linkedApiFile,linkedApi);
+const linkedMapperFile=join(output,'lib/Db/FormMapper.php');let linkedMapper=readFileSync(linkedMapperFile,'utf8');
+linkedMapper=linkedMapper.replace('return parent::update($entity);',"return \\OCP\\Server::get(\\OCA\\Forms\\Mcp\\Service\\LinkedMarkers::class)->formMutation($entity,'update',fn()=>parent::update($entity));");
+const linkedCleanup='if (str_starts_with((string)$node->getName(), $formFolderPrefix)) {';
+if (!linkedMapper.includes(linkedCleanup)) throw new Error('Native linked-output cleanup hook missing');
+linkedMapper=linkedMapper.replace(linkedCleanup,linkedCleanup+'\n if ($node instanceof \\OCP\\Files\\Folder && \\OCA\\Forms\\Mcp\\Service\\LinkedMarkers::containsOutput($form->getId(),$node)) { continue; }');
+writeFileSync(linkedMapperFile,linkedMapper);
 // Under an approved MCP file operation, delete only the verified native file IDs. Never recurse by folder name.
 for (const [file,method,body] of [
  ['Db/FormMapper.php','deleteFormFolder','if (\\OCA\\Forms\\Mcp\\Service\\FileRecovery::active()) { return; }'],
@@ -90,14 +112,30 @@ writeFileSync(temporaryFile,temporary);
 // Inherited mapper writes can be invoked by native service extensions as well as controllers.
 for (const entity of ['Form','Question','Option','Share','Answer','Submission','UploadedFile']) {
  const p=join(output,'lib/Db',entity+'Mapper.php');let source=readFileSync(p,'utf8');
- const additions=['insert','update','delete'].filter(method=>!new RegExp(`function ${method}\\(`).test(source)).map(method=>`
+ const additions=['insert','update','delete'].filter(method=>!new RegExp(`function ${method}\\(`).test(source)).map(method=> {
+  let mutation=`\\OCA\\Forms\\Mcp\\Service\\FormsRevisionFence::run(fn()=>parent::${method}($entity))`;
+  if (['Answer','Submission'].includes(entity)) {
+   mutation=`\\OCA\\Forms\\Mcp\\Service\\ResultSourceRevision::mutate('${entity}', '${method}', $entity, fn()=>parent::${method}($entity))`;
+  } else if (entity==='Form' && method==='delete') {
+   mutation="\\OCP\\Server::get(\\OCA\\Forms\\Mcp\\Service\\LinkedMarkers::class)->formMutation($entity,'delete',fn()=>parent::delete($entity))";
+  } else if (['Question','Option'].includes(entity)) {
+   mutation=`\\OCA\\Forms\\Mcp\\Service\\LinkedMarkers::schemaMutation('${entity}',$entity,fn()=>parent::${method}($entity))`;
+  }
+  return `
  public function ${method}(\\OCP\\AppFramework\\Db\\Entity $entity): \\OCP\\AppFramework\\Db\\Entity {
-   return ${['Answer','Submission'].includes(entity) ? `\\OCA\\Forms\\Mcp\\Service\\ResultSourceRevision::mutate('${entity}', '${method}', $entity, fn()=>parent::${method}($entity))` : `\\OCA\\Forms\\Mcp\\Service\\FormsRevisionFence::run(fn()=>parent::${method}($entity))`};
+   return ${mutation};
  }
-`).join('');
+`; }).join('');
  const end=source.lastIndexOf('}');writeFileSync(p,source.slice(0,end)+additions+source.slice(end));
 }
 // The two pinned direct data deletes bypass generic Entity methods. Resolve ownership under the already-wrapped fence.
+for (const [file,lookup] of [['Db/QuestionMapper.php','$formId'],['Db/OptionMapper.php',"\\OCP\\Server::get(\\OCP\\IDBConnection::class)->executeQuery('SELECT form_id FROM *PREFIX*forms_v2_questions WHERE id = ?',[$questionId])->fetchOne()"]]) {
+ const p=join(output,'lib',file);let source=readFileSync(p,'utf8');
+ const statement='$qb->executeStatement();';
+ if(source.split(statement).length!==2)throw new Error('Pinned linked schema delete changed: '+file);
+ source=source.replace(statement,'$mcpLinkedForm='+lookup+';\n $mcpRows=$qb->executeStatement();\n if ($mcpRows>0 && $mcpLinkedForm!==false) { \\OCP\\Server::get(\\OCA\\Forms\\Mcp\\Service\\LinkedMarkers::class)->dirty((int)$mcpLinkedForm); }');
+ writeFileSync(p,source);
+}
 for (const [file,kind] of [['Db/AnswerMapper.php','answer'],['Db/SubmissionMapper.php','submission']]) {
  const p=join(output,'lib',file);let source=readFileSync(p,'utf8');
  const statement='$qb->executeStatement();';

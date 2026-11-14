@@ -49,7 +49,7 @@ final class MutationBoundaryStorage extends \OC\Files\Storage\Wrapper\Wrapper {
             if (!$writable) {
                 throw new \RuntimeException('Native Forms destination permission changed');
             }
-            ($this->authorize)();
+            ($this->authorize)('content');
         } catch (\Throwable $error) {
             // The caller may already have created an empty file or a backup in an earlier stage.
             throw new \RuntimeException('Forms file mutation admission failed', 0, $error);

@@ -108,7 +108,7 @@ final class FileRecovery {
     private static function assertImpact(string $action,array $input,array $data): void {
         $id=(int)$input['id'];$form=Server::get(FormMapper::class)->findById($id);
         if ($action==='forms_delete_form') {foreach (Server::get(\OCA\Forms\Db\ShareMapper::class)->findByForm($id) as $share) {if (in_array('results',$share->getPermissions(),true)) {ManagedShares::snapshot($id,$data['files'],['share_id'=>$share->getId()]);}}}
-        if ($form->getFileId() && in_array($action,['forms_submit_response','forms_update_response','forms_update_own_response','forms_delete_response','forms_delete_own_response','forms_delete_responses'],true)) {
+        if ($form->getFileId() && Server::get(LinkedMarkers::class)->tuple($form)===null && in_array($action,['forms_submit_response','forms_update_response','forms_update_own_response','forms_delete_response','forms_delete_own_response','forms_delete_responses'],true)) {
             throw new \RuntimeException('Linked export authority is not qualified');
         }
         if ($action==='forms_transfer') {

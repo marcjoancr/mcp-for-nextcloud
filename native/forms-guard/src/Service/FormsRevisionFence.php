@@ -13,6 +13,7 @@ final class FormsRevisionFence
     private int $depth = 0;
     /** Per outer transaction; discarded on commit and rollback. */
     private array $resultSourcesTouched = [];
+    private array $linkedSourcesTouched = [];
     private ?string $session = null;
     private int $serialDepth = 0;
     private const LOCK = 'forms_mcp_revision_v1';
@@ -94,6 +95,11 @@ final class FormsRevisionFence
     {
         return $this->depth > 0;
     }
+    /** Keep one primary lease across a durable no-replay claim and its subsequent effect transaction. */
+    public function withLock(callable $work): mixed
+    {
+        return $this->serialized($work);
+    }
     public function revision(): string
     {
         $value = $this->db->executeQuery('SELECT revision FROM *PREFIX*forms_mcp_fence WHERE id = 1')->fetchOne();
@@ -116,6 +122,17 @@ final class FormsRevisionFence
             : $this->db->executeStatement('INSERT INTO *PREFIX*forms_mcp_result_epoch (form_id,revision) VALUES (?,1)',[$formId]);
         if ($count!==1) {throw new \RuntimeException('Forms result source mutation failed');}
         $this->resultSourcesTouched[$formId]=true;
+        Server::get(LinkedMarkers::class)->dirty($formId);
+    }
+    public function touchLinkedSource(int $formId): void
+    {
+        if (!$this->active()) {throw new \LogicException('Linked Forms mutation requires its native fence');}
+        if (isset($this->linkedSourcesTouched[$formId])) {return;}
+        if ($this->db->executeQuery("SELECT association_id FROM *PREFIX*forms_mcp_linked WHERE form_id = ? AND state <> 'unlinked' AND dirty_generation >= 9223372036854775805",[$formId])->fetchOne()!==false) {
+            throw new \RuntimeException('Linked Forms dirty generation is exhausted');
+        }
+        $this->db->executeStatement("UPDATE *PREFIX*forms_mcp_linked SET dirty_generation = dirty_generation + 1 WHERE form_id = ? AND state <> 'unlinked' AND dirty_generation < 9223372036854775805",[$formId]);
+        $this->linkedSourcesTouched[$formId]=true;
     }
     public function transaction(callable $work): mixed
     {
@@ -157,6 +174,7 @@ final class FormsRevisionFence
         } finally {
             $this->depth = 0;
             $this->resultSourcesTouched = [];
+            $this->linkedSourcesTouched = [];
         }
         Server::get(ManagedSharePhase::class)->drain();
         // No transport/event failure can roll back a committed answer set.

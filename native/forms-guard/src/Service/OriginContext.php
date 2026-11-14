@@ -12,7 +12,11 @@ final class OriginContext {
         try {$verified=Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assert($origin);}
         catch(\Throwable $e){throw new \OCA\Forms\Mcp\BeforeEffect('Signed Forms authority is unavailable',0,$e);}
         if ($verified['uid']!==$uid || (isset($input['id'],$verified['references']['form_id']) && (int)$input['id']!==(int)$verified['references']['form_id'])) {throw new \OCA\Forms\Mcp\BeforeEffect('Original Forms authority does not match');}
-        if ($action!==$verified['tool'] && !in_array($action,['forms_results_metadata','forms_results_page','lookup','effect'],true)) {throw new \OCA\Forms\Mcp\BeforeEffect('Original Forms action does not match');}
+        $fileReferences=$action==='forms_list_response_files'
+            && in_array($verified['tool'],['forms_download_results','forms_export_results','forms_link_results_file'],true)
+            && in_array('read_response_files',$verified['operations'],true)
+            && in_array('read',$verified['references']['files_operations']??[],true);
+        if ($action!==$verified['tool'] && !$fileReferences && !in_array($action,['forms_results_metadata','forms_results_page','lookup','effect'],true)) {throw new \OCA\Forms\Mcp\BeforeEffect('Original Forms action does not match');}
         $old=self::$current;unset($input['_mcp_origin']);
         self::$current=['origin'=>$origin,'verified'=>$verified,'action'=>$action,'input'=>$input];
         try {return $work();} finally {self::$current=$old;}
