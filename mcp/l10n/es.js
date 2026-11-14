@@ -1,6 +1,8 @@
 OC.L10N.register(
     "mcp",
     {
+    "Inspect form operation effects" : "Revisar efectos de una operación de formulario",
+    "Read recovered form comments" : "Leer comentarios recuperados de formularios",
     "Guarded Mail source companion" : "Fuentes complementarias de Mail protegido",
     "Account" : "Cuenta",
     "Folder" : "Carpeta",

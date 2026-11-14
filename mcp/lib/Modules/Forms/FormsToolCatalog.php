@@ -69,6 +69,8 @@ final class FormsToolCatalog {
             Tools\ReadAdminSettings::class,
             Tools\UpdateAdminSettings::class,
             Tools\ReadResult::class,
+            Tools\ReadOperationImpact::class,
+            Tools\ReadRecoveredComments::class,
             Tools\GetOperation::class,
             Tools\ListOperations::class,
             Tools\ContinueOperation::class,

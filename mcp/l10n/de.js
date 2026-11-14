@@ -1,6 +1,8 @@
 OC.L10N.register(
     "mcp",
     {
+    "Inspect form operation effects" : "Auswirkungen eines Formularvorgangs prüfen",
+    "Read recovered form comments" : "Wiederhergestellte Formularkommentare lesen",
     "Guarded Mail source companion" : "Quellcode-Ergänzung für abgesichertes Mail",
     "Account" : "Konto",
     "Folder" : "Ordner",

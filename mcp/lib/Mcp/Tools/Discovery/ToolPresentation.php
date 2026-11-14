@@ -172,6 +172,8 @@ final class ToolPresentation {
             'forms_delete_form' => Translator::t('Delete form'),
             'forms_restore' => Translator::t('Restore form'),
             'forms_read_result' => Translator::t('Read complete form results'),
+            'forms_read_operation_impact' => Translator::t('Inspect form operation effects'),
+            'forms_read_recovered_comments' => Translator::t('Read recovered form comments'),
             'forms_search' => Translator::t('Search forms'),
             'forms_create_question' => Translator::t('Create question'),
             'forms_clone_question' => Translator::t('Clone question'),
