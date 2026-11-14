@@ -21,11 +21,12 @@ final class FormsNativeAuthorization {
         if(isset($snapshot['form']['ownerId']))$references['owner_id']=$snapshot['form']['ownerId'];
         $files=FormsAuthorization::fileOperations($tool,$args,$snapshot);
         if($files!==[])$references['files_operations']=array_values(array_unique($files));
+        if(isset($snapshot['bulk_authority']))$references['bulk_authority']=\OCA\Mcp\Modules\Forms\Execution\FormsBulkAuthority::checked($snapshot['bulk_authority']);
         return $this->proof->create($uid,$this->connection->current(),$tool,FormsAuthorization::operations($tool,$args,$snapshot),$references);
     }
     public function captureHistory(string $uid,string $tool,array $references):array {
         $this->assertHistory($uid,$tool,$references);
-        $refs=array_intersect_key($references,array_flip(['form_id','submission_id','share_id','comment_id','files_operations']));
+        $refs=array_intersect_key($references,array_flip(['form_id','submission_id','share_id','comment_id','files_operations','bulk_authority']));
         return $this->proof->create($uid,$this->connection->current(),$tool,$references['required_operations']??FormsAuthorization::operations($tool,['id'=>$refs['form_id']??null],[]),$refs);
     }
     public function assertHistory(string $uid,string $tool,array $references):void {

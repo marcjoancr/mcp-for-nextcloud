@@ -12,6 +12,7 @@ use OCA\Mcp\Access\Guests\GuestRestrictions;
 use OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability;
 use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 use OCA\Mcp\Modules\Forms\Execution\FormsCommands;
+use OCA\Mcp\Modules\Forms\Execution\FormsBulkAuthority;
 use OCA\Mcp\OAuth\ConnectionContext;
 use OCA\Mcp\OAuth\ConnectionToolsStore;
 use OCP\IUserManager;
@@ -29,19 +30,28 @@ final class FormsFreshAccess {
             if($user===null||!$user->isEnabled()||$this->session->getUser()?->getUID()!==$uid
                 ||!$this->apps->isEnabledForUser('mcp',$user)||!$fresh->canConnect($uid))throw new ToolFailure(ToolFailure::FORBIDDEN);
             $selection=$this->selections->get($uid,$connection);
-            $definition=FormsCommands::definitions()[$tool]??throw new ToolFailure(ToolFailure::FORBIDDEN);
-            if($selection===null||!in_array($tool,$selection['tools'],true))throw new ToolFailure(ToolFailure::FORBIDDEN);
-            if($tool!=='forms_capabilities')$this->principal->assert($uid,(bool)($definition['requiresAdmin']??false));
-            $availabilityDefinition=$definition;
-            // Native fresh role admission above owns this check; a second memoized manager read can only be stale.
-            unset($availabilityDefinition['requiresAdmin']);
-            $availability=new ToolAvailability($fresh,$this->apps,$this->users,$this->guests,null,$this->groups);
-            if(!$availability->allowed($availabilityDefinition,$uid))throw new ToolFailure(ToolFailure::FORBIDDEN);
-            foreach(FormsAuthorization::operations($tool,$arguments,$snapshot) as $operation) {
-                if(!in_array($operation,GrantPolicy::CATALOG['forms'],true)||!$fresh->granted($uid,'forms',$operation))throw new ToolFailure(ToolFailure::FORBIDDEN);
-                if(isset($definition['grantAnyOf'])&&!in_array($operation,$selection['variants'][$tool]??[],true))throw new ToolFailure(ToolFailure::FORBIDDEN);
+            if($selection===null)throw new ToolFailure(ToolFailure::FORBIDDEN);
+            $this->admit($fresh,$uid,$tool,$arguments,$snapshot,$selection);
+            $bulk=$snapshot['bulk_authority']??$snapshot['historical']['bulk_authority']??null;
+            if($bulk!==null) {
+                $authority=FormsBulkAuthority::checked($bulk);
+                $this->admit($fresh,$uid,$authority['tool'],[],['historical'=>$authority],$selection);
             }
-            foreach(FormsAuthorization::fileOperations($tool,$arguments,$snapshot) as $operation)if(!in_array($operation,GrantPolicy::CATALOG['files'],true)||!$fresh->granted($uid,'files',$operation))throw new ToolFailure(ToolFailure::FORBIDDEN);
         });
+    }
+    private function admit(GrantPolicy $fresh,string $uid,string $tool,array $arguments,array $snapshot,array $selection):void {
+        $definition=FormsCommands::definitions()[$tool]??throw new ToolFailure(ToolFailure::FORBIDDEN);
+        if(!in_array($tool,$selection['tools'],true))throw new ToolFailure(ToolFailure::FORBIDDEN);
+        if($tool!=='forms_capabilities')$this->principal->assert($uid,(bool)($definition['requiresAdmin']??false));
+        $availabilityDefinition=$definition;
+        // Native fresh role admission above owns this check; a second memoized manager read can only be stale.
+        unset($availabilityDefinition['requiresAdmin']);
+        $availability=new ToolAvailability($fresh,$this->apps,$this->users,$this->guests,null,$this->groups);
+        if(!$availability->allowed($availabilityDefinition,$uid))throw new ToolFailure(ToolFailure::FORBIDDEN);
+        foreach(FormsAuthorization::operations($tool,$arguments,$snapshot) as $operation) {
+            if(!in_array($operation,GrantPolicy::CATALOG['forms'],true)||!$fresh->granted($uid,'forms',$operation))throw new ToolFailure(ToolFailure::FORBIDDEN);
+            if(isset($definition['grantAnyOf'])&&!in_array($operation,$selection['variants'][$tool]??[],true))throw new ToolFailure(ToolFailure::FORBIDDEN);
+        }
+        foreach(FormsAuthorization::fileOperations($tool,$arguments,$snapshot) as $operation)if(!in_array($operation,GrantPolicy::CATALOG['files'],true)||!$fresh->granted($uid,'files',$operation))throw new ToolFailure(ToolFailure::FORBIDDEN);
     }
 }

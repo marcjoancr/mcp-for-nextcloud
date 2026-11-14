@@ -27,6 +27,17 @@ final class FormsOriginProofTest extends TestCase {
         $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);
         $proof->verify($origin);
     }
+
+    public function testOriginalBulkAuthorityCannotBeWeakenedInsideASignedContinuation():void {
+        $proof=new FormsOriginProof(new PlanState((new InMemoryConfig())->mock($this)),new OperationActors());
+        $authority=['tool'=>'forms_delete_form','required_operations'=>['delete_form'],'files_operations'=>['edit','share']];
+        $origin=$proof->create('alice',12,'forms_continue_operation',['continue_operations'],['form_id'=>4,'bulk_authority'=>$authority]);
+        self::assertSame($authority,$proof->verify($origin)['references']['bulk_authority']);
+        $origin['references']['bulk_authority']['files_operations']=[];
+        $this->expectException(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::class);
+        $proof->verify($origin);
+    }
+
     public function testRecreatedUidCannotAuthorizeDeferredEffects():void {
         $actors=new OperationActors();$proof=new FormsOriginProof(new PlanState((new InMemoryConfig())->mock($this)),$actors);
         $origin=$proof->create('alice',12,'forms_submit_response',['submit'],['form_id'=>4]);

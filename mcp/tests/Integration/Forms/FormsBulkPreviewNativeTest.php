@@ -14,6 +14,13 @@ final class FormsBulkPreviewNativeTest extends TestCase {
         $this->probe('bulk-preview-scope','MCP_FORMS_BULK_SCOPE_PROBE',
             ['native_folder_only_control','excluded_preview_denied','excluded_inspection_denied']);
     }
+    public function testBulkHistoryAndDeferredEffectsRequireTheOriginalCurrentAuthority():void {
+        $this->probe('bulk-fresh-authority','MCP_FORMS_BULK_FRESH_AUTHORITY_PROBE',
+            ['original_authority_control','forms_continue_operation_original_grant_denied','forms_continue_operation_deferred_grant_denied',
+                'forms_cancel_operation_original_grant_denied','forms_cancel_operation_deferred_grant_denied',
+                'forms_read_result_original_grant_denied','forms_read_result_deferred_grant_denied',
+                'original_files_grant_denied','deferred_original_files_grant_denied','original_selection_denied','deferred_original_selection_denied','restored_authority_control']);
+    }
     private function probe(string $fixture,string $environment,array $checks):void {
         if(getenv('MCP_FORMS_NATIVE_BOUNDARY')!=='1')$this->markTestSkipped('Requires an explicitly selected disposable native Forms cell.');
         $probe=getenv($environment)?:__DIR__.'/fixtures/'.$fixture.'.php';self::assertFileExists($probe);

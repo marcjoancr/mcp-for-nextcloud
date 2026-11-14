@@ -43,14 +43,15 @@ final class FormsWriteCoordinator {
             $plan=FormsPlan::build($tool,$args,$snapshot,$uid);
             if(!PlanState::matches($this->state($tool,$uid,$args,$snapshot),$args))throw new PlanChanged($this->preview($tool,$uid,$args));
             if($plan['requiresSharedConfirmation']&&!($args['confirm_shared']??false))throw new FormsBeforeEffect('Confirm the shared-resource effects before writing.');
-            $checkpoint(['required_operations'=>\OCA\Mcp\Modules\Forms\Access\FormsAuthorization::operations($tool,$args,$snapshot),
+            $admission=['required_operations'=>\OCA\Mcp\Modules\Forms\Access\FormsAuthorization::operations($tool,$args,$snapshot),
                 'files_operations'=>\OCA\Mcp\Modules\Forms\Access\FormsAuthorization::fileOperations($tool,$args,$snapshot),
-                'requires_admin'=>FormsCommands::definitions()[$tool]['requiresAdmin']??false,'job_version'=>$snapshot['job_version']??null]);
+                'requires_admin'=>FormsCommands::definitions()[$tool]['requiresAdmin']??false,'job_version'=>$snapshot['job_version']??null];
+            $checkpoint($admission+array_intersect_key($snapshot,array_flip(['bulk_authority','bulk_version'])));
             } catch(PlanChanged|FormsBeforeEffect $failure) {throw $failure;}
             catch(\Throwable) {throw new FormsBeforeEffect('Forms preflight could not be completed. No native change was started; review a new preview.');}
             return $this->native->apply($uid,$tool,$this->effect($args),(string)$snapshot['revision'],$nativeKey);
         },$this->historical($uid),in_array($tool,['forms_continue_operation','forms_cancel_operation'],true)
-            ?fn():array=>['job_version'=>$this->native->snapshot($uid,$tool,$this->effect($args))['job_version']??null]:null);
+            ?fn():array=>array_intersect_key($this->native->snapshot($uid,$tool,$this->effect($args)),array_flip(['job_version','bulk_id','bulk_version'])):null);
         ($this->authorize)($uid,$tool,$args,[]);
         if(array_key_exists('data',$result))$result['data']=FormsProjection::mutation($result['data'],$tool);
         return FormsProjection::bounded($result);
