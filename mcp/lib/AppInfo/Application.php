@@ -766,15 +766,16 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Forms\FormsReader::class), $c->get(\OCA\Mcp\Modules\Forms\FormsResponseReader::class),
             $c->get(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class), $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
             $c->get(\OCA\Mcp\Modules\Forms\Execution\FormsWriteCoordinator::class),
-            static function(string $tool) use($c): bool {
-                if(!isset(\OCA\Mcp\Modules\Forms\Execution\FormsCommands::commands()[$tool]))return true;
-                if($tool==='forms_capabilities')return true;
-                $uid=$c->get(IUserSession::class)->getUser()?->getUID();
-                if($uid===null)return false;
+            null,
+            static function() use($c): \Closure {
+                $uid=$c->get(IUserSession::class)->getUser()?->getUID();$qualified=false;$native=[];
                 try {
-                    if(!$c->get(\OCA\Mcp\Modules\Forms\Integration\FormsCapabilities::class)->forUser($uid)['guardedWrites'])return false;
-                    return \OCA\Mcp\Modules\Forms\Integration\FormsPublication::supported($tool,$c->get('OCA\\Forms\\Mcp\\Guard')->capabilities());
-                } catch(\Throwable) {return false;}
+                    if($uid!==null&&$c->get(\OCA\Mcp\Modules\Forms\Integration\FormsCapabilities::class)->forUser($uid)['guardedWrites']) {
+                        $native=$c->get('OCA\\Forms\\Mcp\\Guard')->capabilities();$qualified=true;
+                    }
+                } catch(\Throwable) { /* This enumeration advertises only baseline reads and capability diagnostics. */ }
+                return static fn(string $tool):bool=>!isset(\OCA\Mcp\Modules\Forms\Execution\FormsCommands::commands()[$tool])
+                    ||$tool==='forms_capabilities'||($qualified&&\OCA\Mcp\Modules\Forms\Integration\FormsPublication::supported($tool,$native));
             },
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard($c->get(GrantPolicy::class)));

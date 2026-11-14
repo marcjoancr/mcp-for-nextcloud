@@ -19,7 +19,7 @@ use OCA\Mcp\Modules\Forms\Responses\FormsResponseSummary;
 
 final class FormsModule implements \OCA\Mcp\Mcp\Tools\ToolModule, PreviewsWrites, RendersPlans {
     /** @param array<string, \Closure(): Tool> $factories */
-    public function __construct(private array $factories, private ?\Closure $available = null) {
+    public function __construct(private array $factories, private ?\Closure $available = null, private ?\Closure $availabilityWindow = null) {
         $expected = array_keys(isset($factories['forms_capabilities']) ? FormsToolCatalog::definitions() : FormsToolCatalog::legacyDefinitions());
         if (array_diff($expected, array_keys($factories)) !== [] || array_diff(array_keys($factories), $expected) !== []) {
             throw new \LogicException('Factories must match the catalog exactly');
@@ -45,7 +45,9 @@ final class FormsModule implements \OCA\Mcp\Mcp\Tools\ToolModule, PreviewsWrites
 
     public function definitions(): array {
         $definitions = isset($this->factories) ? array_intersect_key(FormsToolCatalog::definitions(), $this->factories) : FormsToolCatalog::legacyDefinitions();
-        if (isset($this->available)) { $definitions = array_filter($definitions, fn(array $d): bool => ($this->available)($d['name'])); }
+        $available=isset($this->availabilityWindow)?($this->availabilityWindow)():($this->available??null);
+        if($available!==null&&!$available instanceof \Closure)throw new \LogicException('Forms availability window must return a closure.');
+        if($available!==null)$definitions=array_filter($definitions,static fn(array $d):bool=>$available($d['name']));
         return array_values($definitions);
     }
 
@@ -61,7 +63,7 @@ final class FormsModule implements \OCA\Mcp\Mcp\Tools\ToolModule, PreviewsWrites
         return $tool->execute($arguments, new ToolContext($userId));
     }
 
-    public static function withReader(FormsReader $reader, ?FormsResponseReader $responseReader = null, ?IncomingFileWriter $files = null, ?PlanState $states = null, ?\OCA\Mcp\Modules\Forms\Execution\FormsWriteCoordinator $commands = null, ?\Closure $available = null): self {
+    public static function withReader(FormsReader $reader, ?FormsResponseReader $responseReader = null, ?IncomingFileWriter $files = null, ?PlanState $states = null, ?\OCA\Mcp\Modules\Forms\Execution\FormsWriteCoordinator $commands = null, ?\Closure $available = null, ?\Closure $availabilityWindow = null): self {
         $responseReader ??= new class implements FormsResponseReader {
             public function readResponses(string $userId, int $formId, int $offset, int $limit): ?array {
                 return null;
@@ -85,6 +87,6 @@ final class FormsModule implements \OCA\Mcp\Mcp\Tools\ToolModule, PreviewsWrites
                 $factories[$name] = static fn(): Tool => new $class($commands);
             }
         }
-        return new self($factories, $available);
+        return new self($factories, $available, $availabilityWindow);
     }
 }
