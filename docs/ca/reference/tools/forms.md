@@ -36,8 +36,8 @@ nativa, dels permisos actuals i de la selecció de la connexió.
 Les cinc eines anteriors mantenen el mínim de Forms 5.3. Les funcions ampliades
 requereixen l'extensió independent de Forms 5.4.2 i una combinació qualificada de
 Nextcloud, base de dades, emmagatzematge i escriptors natius. La versió per si
-sola no les habilita. Consulta la
-[guia d'instal·lació i recuperació](../../../../native/forms-guard/README.md).
+sola no les habilita. Consulta `native/forms-guard/README.md`
+al paquet de codi font corresponent per a la instal·lació i recuperació.
 
 L'ampliació inclou cerca i ajustos, creació i clonació, estat i bloquejos,
 preguntes i opcions, compartició i enllaços, respostes pròpies i resultats,

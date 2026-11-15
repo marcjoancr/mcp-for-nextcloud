@@ -7,17 +7,23 @@ import { spawnSync } from 'node:child_process';
 import { prepareKit } from './source.mjs';
 import { prepareNativeCompanion, verifyNativeCompanion } from './native-source.mjs';
 import { verifyKit, verifyInstalled } from './integrity.mjs';
+import { prepareFormsNativeCompanion, verifyFormsNativeCompanion, verifyFormsInstalled } from './forms-native-source.mjs';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 try {
   const [command, ...args] = process.argv.slice(2);
-  const usage = 'Usage: prepare FULL_COMMIT [--release] | verify KIT TRUSTED_MANIFEST_SHA256 | installed KIT TRUSTED_MANIFEST_SHA256 APP_DIRECTORY | native KIT MCP_DIGEST ORIGINAL_RUNTIME PREFERRED_SOURCE OUTPUT | verify-native COMPANION DIGEST SOURCE_COMMIT | test';
+  const usage = 'Usage: prepare FULL_COMMIT [--release] | verify KIT TRUSTED_MANIFEST_SHA256 | installed KIT TRUSTED_MANIFEST_SHA256 APP_DIRECTORY | native KIT MCP_DIGEST ORIGINAL_RUNTIME PREFERRED_SOURCE OUTPUT | verify-native COMPANION DIGEST SOURCE_COMMIT | forms-native KIT MCP_DIGEST ORIGINAL_RUNTIME PREFERRED_SOURCE OUTPUT | verify-forms-native COMPANION DIGEST SOURCE_COMMIT | verify-forms-installed COMPANION DIGEST SOURCE_COMMIT APP_DIRECTORY | test';
   const valid = command === 'prepare'
     ? (args.length === 1 || (args.length === 2 && args[1] === '--release'))
-    : ({ verify: 2, installed: 3, native: 5, 'verify-native': 3, test: 0 }[command] === args.length);
+    : ({ verify: 2, installed: 3, native: 5, 'verify-native': 3, 'forms-native': 5, 'verify-forms-native': 3, 'verify-forms-installed': 4, test: 0 }[command] === args.length);
   if (!valid) throw new Error(usage);
   if (command === 'prepare') console.log(JSON.stringify(await prepareKit(root, args[0], { release: args[1] === '--release' }), null, 2));
   else if (command === 'native') console.log(JSON.stringify(await prepareNativeCompanion(root, ...args), null, 2));
+  else if (command === 'forms-native') console.log(JSON.stringify(await prepareFormsNativeCompanion(root, ...args), null, 2));
+  else if (command === 'verify-forms-native' || command === 'verify-forms-installed') {
+    const forms = await (command === 'verify-forms-native' ? verifyFormsNativeCompanion(...args) : verifyFormsInstalled(...args));
+    console.log(`Verified Forms companion: ${forms.sourceCommit} / ${forms.formsVersion} / ${Object.keys(forms.runtimeFiles).length} runtime files`);
+  }
   else if (command === 'verify-native') {
     const native = await verifyNativeCompanion(...args);
     console.log(`Verified native companion: ${native.sourceCommit} / ${native.nativeBuild} / ${Object.keys(native.runtimeFiles).length} runtime files`);

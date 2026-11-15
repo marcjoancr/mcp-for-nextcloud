@@ -35,7 +35,7 @@ Extended workflows require the separately installed, exact Forms 5.4.2 companion
 and the qualified Nextcloud, database, storage and writer configuration. A version
 number alone does not qualify a build. Unknown or modified native sources disable
 the affected workflows. Installation, source verification and rollback are
-covered in the [native companion guide](../../../../native/forms-guard/README.md).
+covered in `native/forms-guard/README.md` in the matching source bundle.
 
 | Workflow | Tools and behavior |
 | --- | --- |
@@ -89,9 +89,8 @@ additional permissions. Formula-like cells are neutralized.
 
 Downloads are bound to the actor and connection, single-use and valid for at most
 five minutes. Private result-cache content expires after seven days; operation
-receipts and sealed native recovery have separate lifecycles. See the
-[result-cache contract](../../development/forms-result-cache.md) for budgets and
-ambiguous-IO recovery.
+receipts and sealed native recovery have separate lifecycles. See `docs/en/development/forms-result-cache.md` in the matching source bundle
+for budgets and ambiguous-IO recovery.
 
 Creating a Files export is the default. Replacing an existing file additionally
 requires `overwrite`, its approved `etag`, edit authority and verified recovery.

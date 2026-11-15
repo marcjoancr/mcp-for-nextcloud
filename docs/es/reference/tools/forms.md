@@ -36,7 +36,8 @@ Las cinco herramientas anteriores conservan su compatibilidad con Forms 5.3.
 Los flujos ampliados necesitan la extensión independiente de Forms 5.4.2 y una
 combinación cualificada de Nextcloud, base de datos, almacenamiento y escritores
 nativos. El número de versión por sí solo no habilita estas funciones. Consulta
-la [guía de instalación, verificación y recuperación de la extensión](../../../../native/forms-guard/README.md).
+`native/forms-guard/README.md` en el paquete de código fuente correspondiente
+para la instalación, verificación y recuperación de la extensión.
 
 La ampliación incluye búsqueda y ajustes; creación y clonación de formularios;
 estado y bloqueos; construcción y ordenación de preguntas y opciones;

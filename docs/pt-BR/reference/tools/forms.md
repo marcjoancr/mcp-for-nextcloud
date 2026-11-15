@@ -36,8 +36,8 @@ e `forms_capabilities` para verificar compatibilidade e limites.
 As cinco ferramentas anteriores mantêm o requisito mínimo de Forms 5.3.
 Os fluxos ampliados exigem a extensão independente de Forms 5.4.2 e uma
 combinação qualificada de Nextcloud, banco de dados, armazenamento e escritores
-nativos. A versão, sozinha, não habilita essas funções. Consulte o
-[guia de instalação e recuperação](../../../../native/forms-guard/README.md).
+nativos. A versão, sozinha, não habilita essas funções. Consulte `native/forms-guard/README.md`
+no pacote de código-fonte correspondente para a instalação e recuperação.
 
 A ampliação inclui pesquisa e configurações, criação e clonagem, estados e
 bloqueios, perguntas e opções, compartilhamento e links, respostas próprias,

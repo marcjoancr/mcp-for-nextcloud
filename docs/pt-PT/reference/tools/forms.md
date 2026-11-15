@@ -36,8 +36,8 @@ e `forms_capabilities` para verificar compatibilidade e limites.
 As cinco ferramentas anteriores mantêm o mínimo de Forms 5.3. Os fluxos
 alargados exigem a extensão independente de Forms 5.4.2 e uma combinação
 qualificada de Nextcloud, base de dados, armazenamento e escritores nativos.
-A versão, por si só, não ativa estas funções. Consulte o
-[guia de instalação e recuperação](../../../../native/forms-guard/README.md).
+A versão, por si só, não ativa estas funções. Consulte `native/forms-guard/README.md`
+no pacote de código-fonte correspondente para a instalação e recuperação.
 
 A extensão inclui pesquisa e definições, criação e clonagem, estados e
 bloqueios, perguntas e opções, partilha e ligações públicas, respostas próprias,

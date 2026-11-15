@@ -206,3 +206,23 @@ The optional system configuration `mcp_native_source_offer` has a closed schema:
 ```
 
 Replace the placeholders with the exact release values. The offer requires a valid MCP source offer for that same installed source commit, the exact native build and matching selected installed-code fingerprints. It performs bounded local identity reads, never fetches a URL, and permits HTTPS destinations (literal loopback HTTP only for isolated acceptance). Missing, extra or mismatching metadata fails closed. Personal settings and MCP initialize/discover expose the independently validated companion without requiring Mail sending permission, an account, provider capabilities or enabled production transmission. Before advertising it, download every asset without maintainer credentials and verify its trusted manifest and complete inventory. Source publication does not enable sending.
+
+## Guarded Forms source companion
+
+Forms uses a separate source companion. Its six public files are `forms-native-manifest.json`, `forms-upstream-runtime.tar.gz`, `forms-upstream-source.tar.gz`, `forms-reviewed-overlay.tar.gz`, `forms-assembled-runtime.tar.gz` and `FORMS-BUILDING.md`. The MCP five-file kit and the Mail companion retain their existing contracts.
+
+The upstream input is the official installable Forms **5.4.2** archive, SHA-256 `c12cc4e05dd9c41cfee8df75a8cc0f759e9a95169fefabd617713a934da7943a`. The preferred source is the [upstream commit](https://github.com/nextcloud/forms/tree/066573fd592513a06f8b8624def8244e911efdfd) archive from `https://codeload.github.com/nextcloud/forms/tar.gz/066573fd592513a06f8b8624def8244e911efdfd`, SHA-256 `96f5bbb6ddf44466df78080d11fa2454e39415d81b30dd991ed98253273c1c2d`. They serve different purposes: the installable archive includes the shipped dependencies and assets, while the preferred source includes frontend source, dependency locks and build configuration.
+
+After the final native qualification and independent review, compile the exact generated `mcp-guard-installed.json` digest into `FormsGuardIdentity`, commit those inputs and prepare the matching clean MCP kit. From `mcp/`, use absolute paths; the new output's parent must already exist below this project's `mcp/build`:
+
+```sh
+node scripts/release/cli.mjs forms-native KIT MCP_MANIFEST_SHA256 ORIGINAL_FORMS_ARCHIVE UPSTREAM_SOURCE_ARCHIVE OUTPUT
+node scripts/release/cli.mjs verify-forms-native OUTPUT FORMS_MANIFEST_SHA256 SOURCE_COMMIT
+node scripts/release/cli.mjs verify-forms-installed OUTPUT FORMS_MANIFEST_SHA256 SOURCE_COMMIT INSTALLED_FORMS_DIRECTORY
+```
+
+Preparation copies and rechecks the pinned inputs, uses only the verified frozen source bundle, and requires the compiled Forms identity to match both the MCP runtime inventory and the generated native manifest. It reconstructs Forms twice and compares complete file inventories, including JavaScript and other assets outside the native guard's selected executable hashes. The reviewed overlay archive contains `native/forms-guard`, including preparation, source, migrations, standalone comments integration and tests. Nothing is downloaded or installed by this command. Reconstruction preserves upstream shipped assets; an independently identical frontend rebuild and a fully offline toolchain are not claimed.
+
+This is a modified, **unsigned** Forms distribution. Preserve upstream and dependency source, licenses, notices and the companion's source. Record the companion manifest digest in independently trusted release metadata. Before an authorized deployment, provide the complete matching kit and companion through the operator's credential-free corresponding-source offer, and verify every published asset without maintainer credentials. This tooling prepares a local artifact; it does not publish an offer or add a Forms source link to personal settings or MCP discovery.
+
+Use the [native installation guidance](../../../native/forms-guard/README.md) for the maintenance window, migrations and qualified comments writer. Verify installed inventories only while requests and jobs are quiescent. Back up the database, complete previous app code and affected files first. Restoring old code alone does not undo database migrations or Files effects; rollback may require the matching database and file checkpoint. Retain companion history, operation evidence and recovery files rather than dropping or pruning them as part of code rollback.
