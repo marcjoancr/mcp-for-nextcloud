@@ -23,18 +23,18 @@ final class NewFileStorage extends \OC\Files\Storage\Wrapper\Wrapper {
         return $created;
     }
     public function fopen(string $path,string $mode) {if (strpbrk($mode,'waxc+')!==false) {$this->free($path);}return parent::fopen($path,$mode);}
-    public static function create(\OCP\Files\Folder $folder,string $name,mixed $content): \OCP\Files\File {
+    public static function create(\OCP\Files\Folder $folder,string $name,mixed $content,?\Closure $destination=null): \OCP\Files\File {
         StorageAdmission::node($folder);
         StorageAdmission::path($folder->getPath().'/'.$name);
         if (OriginContext::active()) {OriginContext::assertFileEffect();}
         if ($folder->nodeExists($name)) {throw new \RuntimeException('Forms destination already exists');}
-        $target=rtrim($folder->getInternalPath(),'/').'/'.$name;$wrapper=null;
-        $folder->getMountPoint()->wrapStorage(function($path,$storage)use($target,&$wrapper){$wrapper=new self($storage,$target);return $wrapper;});
+        $target=rtrim($folder->getInternalPath(),'/').'/'.$name;$wrapper=null;$authorize=$destination===null?null:static fn()=>$destination($folder,true);if($authorize!==null){$authorize();}
+        $folder->getMountPoint()->wrapStorage(function($path,$storage)use($target,&$wrapper,$authorize){$wrapper=new self($storage,$target,$authorize);return $wrapper;});
         try {return $folder->newFile($name,$content);}finally{if ($wrapper!==null) {$wrapper->enabled=false;}}
     }
-    public static function folder(\OCP\Files\Folder $root,string $path,?\Closure $authorize=null,bool $requireNewFinal=false): \OCP\Files\Folder {
+    public static function folder(\OCP\Files\Folder $root,string $path,?\Closure $authorize=null,bool $requireNewFinal=false,?\Closure $destination=null): \OCP\Files\Folder {
         StorageAdmission::path($root->getPath().'/'.trim($path,'/'),true);
-        $folder=$root;
+        $folder=$root;if($destination!==null){$destination($folder,false);}
         $segments=explode('/',trim($path,'/'));
         foreach ($segments as $index=>$segment) {
             if ($segment==='' || $segment==='.' || $segment==='..') {throw new \RuntimeException('Invalid native artifact folder');}
@@ -44,9 +44,10 @@ final class NewFileStorage extends \OC\Files\Storage\Wrapper\Wrapper {
             if ($requireNewFinal && $index===array_key_last($segments) && $exists) {
                 throw new \RuntimeException('Native share target was created by another operation');
             }
-            $next=$exists?$folder->get($segment):self::createFolder($folder,$segment,$authorize);
+            $write=static function()use($authorize,$destination,$folder):void{if($authorize!==null){$authorize();}if($destination!==null){$destination($folder,true);}};
+            if(!$exists){$write();}$next=$exists?$folder->get($segment):self::createFolder($folder,$segment,$write);
             if (!$next instanceof \OCP\Files\Folder) {throw new \RuntimeException('Native artifact parent is not a folder');}
-            $next->getId();$folder=$next;
+            $next->getId();$folder=$next;if($destination!==null){$destination($folder,false);}
         }
         return $folder;
     }

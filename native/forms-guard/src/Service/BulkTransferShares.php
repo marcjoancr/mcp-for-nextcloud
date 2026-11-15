@@ -53,7 +53,7 @@ final class BulkTransferShares {
   if(self::shareState($r['files_share_id'])!==$r['share_state']){throw new \RuntimeException('Original recipient acceptance or restrictions changed');}
   $source=Server::get(IRootFolder::class)->getUserFolder($j['uid'])->getById((int)$r['folder_id'])[0]??null;
   if(!$source instanceof Folder||$source->getPath()!==$r['folder_path']||$source->getOwner()?->getUID()!==$j['uid']){throw new \RuntimeException('Transfer source folder changed');}StorageAdmission::node($source);
-  if($folder!==null){StorageAdmission::node($folder);if($folder->getOwner()?->getUID()!==$j['input']['owner_id']||$folder->getPath()!=='/'.$j['input']['owner_id'].'/files/'.self::path($j,$r['folder_path'])){throw new \RuntimeException('Transfer destination folder changed');}}
+  if($folder!==null){DestinationFiles::authorize($folder,true);StorageAdmission::node($folder);if($folder->getOwner()?->getUID()!==$j['input']['owner_id']||$folder->getPath()!=='/'.$j['input']['owner_id'].'/files/'.self::path($j,$r['folder_path'])){throw new \RuntimeException('Transfer destination folder changed');}}
   BulkDeadline::check();
  }
  public function stage(array &$j,array $row,?callable $boundary):void {
@@ -61,7 +61,7 @@ final class BulkTransferShares {
   $impact=['files'=>[],'files_share'=>true,'share_impact'=>['parent'=>['file_id'=>(int)$r['folder_id']],'folder_ids'=>[(int)$r['folder_id']],'recipient'=>$r['approved_tuple']['recipient'],'type'=>$r['approved_tuple']['type'],'create'=>true,'permissions'=>['read']],'destination_owner'=>$j['input']['owner_id'],'destination_path'=>self::path($j,$r['folder_path']),'source_shares'=>'retained'];
   OriginContext::withFileBoundary($boundary,function()use(&$j,$r,$row,$impact):void{OriginContext::withFileImpact('forms_transfer',$impact,function()use(&$j,$r,$row):void{
    $root=Server::get(IRootFolder::class)->getUserFolder($j['input']['owner_id']);if($j['cursor']===0&&$j['counts']['files']===0){$form=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$j['form']['id']);$base=Server::get(\OCA\Forms\Helper\FilePathHelper::class)->getFormUploadedFilesFolderPath($form);if($root->nodeExists($base)){throw new \RuntimeException('Transfer destination already exists');}}$path=self::path($j,$r['folder_path']);
-   $wasPresent=$root->nodeExists($path);$folder=NewFileStorage::folder($root,$path,function()use($j,$r):void{$this->authority($j,$r);});$folder->lock(ILockingProvider::LOCK_EXCLUSIVE);
+   $wasPresent=$root->nodeExists($path);$folder=NewFileStorage::folder($root,$path,function()use($j,$r):void{$this->authority($j,$r);},destination:DestinationFiles::callback());$folder->lock(ILockingProvider::LOCK_EXCLUSIVE);
    try{
     $this->authority($j,$r,$folder);OriginContext::assertFileEffect([(int)$r['folder_id']]);
     $tuple=['owner_id'=>$j['input']['owner_id'],'recipient'=>$r['approved_tuple']['recipient'],'type'=>$r['approved_tuple']['type']];

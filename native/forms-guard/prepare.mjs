@@ -20,6 +20,11 @@ for (const [name,sha] of Object.entries(manifest.sourceSha256)) {
 function walk(root,dir=root){return readdirSync(dir).flatMap(n=>{const p=join(dir,n),st=lstatSync(p);if(st.isSymbolicLink()) throw new Error('Symlink source refused');return st.isDirectory()?walk(root,p):[relative(root,p)];});}
 for (const name of walk(source)) if (/\.(php|xml|json)$/.test(name) && !manifest.sourceSha256[name]) throw new Error(`Unexpected executable/configuration source: ${name}`);
 mkdirSync(output);cpSync(source,output,{recursive:true});
+// Native account lifetime tracking must remain registered while the MCP app is disabled.
+const appFile=join(output,'lib/AppInfo/Application.php');let appSource=readFileSync(appFile,'utf8');
+const registration='$context->registerCapability(Capabilities::class);';
+if(!appSource.includes(registration))throw new Error('Native account lifecycle registration missing');
+appSource=appSource.replace(registration,registration+'\n\t\t$context->registerEventListener(\\OCP\\User\\Events\\BeforeUserCreatedEvent::class, \\OCA\\Forms\\Mcp\\Service\\NativeHistoryUserListener::class);');writeFileSync(appFile,appSource);
 const hooks={
  'Controller/ApiController.php':['newForm','updateForm','deleteForm','newQuestion','updateQuestion','deleteQuestion','reorderQuestions','newOption','updateOption','deleteOption','reorderOptions','deleteAllSubmissions','newSubmission','updateSubmission','deleteSubmission','exportSubmissionsToCloud','uploadFiles'],
  'Controller/ShareApiController.php':['newShare','updateShare','deleteShare'],

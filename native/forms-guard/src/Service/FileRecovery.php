@@ -270,14 +270,14 @@ final class FileRecovery {
         $form=Server::get(FormMapper::class)->findById((int)$input['id']);$destination=Server::get(IRootFolder::class)->getUserFolder($input['owner_id']);
         $path=Server::get(FilePathHelper::class)->getFormUploadedFilesFolderPath($form);
         if ($destination->nodeExists($path)) {throw new \RuntimeException('Transfer destination already exists');}
-        $folder=NewFileStorage::folder($destination,$path.'/transferred-'.bin2hex(random_bytes(16)));$source=Server::get(IRootFolder::class)->getUserFolder($data['form']['owner_id']);
+        $folder=NewFileStorage::folder($destination,$path.'/transferred-'.bin2hex(random_bytes(16)),destination:DestinationFiles::callback());$source=Server::get(IRootFolder::class)->getUserFolder($data['form']['owner_id']);
         $db=Server::get(IDBConnection::class);
         foreach ($data['files'] as $meta) {
             $file=$source->getById($meta['file_id'])[0];$file->lock(ILockingProvider::LOCK_SHARED);
             try {
                 if (self::fileMeta($file)!==$meta) {throw new \RuntimeException('Transfer source changed');}
                 $stream=$file->fopen('rb');if (!is_resource($stream)) {throw new \RuntimeException('Transfer source cannot be read');}
-                try {$copy=NewFileStorage::create($folder,$meta['file_id'].'-'.$meta['name'],$stream);}finally{if(is_resource($stream)){fclose($stream);}}
+                try {$copy=NewFileStorage::create($folder,$meta['file_id'].'-'.$meta['name'],$stream,DestinationFiles::callback());}finally{if(is_resource($stream)){fclose($stream);}}
                 if ((int)$copy->getSize()!==$meta['size'] || !hash_equals($meta['sha256'],hash('sha256',$copy->getContent()))) {throw new \RuntimeException('Transferred file verification failed');}
                 $db->executeStatement('UPDATE *PREFIX*forms_v2_answers SET file_id = ? WHERE file_id = ?',[$copy->getId(),$meta['file_id']]);
                 $db->executeStatement('UPDATE *PREFIX*forms_mcp_artifacts SET file_id = ? WHERE form_id = ? AND file_id = ?',[$copy->getId(),$input['id'],$meta['file_id']]);
@@ -314,12 +314,12 @@ final class FileRecovery {
         foreach ($data['submissions'] as $s) {$old=(int)$s['id'];$s['form_id']=$form->getId();$submissions[$old]=self::insert('Submission',$s)->getId();}
         $root=Server::get(IRootFolder::class)->getUserFolder($uid);$path=Server::get(FilePathHelper::class)->getFormUploadedFilesFolderPath($form);
         if ($root->nodeExists($path)) {throw new \RuntimeException('Recovery destination already exists');}
-        $folder=NewFileStorage::folder($root,$path.'/recovered-'.bin2hex(random_bytes(16)));
+        $folder=($data['files']===[]?null:NewFileStorage::folder($root,$path.'/recovered-'.bin2hex(random_bytes(16)),destination:DestinationFiles::callback()));
         $backup=Server::get(\OCP\Files\AppData\IAppDataFactory::class)->get('forms_mcp_recovery')->getFolder($id);
         foreach ($data['files'] as $meta) {
             $stream=$backup->getFile('file-'.$meta['file_id'])->read();if (!is_resource($stream)) {throw new \RuntimeException('Recovery source cannot be read');}
             // Each original ID gets a unique destination, without searching or replacing another file.
-            try {$file=NewFileStorage::create($folder,$meta['file_id'].'-'.$meta['name'],$stream);} finally {if (is_resource($stream)) {fclose($stream);}}
+            try {$file=NewFileStorage::create($folder,$meta['file_id'].'-'.$meta['name'],$stream,DestinationFiles::callback());} finally {if (is_resource($stream)) {fclose($stream);}}
             if ((int)$file->getSize()!==$meta['size'] || !hash_equals($meta['sha256'],hash('sha256',$file->getContent()))) {throw new \RuntimeException('Restored file verification failed');}
             $files[$meta['file_id']]=$file->getId();
             Server::get(IDBConnection::class)->executeStatement('INSERT INTO *PREFIX*forms_mcp_artifacts (form_id,file_id) VALUES (?, ?)',[$form->getId(),$file->getId()]);

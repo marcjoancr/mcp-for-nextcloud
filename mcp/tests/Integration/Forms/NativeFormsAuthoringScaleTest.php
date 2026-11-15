@@ -29,7 +29,7 @@ final class NativeFormsAuthoringScaleTest extends TestCase {
  public function testPermissionFailureNeverBecomesHistoricalAbsence():void {$this->probe('authoring-history-probe.php','permission');}
  public function testIoFailureNeverBecomesHistoricalAbsence():void {$this->probe('authoring-history-probe.php','io');}
  public function testUnsupportedStorageNeverBecomesHistoricalAbsence():void {$this->probe('authoring-history-probe.php','unsupported');}
- public function testHistoricalTransferRefusesBeforeOwnershipOrRecoveryEffects():void {$this->probe('authoring-history-probe.php','transfer');}
+ public function testHistoricalTransferNormalizesOnlyUnavailableReferences():void {$this->probe('authoring-history-probe.php','transfer');}
  public function testMissingHistoryIndexFloorClosesV2ButPreservesV1RecoveryAndControl():void {$this->probe('authoring-history-probe.php','floor');}
  private function probe(string $file,string $variant='metadata'):void {
   if(!getenv('MCP_FORMS_NATIVE_BOUNDARY')){$this->markTestSkipped('Requires disposable native cell');}

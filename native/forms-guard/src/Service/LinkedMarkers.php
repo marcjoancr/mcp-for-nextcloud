@@ -310,7 +310,7 @@ final class LinkedMarkers {
         return $this->fence->transaction(function()use($form,$method,$work): mixed {
             $before=Server::get(FormMapper::class)->findById($form->getId());
             if($method!=='delete'&&$before->getOwnerId()!==$form->getOwnerId()&&($this->tuple($before)!==null||(OriginContext::active()&&OriginContext::current()['action']==='forms_transfer'))){$form->setFileId(null);$form->setFileFormat(null);}
-            $result=$work();BulkEpoch::touch($form->getId());
+            $result=$method!=='delete'&&$before->getOwnerId()!==$form->getOwnerId()?NativeHistoryTransition::run($before,$form,$work):$work();BulkEpoch::touch($form->getId());
             $after=$method==='delete'?null:Server::get(FormMapper::class)->findById($form->getId());
             if ($after===null || $before->getFileId()!==$after->getFileId() || $before->getFileFormat()!==$after->getFileFormat()) {
                 $this->retire($form->getId());

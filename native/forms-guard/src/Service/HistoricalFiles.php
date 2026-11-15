@@ -8,7 +8,7 @@ use OCP\Files\{File,IRootFolder};
 /** Explicit current-state absence, never proof of who removed the historical bytes. */
 final class HistoricalFiles {
  public const FORMAT='bulk_history_v2';
- public static function ready():bool {return Server::get(IDBConnection::class)->executeQuery('SELECT version FROM *PREFIX*migrations WHERE app = ? AND version = ?',['forms','050402Date20261114020000'])->fetchOne()!==false;}
+ public static function ready():bool {return Server::get(IDBConnection::class)->executeQuery('SELECT version FROM *PREFIX*migrations WHERE app = ? AND version = ?',['forms','050402Date20261114020000'])->fetchOne()!==false&&NativeHistoryIdentity::ready();}
  public static function requireReady():void {if(!self::ready()){throw new \OCA\Forms\Mcp\BeforeEffect('Qualified historical-file index migration is required');}}
  public static function unavailable(int $formId,int $fileId):?array {
   if($fileId<1){throw new \RuntimeException('Invalid historical file identity');}
@@ -33,16 +33,48 @@ final class HistoricalFiles {
   return ['file_id'=>$fileId,'availability'=>'historical_unavailable','form_id'=>$formId,'owner_id'=>$form->getOwnerId(),'answer_count'=>$answers,'upload_count'=>$uploads,'artifact_count'=>count($artifact),'references_digest'=>hash_final($hash),'unavailable_cause'=>'unverified','node_absent'=>true,'absence_evidence'=>$absence];
  }
  public static function isUnavailable(array $meta):bool {return ($meta['availability']??null)==='historical_unavailable';}
+ /** Password-stable Forms-owned account incarnation; neither credential hashes nor UID alone prove lifetime. */
+ public static function ownerIdentity(string $uid,?string $actor=null):array {
+  if($actor===null){$actor=NativeHistoryIdentity::capture($uid);}else{NativeHistoryIdentity::assertCurrent($uid,$actor);}
+  return ['uid'=>$uid,'native_actor'=>$actor];
+ }
  public static function historyForAnswer(int $formId,int $answerId):?array {
   if(!self::ready()){return null;}
   $db=Server::get(IDBConnection::class);$rows=$db->executeQuery("SELECT bulk_id,mapped_id FROM *PREFIX*forms_mcp_bulk_rows WHERE kind = 'file_history' AND source_id = ? LIMIT 2",[$answerId])->fetchAll();
   if($rows===[]){return null;}if(count($rows)!==1){throw new \RuntimeException('Ambiguous restored file history');}
   $store=Server::get(BulkStore::class);$j=$store->load($rows[0]['bulk_id']);$h=$store->one($j['id'],'file_history',$answerId);
-  if((int)$rows[0]['mapped_id']!==($h['source_file_id']??0)||($j['backup_format']??1)!==2||$j['action']!=='forms_restore'||$j['phase']!=='complete'||$j['state']!=='completed'||$j['restored_form_id']!==$formId||($h['form_id']??null)!==$formId||($h['answer_id']??null)!==$answerId||($h['availability']??null)!=='historical_unavailable'||!is_int($h['source_file_id']??null)||$h['source_file_id']<1){throw new \RuntimeException('Restored file history is unqualified');}
-  $b=$store->load($j['input']['backup_id']);$seal=BulkStore::digest([$b['id'],$b['actor'],$b['counts'],$b['chain'],$b['form'],['backup_format'=>2,'historical_unavailable_files'=>$b['historical_unavailable_files']??-1]]);
-  if(($b['backup_format']??1)!==2||!($b['sealed']??false)||!hash_equals($seal,$b['seal']??'')||($h['source_archive_id']??null)!==$b['id']){throw new \RuntimeException('Historical source archive is unqualified');}
-  $source=$store->one($b['id'],'answers',$h['source_answer_id']);$sourceId=(int)($source['file_id']??$source['_mcp_file_history']['source_file_id']??0);if($sourceId!==$h['source_file_id']){throw new \RuntimeException('Historical source reference changed');}return $h;
+  $native=$j['action']==='native_history_transfer';$transfer=$native||$j['action']==='forms_transfer';
+  if((int)$rows[0]['mapped_id']!==($h['source_file_id']??0)||($j['backup_format']??1)!==2||!in_array($j['action'],['forms_restore','forms_transfer','native_history_transfer'],true)||$j['phase']!=='complete'||!in_array($j['state'],$transfer?['completed','partial']:['completed'],true)||($transfer?(int)$j['form']['id']:$j['restored_form_id'])!==$formId||($h['form_id']??null)!==$formId||($h['answer_id']??null)!==$answerId||($h['availability']??null)!=='historical_unavailable'||!is_int($h['source_file_id']??null)||$h['source_file_id']<1){throw new \RuntimeException('Restored file history is unqualified');}
+  $b=$transfer?$j:$store->load($j['input']['backup_id']);
+  self::assertSeal($b);
+  if(($h['source_archive_id']??null)!==$b['id']){throw new \RuntimeException('Historical source archive is unqualified');}
+  $source=$store->one($b['id'],'answers',$h['source_answer_id']);$sourceId=(int)($source['file_id']??$source['_mcp_file_history']['source_file_id']??0);if($sourceId!==$h['source_file_id']||!self::isUnavailable($store->one($b['id'],'files',$sourceId))){throw new \RuntimeException('Historical source reference changed');}
+  $live=$db->executeQuery('SELECT a.*,q.form_id AS question_form,q.type,s.form_id AS submission_form FROM *PREFIX*forms_v2_answers a JOIN *PREFIX*forms_v2_questions q ON q.id=a.question_id JOIN *PREFIX*forms_v2_submissions s ON s.id=a.submission_id WHERE a.id=?',[$answerId])->fetch();
+  if(!$live||$live['file_id']!==null||(int)$live['question_form']!==$formId||(int)$live['submission_form']!==$formId||$live['type']!=='file'){throw new \RuntimeException('Historical answer binding changed');}
+  $owner=Server::get(\OCA\Forms\Db\FormMapper::class)->findById($formId)->getOwnerId();
+  if(!$transfer){if($owner!==$j['uid']){throw new \RuntimeException('Restored historical owner changed');}if(isset($h['owner']['native_actor'])){if($h['owner']!==self::ownerIdentity($owner,$h['owner']['native_actor'])){throw new \RuntimeException('Restored historical incarnation changed');}}else{NativeHistoryIdentity::assertLegacy($owner,$j['origin']['actor']);}}
+  if($transfer){
+   $expected=$source;unset($expected['_mcp_file_history']);$expected['file_id']=null;$actual=$live;unset($actual['question_form'],$actual['submission_form'],$actual['type']);
+   $binding=$h['owner']??[];if(isset($binding['native_actor'])){$valid=$binding===self::ownerIdentity($owner,$binding['native_actor'])&&$binding['native_actor']===($j['target_native_actor']??null);}else{NativeHistoryIdentity::assertLegacy($owner,$binding['actor']??'');$valid=($binding['uid']??null)===$owner&&($binding['actor']??null)===($j['target_actor']??null);}
+   if(!$valid||$owner!==$j['input']['owner_id']||($h['target_principal']??null)!==$j['target_principal']||$h['source_answer_id']!==$answerId||$expected!==$actual){throw new \RuntimeException('Historical ownership transition changed');}
+  }
+  return $h;
  }
+ private static function assertSeal(array $b):void {
+  if(($b['purpose']??null)===NativeHistoryTransition::PURPOSE){if($b['action']!=='native_history_transfer'||!($b['sealed']??false)||!hash_equals(NativeHistoryTransition::seal($b),$b['seal']??'')){throw new \RuntimeException('Native historical transition seal changed');}return;}
+  $seal=BulkStore::digest([$b['id'],$b['actor'],$b['counts'],$b['chain'],$b['form'],['backup_format'=>2,'historical_unavailable_files'=>$b['historical_unavailable_files']??-1]]);
+  if(($b['backup_format']??1)!==2||!($b['sealed']??false)||!hash_equals($seal,$b['seal']??'')){throw new \RuntimeException('Historical source archive is unqualified');}
+ }
+ /** Called only inside the ownership transaction, after source-row locks and exact preimage comparison. */
+ public static function transferAnswer(array &$j,int $id,array $answer,?array $prior,int $old):void {
+  self::assertSeal($j);$store=Server::get(BulkStore::class);$db=Server::get(IDBConnection::class);$form=(int)$j['form']['id'];
+  if($prior!==null){if(self::historyForAnswer($form,$id)!==$prior){throw new \RuntimeException('Approved historical provenance changed');}$count=$db->executeStatement("UPDATE *PREFIX*forms_mcp_bulk_rows SET kind='file_history_prior' WHERE kind='file_history' AND source_id=?",[$id]);if($count!==1){throw new \RuntimeException('Historical predecessor changed');}}
+  elseif($answer['file_id']===null||self::historyForAnswer($form,$id)!==null){throw new \RuntimeException('Unapproved historical normalization');}
+  $sourceId=$old?:$prior['source_file_id'];$h=self::transferProvenance($j,$id,$sourceId);
+  $store->putMapping($j,'file_history',$id,$h);$store->map($j['id'],'file_history',$id,$sourceId);
+ }
+ /** Exact prospective mapping, shared by native pre-effect budgeting and committed mapping writes. */
+ public static function transferProvenance(array $j,int $id,int $sourceId):array {return ['form_id'=>(int)$j['form']['id'],'answer_id'=>$id,'availability'=>'historical_unavailable','source_file_id'=>$sourceId,'source_archive_id'=>$j['id'],'source_answer_id'=>$id,'unavailable_cause'=>'unverified','owner'=>self::ownerIdentity($j['input']['owner_id'],$j['target_native_actor']),'target_principal'=>$j['target_principal']];}
  /** Restored NULL references have history identity, not a currently resolvable node ID. */
  public static function normalized(int $formId,int $fileId):?array {
   if(!self::ready()){return null;}
