@@ -107,6 +107,21 @@ final class FilesScopeTest extends TestCase {
         }
     }
 
+    public function testFormsResourceBoundaryRefreshesRealGuestExternalStorageDecisions():void {
+        $this->tree->nodes['/alice/files/Archive/old.md']['scope']='external';$this->tree->nodes['/alice/files/Archive']['scope']='external';
+        foreach(['source','destination'] as $kind){
+            $guestConfig=new class {public bool $allowed=true;public function allowExternalStorage():bool{return $this->allowed;}};
+            $apps=$this->createMock(\OCP\App\IAppManager::class);$apps->method('isEnabledForAnyone')->willReturn(true);
+            $guests=new \OCA\Mcp\Access\Guests\GuestRestrictions($apps,$this->createMock(\OCP\IRequest::class),static fn()=>new class {public function isGuest(string $uid):bool{return true;}},static fn()=>new \stdClass(),static fn()=>new \stdClass(),static fn()=>$guestConfig,new \Psr\Log\NullLogger());
+            $gate=new FilesAccessGuard(\OCA\Mcp\Tests\Support\Access\BackupPolicy\BackupDocumentFixture::location($this),$this->scope(),$this->config->mock($this),$this->tags(),$this->tree->filesystemRoot(),null,null,null,$guests);
+            $impact=new \OCA\Mcp\Modules\Forms\Attachments\FormsFileImpact($this->tree->filesystemRoot(),$gate);
+            $check=fn()=>$kind==='source'?$impact->assertVisible('alice',['files'=>[['file_id'=>$this->node('/Archive/old.md')->getId()]]]):$impact->assertDestination($this->node('/Archive'),true);
+            $check();$guestConfig->allowed=false;
+            $message=null;try{$check();}catch(\RuntimeException $e){$message=$e->getMessage();}self::assertSame($kind==='source'?'Forms file effect is outside the current Files access':'Forms destination is outside the current Files access',$message,'Forms used a cached guest external-storage permission for '.$kind);
+            $guestConfig->allowed=true;$check();self::assertTrue(true);
+        }
+    }
+
     public function testANodeIsInsideWhenItOrAnAncestorIsSelected(): void {
         $this->scopes['alice'] = [$this->projects, $this->nested];
         $scope = $this->scope();

@@ -102,8 +102,9 @@ class FilesAccessGuard extends VisibilityGuard {
         return array_values(array_filter($roots, fn (Folder $folder): bool => $folder->isReadable() && $this->reachable($folder) && parent::isVisible($folder)));
     }
 
-    public function clearCache(): void {
+    public function clearCache(bool $freshGuests = false): void {
         parent::clearCache();
         $this->scope->clearCache();
+        if ($freshGuests && $this->guests !== null) {$this->guests = $this->guests->fresh();}
     }
 }
