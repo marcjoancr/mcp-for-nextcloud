@@ -48,6 +48,7 @@ final class FormsBulkWorkflow {
         $deadline??=$this->now()+18;$native=self::nativeInput($tool,$input);
         $origin=$capture($tool,$input,[]);$snapshot=$guard->bulkSnapshot($uid,$tool,$native+['_mcp_origin'=>$origin]);
         if(!is_string($snapshot['revision']??null))throw new ToolFailure('Native Forms preview identity is missing.');
+        $profile=$this->shareProfile($snapshot);
         $sharing=self::sharing($tool);$snapshot=self::authorizationSnapshot($tool,$snapshot);
         $history=$snapshot['historical_unavailable_files']??0;
         if(!is_int($history)||$history<0||$history>100000)throw new ToolFailure('Native Forms unavailable history count is invalid.');
@@ -64,7 +65,7 @@ final class FormsBulkWorkflow {
             do {
                 $this->budget($deadline);
                 $page=$guard->bulkPreviewPage($uid,$tool,$native+['_mcp_origin'=>$origin],$snapshot['revision'],$kind,$cursor,100);
-                $this->page($page,$snapshot['revision'],$total,$cursor,100,$kind);
+                $this->page($page,$snapshot['revision'],$total,$cursor,100,$kind,$profile);
                 if($kind==='files')foreach($page['items'] as $row)if(self::historicalFile($row))$unavailable++;
                 if($tool!=='forms_restore')$files($origin,$tool,$this->manifest($kind,$page['items']));
                 $seen+=count($page['items']);
@@ -101,7 +102,7 @@ final class FormsBulkWorkflow {
         if(!hash_equals($target['revision'],$snapshot['revision']))throw new ToolFailure('The Forms effect preview changed. Request a new approval.');
         $page=$guard->bulkPreviewPage($uid,$target['tool'],$snapshot['bulk_input']+['_mcp_origin'=>$snapshot['bulk_origin']],
             $target['revision'],$target['kind'],$target['cursor'],$limit);
-        $this->page($page,$target['revision'],$snapshot['counts'][$target['kind']],$target['cursor'],$limit,$target['kind']);
+        $this->page($page,$target['revision'],$snapshot['counts'][$target['kind']],$target['cursor'],$limit,$target['kind'],$this->shareProfile($snapshot));
         if($target['tool']!=='forms_restore')$files($snapshot['bulk_origin'],$target['tool'],$this->manifest($target['kind'],$page['items']));
         $allowed=$target['kind']==='files'?['file_id','path','name','size','etag','owner','action','destination','recovery','availability','unavailable_cause']:
             ['native_share_id','recipient','type','folder_ids','managed_share_ids','action','destination','destination_owner','source_action','permissions'];
@@ -110,7 +111,7 @@ final class FormsBulkWorkflow {
         $result=FormsProjection::bounded(['collection'=>$target['kind'],'items'=>$items,'total'=>$page['total'],'hasMore'=>!$page['complete'],'nextCursor'=>$next]);
         $this->budget($deadline);return $result;
     }
-    private function page(array $page,string $revision,int $total,int $cursor,int $limit,string $kind):void {
+    private function page(array $page,string $revision,int $total,int $cursor,int $limit,string $kind,?string $profile):void {
         FormsProjection::bounded($page);
         if($limit<1||$limit>100||($page['revision']??null)!==$revision||($page['total']??null)!==$total
             ||!is_array($page['items']??null)||!array_is_list($page['items'])||count($page['items'])>$limit
@@ -119,16 +120,30 @@ final class FormsBulkWorkflow {
             throw new ToolFailure('The native Forms effect page is incomplete or changed.');
         $last=$cursor;
         foreach($page['items'] as $row) {
-            $id=$kind==='files'?($row['file_id']??null):$this->sharePosition($row);
+            $id=$kind==='files'?($row['file_id']??null):$this->sharePosition($row,$profile);
             if(!is_int($id)||$id<=$last)throw new ToolFailure('Native Forms effect identities repeated or changed.');
             $last=$id;
         }
         if(!$page['complete']&&$page['next_cursor']!==$last)throw new ToolFailure('Native Forms effect continuation skipped a row.');
     }
-    private function sharePosition(array $row):int {
+    private function shareProfile(array $snapshot):?string {
+        if(!array_key_exists('files_share_id_profile',$snapshot))return null;
+        if($snapshot['files_share_id_profile']!=='core-share-pk-v1')throw new ToolFailure('The native Forms share identity profile is unavailable.');
+        return 'core-share-pk-v1';
+    }
+    private function sharePosition(array $row,?string $profile):int {
+        $provider='ocinternal';
+        if($profile===null) {
+            if(array_key_exists('files_share_provider',$row))throw new ToolFailure('The Forms share provider proof was not negotiated.');
+        } else {
+            $provider=$row['files_share_provider']??null;$type=$row['type']??null;
+            if(!is_int($type)||!in_array($provider,['ocinternal','ocCircleShare'],true)
+                ||($provider==='ocCircleShare'?$type!==7:!in_array($type,[0,1,2],true)))
+                throw new ToolFailure('The native Forms share provider proof is unavailable.');
+        }
         $ids=$row['managed_share_ids']??null;
-        if(!is_array($ids)||count($ids)!==1||!is_string($ids[0]??null)||preg_match('/^ocinternal:([1-9][0-9]*)$/D',$ids[0],$m)!==1)
-            throw new ToolFailure('A qualified internal Forms share identity is required.');
+        if(!is_array($ids)||count($ids)!==1||!is_string($ids[0]??null)||preg_match('/^'.preg_quote($provider,'/').':([1-9][0-9]*)$/D',$ids[0],$m)!==1)
+            throw new ToolFailure('A qualified canonical Forms share identity is required.');
         $id=filter_var($m[1],FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
         if($id===false)throw new ToolFailure('The Forms share cursor exceeds the native integer range.');
         return $id;
