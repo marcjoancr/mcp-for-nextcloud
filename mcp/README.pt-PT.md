@@ -2,20 +2,20 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: mcp/README.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: 2da7ebe84d0a21f8222124a6b681a6e7ed546422 -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](README.md).
 
 # Nextcloud MCP
 
-**O seu Nextcloud, na conversa.** Pesquise ficheiros, trabalhe com notas, calendários, contactos e tarefas, gira cartões do Deck e ponha o Talk em dia através de um cliente MCP. Mail lê mensagens e anexos próprios e gere rascunhos locais não enviados, sem enviar; Forms lê resultados permitidos e exporta páginas CSV limitadas. Operadores autorizados podem consultar os registos do servidor.
+**O seu Nextcloud, na conversa.** Pesquise ficheiros, trabalhe com notas, calendários, contactos e tarefas, gira cartões do Deck e ponha o Talk em dia através de um cliente MCP. Mail lê mensagens e anexos próprios e gere rascunhos locais não enviados, sem enviar; Forms gere formulários, perguntas, partilha, respostas, ficheiros e exportações completas através de uma extensão nativa qualificada; as leituras por páginas e as exportações CSV anteriores mantêm os seus contratos. Operadores autorizados podem consultar os registos do servidor.
 
 [English](README.md) · [Español](README.es.md) · [Català](README.ca.md) · [Português (Brasil)](README.pt-BR.md) · **Português (Portugal)**
 
 ## Primeiros passos
 
-Exige **Nextcloud 33–35** e **PHP 8.4+**. Este fork independente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara a versão **2.7.0** e mantém o identificador `mcp`. A edição da Nextcloud App Store é a do projeto original; use o pacote revisto deste fork para instalar ou substituir a aplicação.
+Exige **Nextcloud 33–35** e **PHP 8.4+**. Este fork independente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara a versão **2.8.2** e mantém o identificador `mcp`. A edição da Nextcloud App Store é a do projeto original; use o pacote revisto deste fork para instalar ou substituir a aplicação.
 
 1. [Instale a aplicação](../docs/pt-PT/installation.md).
 2. [Ative o serviço, a elegibilidade do utilizador e a ligação pessoal](../docs/pt-PT/guides/permissions.md#ativar-o-acesso).
@@ -24,7 +24,7 @@ Exige **Nextcloud 33–35** e **PHP 8.4+**. Este fork independente de [MCP for C
 
 ## O acesso continua sob o seu controlo
 
-Até **112 ferramentas** em onze módulos, incluindo as de guia/estado, são filtradas pelas aplicações disponíveis, atribuições de ferramentas e seleções da ligação. As permissões nativas do Nextcloud aplicam-se em cada pedido. Os administradores podem limitar o acesso a pastas, calendários e listas de tarefas selecionados e excluir ficheiros com determinadas etiquetas. As ferramentas de escrita devolvem uma pré-visualização salvo confirmação explícita; o assistente deve obter a aprovação do utilizador. Não existe ferramenta de eliminação de ficheiros. As ferramentas Mail, Forms e de registos exigem permissões explícitas. Rascunhos Mail, gravação de anexos e exportações Forms exigem confirmação; os registos continuam apenas de leitura e Mail nunca envia mensagens.
+Os catálogos abrangem onze módulos, além das ferramentas de guia e estado. A descoberta filtra as ferramentas segundo as capacidades nativas instaladas, as atribuições de ferramentas e as seleções da ligação. As permissões nativas do Nextcloud aplicam-se em cada pedido. Os administradores podem limitar o acesso a pastas, calendários e listas de tarefas selecionados e excluir ficheiros com determinadas etiquetas. As ferramentas de escrita devolvem uma pré-visualização salvo confirmação explícita; o assistente deve obter a aprovação do utilizador. As ferramentas gerais de Ficheiros não eliminam ficheiros. A limpeza confirmada do Forms limita-se aos ficheiros que gere e conserva as provas de recuperação. As ferramentas Mail, Forms e de registos exigem permissões explícitas. Rascunhos Mail, gravação de anexos e todas as escritas do Forms exigem confirmação; os registos continuam apenas de leitura e Mail nunca envia mensagens.
 
 Os resultados são enviados ao cliente de IA escolhido, sujeito às suas próprias políticas de tratamento e retenção.
 

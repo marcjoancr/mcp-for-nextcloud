@@ -2,20 +2,20 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: mcp/README.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: 2da7ebe84d0a21f8222124a6b681a6e7ed546422 -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](README.md).
 
 # Nextcloud MCP
 
-**Tu Nextcloud, dentro de la conversación.** Busca archivos, trabaja con notas, calendarios, contactos y tareas, gestiona tarjetas de Deck y ponte al día en Talk desde un cliente MCP. Mail lee mensajes y adjuntos propios y gestiona borradores locales sin enviar correo; Forms lee resultados permitidos y exporta páginas CSV acotadas. Los operadores autorizados pueden consultar los registros del servidor.
+**Tu Nextcloud, dentro de la conversación.** Busca archivos, trabaja con notas, calendarios, contactos y tareas, gestiona tarjetas de Deck y ponte al día en Talk desde un cliente MCP. Mail lee mensajes y adjuntos propios y gestiona borradores locales sin enviar correo; Forms gestiona formularios, preguntas, compartición, respuestas, archivos y exportaciones completas mediante una extensión nativa cualificada; las lecturas por páginas y las exportaciones CSV anteriores conservan sus contratos. Los operadores autorizados pueden consultar los registros del servidor.
 
 [English](README.md) · **Español** · [Català](README.ca.md) · [Português (Brasil)](README.pt-BR.md) · [Português (Portugal)](README.pt-PT.md)
 
 ## Primeros pasos
 
-Requiere **Nextcloud 33–35** y **PHP 8.4+**. Este fork independiente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara la versión **2.7.0** y conserva el identificador `mcp`. La edición de la tienda de Nextcloud corresponde al proyecto original; usa el paquete revisado de este fork para instalarlo o sustituir otra instalación.
+Requiere **Nextcloud 33–35** y **PHP 8.4+**. Este fork independiente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara la versión **2.8.2** y conserva el identificador `mcp`. La edición de la tienda de Nextcloud corresponde al proyecto original; usa el paquete revisado de este fork para instalarlo o sustituir otra instalación.
 
 1. [Instala la aplicación](../docs/es/installation.md).
 2. [Activa el servicio, la elegibilidad del usuario y la conexión personal](../docs/es/guides/permissions.md#habilitar-el-acceso).
@@ -24,7 +24,7 @@ Requiere **Nextcloud 33–35** y **PHP 8.4+**. Este fork independiente de [MCP f
 
 ## El acceso sigue bajo tu control
 
-Hasta **112 herramientas** de once módulos, incluidas las de guía y estado, se filtran según las aplicaciones disponibles, las asignaciones de herramientas y las selecciones de la conexión. Los permisos nativos de Nextcloud se aplican en cada petición. La administración puede limitar el acceso a carpetas, calendarios y listas de tareas seleccionados y excluir archivos etiquetados. Las herramientas de escritura devuelven una vista previa salvo confirmación explícita; el asistente debe obtener la aprobación del usuario. No hay herramienta para eliminar archivos. Mail, Forms y los registros requieren permisos explícitos. Los borradores y el guardado de adjuntos de Mail, así como las exportaciones de Forms, requieren confirmación; los registros siguen siendo de solo lectura y Mail nunca envía mensajes.
+Los catálogos abarcan once módulos, además de las herramientas de guía y estado. El descubrimiento las filtra según las capacidades nativas instaladas, las asignaciones de herramientas y las selecciones de la conexión. Los permisos nativos de Nextcloud se aplican en cada petición. La administración puede limitar el acceso a carpetas, calendarios y listas de tareas seleccionados y excluir archivos etiquetados. Las herramientas de escritura devuelven una vista previa salvo confirmación explícita; el asistente debe obtener la aprobación del usuario. Las herramientas generales de Archivos no borran archivos. La limpieza confirmada de Forms se limita a sus archivos gestionados y conserva las pruebas de recuperación. Mail, Forms y los registros requieren permisos explícitos. Los borradores y el guardado de adjuntos de Mail, así como todas las escrituras de Forms, requieren confirmación; los registros siguen siendo de solo lectura y Mail nunca envía mensajes.
 
 Los resultados se envían al cliente de IA elegido y quedan sujetos a sus políticas de tratamiento y conservación.
 
