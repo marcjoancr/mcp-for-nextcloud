@@ -43,6 +43,16 @@ final class OriginContext {
             BulkDeadline::check();$authority=Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class);$authority->assert($original);if($control!==null){$authority->assert($control);}if($boundary!==null){$boundary($action,$manifest);}BulkDeadline::check();
         }];
     }
+    /** Read-only Circle dependency authority for this exact verified business frame, including current bulk control. */
+    public static function circleReadAuthority(string $uid): \Closure {
+        $context=self::current();$frame=self::$businessFrame;
+        if($frame===null||$context['verified']['uid']!==$uid){throw new \RuntimeException('Circle original actor frame is unavailable');}
+        $origin=$context['origin'];
+        return static function()use($uid,$frame,$origin):void {
+            if(self::$businessFrame!==$frame||self::$current===null||self::$current['verified']['uid']!==$uid||self::$current['origin']!==$origin){throw new \RuntimeException('Circle original actor frame changed');}
+            self::assertFresh();
+        };
+    }
     /** Attach additional signed authority to the next exact bulk business frame only. */
     public static function withBulkControl(string $tool,array $original,callable $work): mixed {
         $control=self::current();

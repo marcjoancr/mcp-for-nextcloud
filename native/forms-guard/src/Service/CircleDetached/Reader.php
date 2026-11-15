@@ -19,10 +19,7 @@ final class Reader {
     public function detail(string $id): array {return $this->read(static fn(Lease $lease): array=>$lease->detail($id));}
     public function memberLevel(string $id,string $uid): int {return $this->read(static fn(Lease $lease): int=>$lease->memberLevel($id,$uid));}
     public function teamIds(string $uid): array {
-        return $this->read(static function(Lease $lease)use($uid):array {
-            $probe=new \OCA\Circles\Model\Probes\CircleProbe();$probe->filterHiddenCircles()->filterBackendCircles();
-            return array_map(static fn(\OCA\Circles\Model\Circle $circle):string=>$circle->getSingleId(),$lease->circles()->probeCircles($lease->identity($uid),$probe,new \OCA\Circles\Model\Probes\DataProbe()));
-        });
+        return $this->read(static fn(Lease $lease): array => $lease->query()->readUserTeamIds($uid));
     }
 public function circleView(string $id): \OCA\Circles\Model\Circle {return new CircleView($this->profile($id));}
 }

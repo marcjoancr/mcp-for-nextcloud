@@ -1221,6 +1221,38 @@ private function rawInheritedUsers(): array {
     $this->__formsCircleLease->checkpoint();
     return $users;
 }
+/** Only a fresh native team query can enter the bounded scalar reader. */
+public function readUserTeamIds(string $uid): array {
+    $this->__formsCircleLease->assertActive();
+    $query = $this->__formsCircleLease->circles()->userTeamQuery($uid);
+    return $query->rawTeamIds();
+}
+private function rawTeamIds(): array {
+    $this->__formsCircleLease->checkpoint();
+    $base = [];
+    foreach (\OCA\Circles\Db\CoreRequestBuilder::$tables[\OCA\Circles\Db\CoreRequestBuilder::TABLE_CIRCLE] as $field) {
+        $base[] = [self::CIRCLE . '.' . $field, $field, $field];
+    }
+    if ($this->getType() !== \Doctrine\DBAL\Query\QueryBuilder::SELECT
+        || array_slice($this->ownedProjection, 0, count($base)) !== $base
+        || count($this->getQueryPart('select')) !== count($this->ownedProjection)
+        || $this->getMaxResults() !== null || $this->getFirstResult() !== 0) {
+        throw new \RuntimeException('Circle team projection query is not canonical');
+    }
+    // Preserve every native join, authorization predicate, binding and order. No DISTINCT or OFFSET pages.
+    // The extra character detects malformed IDs instead of returning a silently truncated identifier.
+    $this->select([$this->createFunction('SUBSTRING(' . self::CIRCLE . '.unique_id,1,32) AS unique_id')]);
+    $this->setMaxResults(TeamProjection::MAX_ROWS + 1);
+    $result = parent::executeQuery();
+    $ids = TeamProjection::consume(
+        static fn(): array|false => $result->fetchAssociative(),
+        fn() => $this->__formsCircleLease->assertActive(),
+        static fn() => $result->closeCursor()
+    );
+    // consume closes even on fetch/deadline/parse failure. Fresh authority is checked after close.
+    $this->__formsCircleLease->checkpoint();
+    return $ids;
+}
 private function rawPage(int $bound): array {
     $this->__formsCircleLease->checkpoint();
     if($this->getType()!==\Doctrine\DBAL\Query\QueryBuilder::SELECT){throw new \RuntimeException('Circle graph accepts only SELECT');}

@@ -9,6 +9,25 @@ final class CircleRequest extends \OCA\Circles\Db\CircleRequest {
 private Lease $lease;
 public function __construct(Lease $lease) {$this->lease=$lease;$this->configService=$lease->config();}
 public function getQueryBuilder(): \OCA\Circles\Db\CoreQueryBuilder {return $this->lease->query();}
+/** Fresh pinned native query only; this bridge never hydrates the team result or copies ACL logic. */
+public function userTeamQuery(string $uid): CoreQueryBuilder {
+    $this->lease->checkpoint();
+    $initiator = $this->lease->identity($uid);
+    $probe = new \OCA\Circles\Model\Probes\CircleProbe();
+    $probe->filterHiddenCircles()->filterBackendCircles();
+    $data = new \OCA\Circles\Model\Probes\DataProbe();
+    // Native probeCircles delegates to this private builder before parsing models.
+    // SourceGate pins its complete source; all virtual query factories remain owned by this lease.
+    $builder = new \ReflectionMethod(\OCA\Circles\Db\CircleRequest::class, 'buildProbeCircle');
+    if (!$builder->isPrivate() || $builder->isStatic()
+        || $builder->getDeclaringClass()->getName() !== \OCA\Circles\Db\CircleRequest::class) {
+        throw new \RuntimeException('Circle team query builder is not qualified');
+    }
+    $query = $builder->invoke($this, $initiator, $probe, $data);
+    if (!$query instanceof CoreQueryBuilder) {throw new \RuntimeException('Circle team query escaped its lease');}
+    $query->chunk($probe->getItemsOffset(), $probe->getItemsLimit());
+    return $query;
+}
 public function cleanDatabase(bool $shares=false): void {throw new \RuntimeException('Circle read graph cannot write');}
 public function uninstall(): void {throw new \RuntimeException('Circle read graph cannot write');}
 /**

@@ -25,6 +25,19 @@ const appFile=join(output,'lib/AppInfo/Application.php');let appSource=readFileS
 const registration='$context->registerCapability(Capabilities::class);';
 if(!appSource.includes(registration))throw new Error('Native account lifecycle registration missing');
 appSource=appSource.replace(registration,registration+'\n\t\t$context->registerEventListener(\\OCP\\User\\Events\\BeforeUserCreatedEvent::class, \\OCA\\Forms\\Mcp\\Service\\NativeHistoryUserListener::class);');writeFileSync(appFile,appSource);
+// Route only an active authenticated managed-share producer. Anonymous/global/background metadata remains stock.
+const circleServiceFile=join(output,'lib/Service/CirclesService.php');let circleService=readFileSync(circleServiceFile,'utf8');
+for(const [method,header,args] of [
+ ['isCirclesEnabled','public function isCirclesEnabled(): bool {','[]'],
+ ['getCircle','public function getCircle(string $circleId): ?Circle {',"['circleId'=>$circleId]"],
+ ['isUserInCircle','public function isUserInCircle(string $circleId, string $userId): bool {',"['circleId'=>$circleId,'userId'=>$userId]"],
+ ['getCircleUsers','public function getCircleUsers(string $circleId): array {',"['circleId'=>$circleId]"],
+ ['getUserTeamIds','public function getUserTeamIds(string $userId): array {',"['userId'=>$userId]"],
+]) {
+ if(circleService.split(header).length!==2)throw new Error(`Native Circle method boundary missing: ${method}`);
+ circleService=circleService.replace(header,header+`\n\t\tif (\\OCA\\Forms\\Mcp\\Service\\CircleReadRuntime::managedProducerActive()) { return \\OCA\\Forms\\Mcp\\Service\\CircleReadRuntime::managedProducer('${method}',${args}); }`);
+}
+writeFileSync(circleServiceFile,circleService);
 const hooks={
  'Controller/ApiController.php':['newForm','updateForm','deleteForm','newQuestion','updateQuestion','deleteQuestion','reorderQuestions','newOption','updateOption','deleteOption','reorderOptions','deleteAllSubmissions','newSubmission','updateSubmission','deleteSubmission','exportSubmissionsToCloud','uploadFiles'],
  'Controller/ShareApiController.php':['newShare','updateShare','deleteShare'],
@@ -199,7 +212,7 @@ writeFileSync(apiFile,api);
 const shareFile=join(output,'lib/Controller/ShareApiController.php');let share=readFileSync(shareFile,'utf8');
 share=share.replace(/\$this->logger->debug\('[^'\n]*keyValuePairs[^'\n]*',[\s\S]*?\n\t\t\]\);/g,"$this->logger->debug('Forms share update requested');");
 writeFileSync(shareFile,share);
-for (const name of ['lib/Service/ConfirmationEmailService.php','lib/BackgroundJob/SendConfirmationMailJob.php',...Object.keys(hooks).map(p=>'lib/'+p), ...walk(join(base,'src')).map(p=>p.startsWith('Migration/')?'lib/'+p:'lib/Mcp/'+p)]) {
+for (const name of ['lib/Service/CirclesService.php','lib/Service/ConfirmationEmailService.php','lib/BackgroundJob/SendConfirmationMailJob.php',...Object.keys(hooks).map(p=>'lib/'+p), ...walk(join(base,'src')).map(p=>p.startsWith('Migration/')?'lib/'+p:'lib/Mcp/'+p)]) {
  const lint=spawnSync('php',['-l',join(output,name)],{encoding:'utf8'});
  if(lint.status!==0) throw new Error(lint.stderr || lint.stdout || 'Generated PHP is invalid');
 }

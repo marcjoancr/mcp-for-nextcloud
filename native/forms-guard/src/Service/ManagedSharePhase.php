@@ -19,6 +19,8 @@ final class ManagedSharePhase
     private bool $draining = false;
     private array $completed = [];
     private static ?array $nativeActor = null;
+    /** Ephemeral producer token and assertion; never serialized into an intent. */
+    private static ?array $circleReadFrame = null;
     public function __construct(private IDBConnection $db)
     {
     }
@@ -40,10 +42,20 @@ final class ManagedSharePhase
             throw new \RuntimeException('Native Forms sharing installation is incomplete');
         }
         $previousActor = self::$nativeActor;
-        if (!OriginContext::active()) {
-            self::$nativeActor = NativeShareRequest::capture();
-        }
+        $previousCircleFrame = self::$circleReadFrame;
         try {
+            if (OriginContext::active()) {
+                $uid=OriginContext::current()['verified']['uid'];
+                $assert=OriginContext::circleReadAuthority($uid);
+            } else {
+                self::$nativeActor = NativeShareRequest::capture();
+                $native=self::$nativeActor;$uid=$native['uid'];
+                $assert=static function()use($native):void {
+                    if(OriginContext::active()){throw new \RuntimeException('Native Circle producer cannot inherit another origin');}
+                    NativeShareRequest::assertCurrent($native);
+                };
+            }
+            self::$circleReadFrame=['token'=>new \stdClass(),'uid'=>$uid,'assert'=>$assert];
             return FormsRevisionFence::run(function () use ($work) {
                 if (!OriginContext::active()) {
                     NativeShareRequest::assertCurrent(self::$nativeActor ?? []);
@@ -52,7 +64,22 @@ final class ManagedSharePhase
             });
         } finally {
             self::$nativeActor = $previousActor;
+            self::$circleReadFrame = $previousCircleFrame;
         }
+    }
+    /** Null outside the actual managed-share producer. Ordinary global/anonymous metadata stays native. */
+    public static function circleReadActor(): ?string {
+        if(self::$circleReadFrame===null){return null;}
+        (self::$circleReadFrame['assert'])();
+        return self::$circleReadFrame['uid'];
+    }
+    public static function circleReadAuthority(string $uid): \Closure {
+        $frame=self::$circleReadFrame;
+        if($frame===null||$frame['uid']!==$uid){throw new \RuntimeException('Native Circle producer frame is unavailable');}
+        return static function()use($frame):void {
+            if(self::$circleReadFrame===null||self::$circleReadFrame['token']!==$frame['token']){throw new \RuntimeException('Native Circle producer frame ended');}
+            ($frame['assert'])();
+        };
     }
     public static function schedule(Form $form, Share $share, bool $create, bool $deletedForm = false): void
     {
