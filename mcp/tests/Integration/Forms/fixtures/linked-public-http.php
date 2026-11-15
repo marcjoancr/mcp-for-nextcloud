@@ -116,6 +116,74 @@ try {
         echo json_encode(['ok'=>true,'checks'=>$checks],JSON_THROW_ON_ERROR);return;
     }
 
+
+    if($mode==='audience_changes') {
+        $stage='audience fixture';
+        $recipient1='audience-one-'.bin2hex(random_bytes(5));$recipient2='audience-two-'.bin2hex(random_bytes(5));
+        foreach([$recipient1,$recipient2]as$recipient)Server::get(\OCP\IUserManager::class)->createUser($recipient,bin2hex(random_bytes(24)));
+        $parent=$home->newFolder('Linked audience');$path='Linked audience/results.csv';$arguments=['id'=>$id,'path'=>$path,'format'=>'csv'];
+        $epoch=\OCA\Forms\Mcp\Service\ResultSourceRevision::epoch($id);
+        $old=$rpc('forms_link_results_file',$arguments);
+        if(($old['impact']['linked_export']['recipients']??null)!==[])throw new RuntimeException('Initial output audience is not private.');
+        $manager=Server::get(\OCP\Share\IManager::class);
+        $add=static function(string $recipient)use($manager,$parent,$uid):object {
+            $s=$manager->newShare();$s->setShareType(0);$s->setSharedWith($recipient);$s->setSharedBy($uid);$s->setShareOwner($uid);$s->setPermissions(1);$s->setNode($parent);
+            return $manager->createShare($s);
+        };
+        $share1=$add($recipient1);$stage='stale audience approval';
+        if(\OCA\Forms\Mcp\Service\ResultSourceRevision::epoch($id)!==$epoch)throw new RuntimeException('Audience fixture changed native form results.');
+        $refreshed=$rpc('forms_link_results_file',$arguments+['confirm'=>true,'confirm_shared'=>true,'plan_state'=>$old['plan_state'],'operation_id'=>$old['operation_id']]);
+        $recipients=$refreshed['impact']['linked_export']['recipients']??[];
+        if(($refreshed['requiresConfirmation']??false)!==true||!isset($refreshed['plan_state'])||hash_equals($old['plan_state'],$refreshed['plan_state'])
+            ||count($recipients)!==1||($recipients[0]['type']??null)!==0||($recipients[0]['recipient']??null)!==$recipient1)
+            throw new RuntimeException('Changed output audience did not require a fresh complete approval.');
+        $failed=$db->executeQuery('SELECT state,target_key FROM *PREFIX*mcp_operations WHERE actor_uid=? AND operation_id=?',[$uid,$old['operation_id']])->fetch();
+        if(!$failed||$failed['state']!=='failed_before_effect'||$failed['target_key']!==null||$home->nodeExists($path)
+            ||(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*mcp_forms_jobs WHERE actor_uid=?',[$uid])->fetchOne()!==0
+            ||(int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_mcp_linked WHERE form_id=?',[$id])->fetchOne()!==0)
+            throw new RuntimeException('Stale audience approval left an export effect or reservation.');
+        $checks['audience_change_invalidates_pending_approval']=true;$checks['stale_audience_no_export_effects']=true;
+        $stage='fresh shared audience activation';$linked=$write('forms_link_results_file',$arguments);$operation=$linked['operation']['operation_id'];
+        for($i=0;$i<6;$i++){$linked=$write('forms_continue_operation',['target_operation_id'=>$operation]);if(($linked['data']['state']??null)==='delivered')break;if(!in_array($linked['operation']['state']??null,['pending','succeeded'],true))throw new RuntimeException('Fresh audience activation requires recovery.');}
+        $status=$rpc('forms_read_settings',['id'=>$id]);if(($status['linkedExport']['state']??null)!=='active')throw new RuntimeException('Fresh shared-audience approval did not activate.');
+        $file=$home->get($path);$fileId=(int)$file->getId();$before=hash('sha256',$file->getContent());$beforeEtag=$file->getEtag();
+        $sourceJob=Server::get(\OCA\Mcp\Modules\Forms\Exports\FormsJobStore::class)->get($linked['data']['job_id']);
+        $approvedAudience=$sourceJob['payload']['linked_approval']['destination']['audience']['digest'];
+        $audience=new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedAudience(Server::get(\OCP\Files\IRootFolder::class),$db,static fn():int=>time());
+        if(!hash_equals($approvedAudience,$audience->snapshot($uid,$path)['digest']))throw new RuntimeException('Activated audience differs from its exact native Files recipients.');
+        $checks['fresh_shared_audience_approval_activates']=true;
+        $stage='audience change before real cron';$share2=$add($recipient2);
+        if(hash_equals($approvedAudience,$audience->snapshot($uid,$path)['digest'])||$home->get($path)->getEtag()!==$beforeEtag
+            ||!hash_equals($before,hash('sha256',$home->get($path)->getContent())))throw new RuntimeException('Second audience mutation changed output bytes instead of audience alone.');
+        \OCA\Forms\Mcp\Service\FormsRevisionFence::run(function()use($id,$uid,$question):void{
+            $s=new \OCA\Forms\Db\Submission();$s->setFormId($id);$s->setUserId($uid);$s->setTimestamp(time());$s=Server::get(\OCA\Forms\Db\SubmissionMapper::class)->insert($s);
+            $a=new \OCA\Forms\Db\Answer();$a->setSubmissionId($s->getId());$a->setQuestionId($question);$a->setText('audience-pause-answer-'.$uid);Server::get(\OCA\Forms\Db\AnswerMapper::class)->insert($a);
+        });
+        $class=\OCA\Mcp\BackgroundJob\FormsLinkedExportJob::class;Server::get(\OCP\BackgroundJob\IJobList::class)->add($class);
+        $cronId=(int)$db->executeQuery('SELECT id FROM *PREFIX*jobs WHERE class=? ORDER BY id DESC',[$class])->fetchOne();
+        $cron=static function()use($cronId):void{
+            Server::get(\OCP\IUserSession::class)->setUser(null);
+            $p=proc_open([PHP_BINARY,'/var/www/html/occ','background-job:execute',(string)$cronId,'--force-execute'],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes,'/var/www/html');
+            if(!is_resource($p))throw new RuntimeException('Cron child unavailable.');fclose($pipes[0]);stream_get_contents($pipes[1]);stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);if(proc_close($p)!==0)throw new RuntimeException('Real cron failed.');
+        };
+        $cron();$paused=$db->executeQuery('SELECT state,dirty_generation,completed_generation FROM *PREFIX*forms_mcp_linked WHERE form_id=?',[$id])->fetch();
+        if($paused['state']!=='paused'||(int)$paused['dirty_generation']<=(int)$paused['completed_generation']||(int)$home->get($path)->getId()!==$fileId||$home->get($path)->getEtag()!==$beforeEtag||!hash_equals($before,hash('sha256',$home->get($path)->getContent())))
+            throw new RuntimeException('Changed audience did not pause before output overwrite.');
+        $checks['real_cron_audience_change_pauses_without_overwrite']=true;
+        $stage='restored audience cannot resume old consent';Server::get(\OCP\IUserSession::class)->setUser($user);$manager->deleteShare($share2);
+        if(!hash_equals($approvedAudience,$audience->snapshot($uid,$path)['digest']))throw new RuntimeException('Original audience was not restored exactly.');
+        $cron();$again=$db->executeQuery('SELECT state,completed_generation FROM *PREFIX*forms_mcp_linked WHERE form_id=?',[$id])->fetch();
+        if($again['state']!=='paused'||$again['completed_generation']!==$paused['completed_generation']||(int)$home->get($path)->getId()!==$fileId
+            ||$home->get($path)->getEtag()!==$beforeEtag||!hash_equals($before,hash('sha256',$home->get($path)->getContent())))
+            throw new RuntimeException('Restoring audience automatically resumed old consent.');
+        $checks['restoring_audience_does_not_resume_old_consent']=true;
+        $stage='paused unlink retains file';$write('forms_unlink_results_file',['id'=>$id]);$status=$rpc('forms_read_settings',['id'=>$id]);
+        if(($status['linkedExport']['state']??null)!=='unlinked'||(int)$home->get($path)->getId()!==$fileId||$home->get($path)->getEtag()!==$beforeEtag||!hash_equals($before,hash('sha256',$home->get($path)->getContent())))
+            throw new RuntimeException('Unlink after audience pause changed output.');
+        $checks['paused_unlink_preserves_exact_file']=true;
+        echo json_encode(['ok'=>true,'checks'=>$checks],JSON_THROW_ON_ERROR);return;
+    }
+
     if($mode==='versions_disabled') {
         $enabled=$db->executeQuery('SELECT configvalue FROM *PREFIX*appconfig WHERE appid = ? AND configkey = ?',['files_versions','enabled'])->fetchOne();
         if($enabled===false)throw new RuntimeException('Versions enablement fixture is unavailable.');

@@ -35,6 +35,13 @@ final class FormsLinkedPublicHttpTest extends TestCase {
             'current_connection_tool_selection_denied_then_restored','empty_current_files_scope_denied_then_restored',
             'basic_authenticated_owner_read','basic_connection_cannot_authorize_future_worker','all_previews_and_denials_no_export_effects']as$key)self::assertTrue($result['checks'][$key]??false,$key);
     }
+    public function testAudienceChangesInvalidateApprovalAndPauseCronWithoutOverwritingTheFile():void {
+        $result=$this->probe('audience_changes');
+        foreach(['audience_change_invalidates_pending_approval','stale_audience_no_export_effects',
+            'fresh_shared_audience_approval_activates','real_cron_audience_change_pauses_without_overwrite',
+            'restoring_audience_does_not_resume_old_consent','paused_unlink_preserves_exact_file']as$key)
+            self::assertTrue($result['checks'][$key]??false,$key);
+    }
     public function testDisabledVersionsIsRefusedBeforeEffectsWithEitherCopyPreference():void {
         $result=$this->probe('versions_disabled');
         self::assertSame(2,$result['checks']['rejected_before_effect']);
