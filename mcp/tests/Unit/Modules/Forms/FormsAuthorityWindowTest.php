@@ -37,7 +37,7 @@ final class FormsAuthorityWindowTest extends TestCase {
         $bulk=['tool'=>'forms_transfer','required_operations'=>['transfer'],'files_operations'=>['read','create']];
         $original=$proof->create('alice',0,'forms_transfer',['transfer'],['form_id'=>4,'files_operations'=>['read','create']]);
         $control=$proof->create('alice',0,'forms_continue_operation',['continue_operations'],['form_id'=>4,'bulk_authority'=>$bulk]);
-        return (object)compact('fx','services','policy','selection','tools','state','fresh','deferred','actors','proof','native','bulk','original','control','guestState');
+        return (object)compact('fx','services','policy','selection','tools','state','fresh','deferred','actors','proof','native','bulk','original','control','guestState','toolGrants');
     }
     public function testBulkAdmissionChecksNativePrincipalOncePerFreshWindow():void {
         $f=$this->fixture();$f->deferred->assert($f->proof->verify($f->control));self::assertSame([['alice',false]],$f->state->calls);
@@ -66,7 +66,19 @@ final class FormsAuthorityWindowTest extends TestCase {
         $f=$this->fixture();$control=$f->proof->create('alice',0,'forms_cancel_operation',['cancel_operations'],['bulk_authority'=>$f->bulk]);
         self::assertSame('forms_transfer',$f->native->assertPair($f->original,$control)['tool']);
     }
-    public static function revocations():array {return array_map(static fn($s)=>[$s],['original_selection','current_selection','original_grant','current_grant','files_grant','service','actor','tampered_original','tampered_control','other_actor','other_connection','other_form','weakened_bulk','missing_bulk','other_tool','original_action','original_operations']);}
+    public function testControlCannotSwitchBetweenFullyAuthorizedBulkActionsWithTheSameOperations():void {
+        $f=$this->fixture();$tools=['forms_update_share','forms_unshare'];
+        $f->services->grants->setGrant('alice','forms','share',true);
+        $f->fx->db->beginTransaction();foreach($tools as$tool)$f->toolGrants->set('user','alice',$tool,'allow');$f->fx->db->commit();
+        $f->selection->save('alice',0,[...$f->tools,...$tools],'1',array_fill_keys($tools,['share']));
+        $f->original=$f->proof->create('alice',0,'forms_update_share',['share'],['form_id'=>4,'files_operations'=>['read','create']]);
+        $bulk=['tool'=>'forms_unshare','required_operations'=>['share'],'files_operations'=>['read','create']];
+        $f->control=$f->proof->create('alice',0,'forms_continue_operation',['continue_operations'],['form_id'=>4,'bulk_authority'=>$bulk]);
+        self::assertSame('forms_update_share',$f->native->assert($f->original)['tool']);
+        self::assertSame('forms_continue_operation',$f->native->assert($f->control)['tool']);
+        $this->expectException(ToolFailure::class);$f->native->assertPair($f->original,$f->control);
+    }
+    public static function revocations():array {return array_map(static fn($s)=>[$s],['original_selection','current_selection','original_grant','current_grant','files_grant','service','actor','tampered_original','tampered_control','other_actor','other_connection','other_form','weakened_bulk','missing_bulk','other_tool','original_operations']);}
     #[DataProvider('revocations')]
     public function testEitherProofAndBothCurrentAdmissionsRemainRequired(string $case):void {
         $f=$this->fixture();$f->native->assertPair($f->original,$f->control);
@@ -80,7 +92,6 @@ final class FormsAuthorityWindowTest extends TestCase {
                 case 'actor':$f->actors->generation='two';break;
                 case 'tampered_original':$f->original['operations']=[];break;
                 case 'tampered_control':$f->control['operations']=[];break;
-                case 'original_action':$f->bulk=['tool'=>'forms_delete_form','required_operations'=>['delete_form'],'files_operations'=>['read','create']];$f->control=$f->proof->create('alice',0,'forms_continue_operation',['continue_operations'],['form_id'=>4,'bulk_authority'=>$f->bulk]);break;
                 case 'original_operations':$f->original=$f->proof->create('alice',0,'forms_transfer',['transfer','read'],['form_id'=>4,'files_operations'=>['read','create']]);break;
                 case 'other_actor':$f->control=$f->proof->create('bob',0,'forms_continue_operation',['continue_operations'],['form_id'=>4,'bulk_authority'=>$f->bulk]);break;
                 case 'missing_bulk':$f->control=$f->proof->create('alice',0,'forms_continue_operation',['continue_operations'],['form_id'=>4]);break;
