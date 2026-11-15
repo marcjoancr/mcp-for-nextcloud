@@ -121,6 +121,12 @@ class GuestRestrictions {
         }
     }
 
+    /** A separate policy window must not inherit this request's cached guest decisions. */
+    public function fresh(): self {
+        return new self($this->appManager,$this->request,$this->guestManager,$this->appWhitelist,
+            $this->restrictionManager,$this->config,$this->logger);
+    }
+
     /**
      * Whether Guests lets the user reach an app, as it would answer for a URL of that app: always for a user who is not
      * a guest, without Guests or with its list of apps turned off; otherwise only for an app on the list or one Guests

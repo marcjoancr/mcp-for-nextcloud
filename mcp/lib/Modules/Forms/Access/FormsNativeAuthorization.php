@@ -46,6 +46,18 @@ final class FormsNativeAuthorization {
         if(($manifest['files']??[])===[]&&!isset($manifest['share_impact']['parent'])&&($manifest['share_removals']??[])===[])return;
         $this->policy->resourceBoundary($context['uid'],fn()=>$this->impact->assertVisible($context['uid'],$manifest));
     }
+    /** Validate original and immediate bulk-control authority in one new policy window, never a cached admission. */
+    public function assertPair(array $origin,array $control):array {
+        $original=$this->proof->verify($origin);$current=$this->proof->verify($control);
+        foreach(['uid','actor','connection'] as $key)if($original[$key]!==$current[$key])throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::FORBIDDEN);
+        $authority=isset($current['references']['bulk_authority'])?\OCA\Mcp\Modules\Forms\Execution\FormsBulkAuthority::checked($current['references']['bulk_authority']):null;
+        if(!in_array($current['tool'],['forms_continue_operation','forms_cancel_operation'],true)||$authority===null
+            ||$authority['tool']!==$original['tool']||$authority['required_operations']!==$original['operations']
+            ||$authority['files_operations']!==($original['references']['files_operations']??[])
+            ||(isset($current['references']['form_id'])&&$current['references']['form_id']!==($original['references']['form_id']??null)))
+            throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::FORBIDDEN);
+        $this->deferred->assertPair($original,$current);return $original;
+    }
     public function assert(array $origin):array {
         $context=$this->proof->verify($origin);$this->deferred->assert($context);return $context;
     }

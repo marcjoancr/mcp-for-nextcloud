@@ -23,26 +23,38 @@ final class FormsDeferredAccess {
     public function __construct(private GrantPolicy $policy,private IAppManager $apps,private IUserManager $users,
         private GuestRestrictions $guests,private ConnectionToolsStore $selections,private IGroupManager $groups,private FormsPrincipal $principal) {}
     public function assert(array $origin):void {
-        $uid=$origin['uid'];$connection=$origin['connection'];
-        $this->policy->freshWithin($uid,function(GrantPolicy $fresh)use($uid,$connection,$origin):void {
+        $this->assertOrigins([$origin]);
+    }
+    /** Both arguments are verified signed contexts from FormsNativeAuthorization. No authority survives this call. */
+    public function assertPair(array $original,array $control):void {
+        if($original['uid']!==$control['uid']||$original['actor']!==$control['actor']||$original['connection']!==$control['connection'])throw new ToolFailure(ToolFailure::FORBIDDEN);
+        $this->assertOrigins([$original,$control]);
+    }
+    private function assertOrigins(array $origins):void {
+        $uid=$origins[0]['uid'];$connection=$origins[0]['connection'];
+        $this->policy->freshWithin($uid,function(GrantPolicy $fresh)use($uid,$connection,$origins):void {
             $user=$this->users->get($uid);
             if($user===null||!$user->isEnabled()||!$this->apps->isEnabledForUser('mcp',$user)||!AppEnablement::forUser($this->apps,'forms',$user)||!$fresh->canConnect($uid))throw new ToolFailure(ToolFailure::FORBIDDEN);
             $selection=$this->selections->get($uid,$connection);
             if($selection===null)throw new ToolFailure(ToolFailure::FORBIDDEN);
-            $requests=[[$origin['tool'],$origin['operations'],$origin['references']['files_operations']??[]]];
-            if(isset($origin['references']['bulk_authority'])) {
-                $authority=FormsBulkAuthority::checked($origin['references']['bulk_authority']);
-                $requests[]=[$authority['tool'],$authority['required_operations'],$authority['files_operations']];
+            $requiresAdmin=false;
+            foreach($origins as $origin) {
+                $requests=[[$origin['tool'],$origin['operations'],$origin['references']['files_operations']??[]]];
+                if(isset($origin['references']['bulk_authority'])) {
+                    $authority=FormsBulkAuthority::checked($origin['references']['bulk_authority']);
+                    $requests[]=[$authority['tool'],$authority['required_operations'],$authority['files_operations']];
+                }
+                foreach($requests as [$tool,$operations,$files])$requiresAdmin=$this->admit($fresh,$uid,$tool,$operations,$files,$selection)||$requiresAdmin;
             }
-            foreach($requests as [$tool,$operations,$files])$this->admit($fresh,$uid,$tool,$operations,$files,$selection);
+            // Re-read the native principal after every policy/selection read, once in this fresh window.
+            $this->principal->assert($uid,$requiresAdmin);
         });
     }
-    private function admit(GrantPolicy $fresh,string $uid,string $tool,array $operations,array $files,array $selection):void {
+    private function admit(GrantPolicy $fresh,string $uid,string $tool,array $operations,array $files,array $selection):bool {
         $definition=FormsCommands::definitions()[$tool]??throw new ToolFailure(ToolFailure::FORBIDDEN);
         if(!in_array($tool,$selection['tools'],true))throw new ToolFailure(ToolFailure::FORBIDDEN);
-        $this->principal->assert($uid,(bool)($definition['requiresAdmin']??false));
         $availabilityDefinition=$definition;unset($availabilityDefinition['requiresAdmin']);
-        if(!((new ToolAvailability($fresh,$this->apps,$this->users,$this->guests,null,$this->groups))->allowed($availabilityDefinition,$uid)))throw new ToolFailure(ToolFailure::FORBIDDEN);
+        if(!((new ToolAvailability($fresh,$this->apps,$this->users,$this->guests->fresh(),null,$this->groups))->allowed($availabilityDefinition,$uid)))throw new ToolFailure(ToolFailure::FORBIDDEN);
         foreach($operations as $operation) {
             if(!is_string($operation)||!in_array($operation,GrantPolicy::CATALOG['forms'],true)||!$fresh->granted($uid,'forms',$operation))throw new ToolFailure(ToolFailure::FORBIDDEN);
             if(isset($definition['grantAnyOf'])&&!in_array($operation,$selection['variants'][$tool]??[],true))throw new ToolFailure(ToolFailure::FORBIDDEN);
@@ -50,5 +62,6 @@ final class FormsDeferredAccess {
         foreach($files as $operation) {
             if(!is_string($operation)||!in_array($operation,GrantPolicy::CATALOG['files'],true)||!$fresh->granted($uid,'files',$operation))throw new ToolFailure(ToolFailure::FORBIDDEN);
         }
+        return (bool)($definition['requiresAdmin']??false);
     }
 }
