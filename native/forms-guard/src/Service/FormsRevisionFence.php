@@ -12,6 +12,16 @@ final class FormsRevisionFence
 {
     private int $depth = 0;
     private array $transactionCallbacks = [];
+    private ?\Closure $beforeCommitCheck = null;
+    private bool $checkingBeforeCommit = false;
+    /** One request-local final validator after all SQL work; it must have no external effects. */
+    public function beforeCommit(callable $callback): void {
+        if (!$this->active() || $this->checkingBeforeCommit || $this->beforeCommitCheck !== null) {
+            throw new \LogicException('Final Forms validation requires one active transaction');
+        }
+        $this->beforeCommitCheck = \Closure::fromCallable($callback);
+    }
+
     /** Callbacks receive whether commit returned successfully. */
     public function afterTransaction(callable $callback): void {
         if (!$this->active()) {throw new \LogicException("Transaction completion callback requires active fence");}
@@ -176,6 +186,13 @@ final class FormsRevisionFence
             if (OriginContext::active()) {OriginContext::assertFresh();}
             $result = $work();
             if (OriginContext::active()) {OriginContext::assertFresh();}
+            if ($this->beforeCommitCheck !== null) {
+                $this->assertSession();
+                $this->checkingBeforeCommit = true;
+                try {($this->beforeCommitCheck)();}
+                finally {$this->checkingBeforeCommit = false;}
+                $this->assertSession();
+            }
             BulkDeadline::check();
             $this->db->commit();
             $committed = true;
@@ -185,6 +202,8 @@ final class FormsRevisionFence
             }
             throw $error;
         } finally {
+            $this->beforeCommitCheck = null;
+            $this->checkingBeforeCommit = false;
             $this->depth = 0;
             $callbacks=$this->transactionCallbacks;
             $this->transactionCallbacks=[];

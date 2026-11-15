@@ -40,8 +40,23 @@ final class OriginContext {
         if(!AuthoringScale::metadata($context['action'])||($context['file_impact']['authoring_effects']??false)!==true||self::$businessFrame===null){throw new \LogicException('Authoring business frame is unavailable');}
         self::assertFresh();$frame=self::$businessFrame;$original=$context['origin'];$control=self::$frameBulkControl;$boundary=self::$fileBoundary;
         return ['matches'=>static fn():bool=>self::$businessFrame===$frame,'assert'=>static function(string $action,array $manifest)use($original,$control,$boundary):void{
-            BulkDeadline::check();$authority=Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class);$authority->assert($original);if($control!==null){$authority->assert($control);}if($boundary!==null){$boundary($action,$manifest);}BulkDeadline::check();
+            BulkDeadline::check();$authority=Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class);if($control===null){$authority->assert($original);}else{$authority->assertPair($original,$control);}if($boundary!==null){$boundary($action,$manifest);}BulkDeadline::check();
         }];
+    }
+    /** Nonserializable current/original transfer capability for final validation in this exact transaction frame. */
+    public static function transferFilesAuthority(): \Closure {
+        $context=self::current();$frame=self::$businessFrame;
+        $input=$context['input'];$target=$input['owner_id']??null;$formId=$input['id']??null;
+        if($frame===null||$context['action']!=='forms_transfer'||$context['verified']['tool']!=='forms_transfer'||!is_string($target)||$target===''||!is_int($formId)||$formId<1||$formId!==($context['verified']['references']['form_id']??null))throw new \RuntimeException('Transfer business frame is unavailable');
+        self::assertFresh();$original=$context['origin'];$control=self::$frameBulkControl;$boundary=self::$fileBoundary;
+        return static function(array $manifest,array $copies,array $parents,\Closure $resolve)use($frame,$original,$control,$boundary,$input,$target):void {
+            if(self::$businessFrame!==$frame||self::$current===null||self::$current['origin']!==$original||self::$frameBulkControl!==$control||self::$current['input']!==$input||!Server::get(FormsRevisionFence::class)->active())throw new \RuntimeException('Transfer business frame changed');
+            BulkDeadline::check();
+            foreach([...$copies,...$parents] as $node)if(!$node instanceof \OCP\Files\Node||$node->getOwner()?->getUID()!==$target)throw new \RuntimeException('Transfer destination owner changed');
+            if($boundary!==null)foreach(array_chunk($manifest['files'],100) as $page)$boundary('forms_transfer',['files'=>$page]);
+            Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assertTransferFiles($original,$control,$manifest,$copies,$parents,$resolve);
+            BulkDeadline::check();
+        };
     }
     /** Read-only Circle dependency authority for this exact verified business frame, including current bulk control. */
     public static function circleReadAuthority(string $uid): \Closure {
@@ -87,8 +102,8 @@ final class OriginContext {
         $context=self::current();
         try {
             $authorization=Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class);
-            $authorization->assert($context['origin']);
-            if(self::$frameBulkControl!==null){$authorization->assert(self::$frameBulkControl);}
+            if(self::$frameBulkControl===null){$authorization->assert($context['origin']);}
+            else{$authorization->assertPair($context['origin'],self::$frameBulkControl);}
         }
         catch(\Throwable $e){throw new \RuntimeException('Original Forms authority changed',0,$e);}
     }

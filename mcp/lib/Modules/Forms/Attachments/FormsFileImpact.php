@@ -17,6 +17,20 @@ final class FormsFileImpact {
         if(!$folder->isReadable()||($create?(!$folder->isCreatable()||!$this->access->isVisible($folder)):!$this->access->isTraversable($folder)))
             throw new \RuntimeException('Forms destination is outside the current Files access');
     }
+    /** Caller supplies freshly reconstructed, identity-checked native copies and actual write parents. */
+    public function assertTransferFiles(string $uid,array $manifest,array $copies,array $parents):void {
+        if(!array_is_list($copies)||!array_is_list($parents)||count($copies)>1000||count($parents)>2000
+            ||!is_array($manifest['files']??null)||!array_is_list($manifest['files'])||count($manifest['files'])>2000)
+            throw new \RuntimeException('Forms transfer resource projection is invalid');
+        foreach($copies as $copy)if(!$copy instanceof \OCP\Files\File||(int)$copy->getId()<1)throw new \RuntimeException('Forms transfer resource projection is invalid');
+        foreach($parents as $parent)if(!$parent instanceof \OCP\Files\Folder||(int)$parent->getId()<1)throw new \RuntimeException('Forms transfer resource projection is invalid');
+        if($manifest['files']===[]&&$copies===[]&&$parents===[])return;
+        // Sources can include bounded distinct managed-share folder IDs in addition to answer files.
+        foreach(array_chunk($manifest['files'],1000) as $page)$this->assertVisible($uid,['files'=>$page]);
+        $this->access->clearCache(true);$this->access->assertScopeReadable();
+        foreach($copies as $copy)if(!$copy->isReadable()||!$this->access->isVisible($copy))throw new \RuntimeException('Forms transfer copy is outside the current Files access');
+        foreach($parents as $parent)$this->assertDestination($parent,true);
+    }
     public function assertVisible(string $uid,array $manifest): void {
         $this->access->clearCache(true);$this->access->assertScopeReadable();
         $parents=[];

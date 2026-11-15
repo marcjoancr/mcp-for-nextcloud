@@ -58,6 +58,17 @@ final class FormsNativeAuthorization {
             throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::FORBIDDEN);
         $this->deferred->assertPair($original,$current);return $original;
     }
+    /** Final native transfer callback; all objects are fresh and identity-bound by the qualified native caller. */
+    public function assertTransferFiles(array $origin,?array $control,array $manifest,array $copies,array $parents,\Closure $resolve):void {
+        $context=$control===null?$this->assert($origin):$this->assertPair($origin,$control);
+        if($context['tool']!=='forms_transfer'||!is_int($context['references']['form_id']??null)||$context['references']['form_id']<1)
+            throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::FORBIDDEN);
+        $this->policy->resourceBoundary($context['uid'],function()use($context,$manifest,$copies,$parents,$resolve):void{
+            // Warm all resource decisions before resolving the identity-bound nodes for final native ACL checks.
+            $this->impact->assertTransferFiles($context['uid'],$manifest,$copies,$parents);
+            $projection=$resolve();if(!is_array($projection)||($projection[0]??null)!==$manifest)throw new \RuntimeException('Forms transfer final resolution differs');
+        });
+    }
     public function assert(array $origin):array {
         $context=$this->proof->verify($origin);$this->deferred->assert($context);return $context;
     }
