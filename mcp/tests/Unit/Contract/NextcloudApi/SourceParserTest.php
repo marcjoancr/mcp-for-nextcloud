@@ -41,6 +41,22 @@ final class SourceParserTest extends TestCase {
         return $surface['methods'];
     }
 
+    public function testOptionalFormsMapperIsParsedWithoutLoadingItsSource(): void {
+        $directory = $this->tree . '/apps/forms/lib/Db';
+        mkdir($directory, 0700, true);
+        $path = $directory . '/QuestionMapper.php';
+        file_put_contents($path, '<?php namespace OCA\\Forms\\Db; throw new \\LogicException("Source must not execute"); class QuestionMapper { public function findById(int|float $questionId): Question {} }');
+        try {
+            $surface = (new SourceParser($this->tree))->surface('OCA\\Forms\\Db\\QuestionMapper');
+            self::assertNotNull($surface);
+            self::assertSame(['questionId'], $surface['methods']['findById']);
+            self::assertSame(['int|float'], $surface['types']['findById']);
+        } finally {
+            unlink($path);
+            foreach (['/apps/forms/lib/Db', '/apps/forms/lib', '/apps/forms', '/apps'] as $folder) { rmdir($this->tree . $folder); }
+        }
+    }
+
     public function testSelectsTheNamedClassAfterAHelperInterface(): void {
         $methods = $this->methodsOf(<<<'PHP'
             interface Helper { public function unrelated(string $value): void; }

@@ -96,11 +96,11 @@ final class InfoXmlTest extends TestCase {
     /** The description says what the app does, how it keeps the user in control and which clients connect to it. */
     public function testTheDescriptionListsTheModulesTheSafeguardsAndTheClients(): void {
         $expected = [
-            'en' => ['Files', 'Notes', 'Calendar', 'Contacts', 'Tasks', 'Deck', 'Talk', 'Claude', 'ChatGPT', 'Gemini CLI', 'OAuth', 'never deletes'],
-            'pt-br' => ['Arquivos', 'Notas', 'Calendário', 'Contatos', 'Tarefas', 'Deck', 'Talk', 'Claude', 'ChatGPT', 'Gemini CLI', 'OAuth', 'nunca apaga'],
-            'es' => ['Archivos', 'Notas', 'Calendario', 'Contactos', 'Tareas', 'Deck', 'Talk', 'Claude', 'ChatGPT', 'Gemini CLI', 'OAuth', 'nunca borra'],
+            'en' => ['Files', 'Notes', 'Calendar', 'Contacts', 'Tasks', 'Deck', 'Talk', 'Claude', 'ChatGPT', 'Gemini CLI', 'OAuth', 'General Files tools do not delete files', 'Forms cleanup is limited to its managed files', 'confirmed operations with recovery'],
+            'pt-br' => ['Arquivos', 'Notas', 'Calendário', 'Contatos', 'Tarefas', 'Deck', 'Talk', 'Claude', 'ChatGPT', 'Gemini CLI', 'OAuth', 'As ferramentas gerais de Arquivos não excluem arquivos', 'A limpeza do Forms limita-se aos arquivos que ele gerencia', 'operações confirmadas com recuperação'],
+            'es' => ['Archivos', 'Notas', 'Calendario', 'Contactos', 'Tareas', 'Deck', 'Talk', 'Claude', 'ChatGPT', 'Gemini CLI', 'OAuth', 'Las herramientas generales de Archivos no borran archivos', 'La limpieza de Forms se limita a sus archivos gestionados', 'operaciones confirmadas con recuperación'],
         ];
-        $expected['de'] = ['Dateien', 'Notes', 'Kalender', 'Kontakten', 'Aufgaben', 'Deck', 'Talk', 'Claude', 'ChatGPT', 'Gemini CLI', 'OAuth', 'nicht gelöscht'];
+        $expected['de'] = ['Dateien', 'Notes', 'Kalender', 'Kontakten', 'Aufgaben', 'Deck', 'Talk', 'Claude', 'ChatGPT', 'Gemini CLI', 'OAuth', 'Allgemeine Dateiwerkzeuge löschen keine Dateien', 'Forms-Bereinigung betrifft ausschließlich von Forms verwaltete Dateien', 'bestätigte Vorgänge mit Wiederherstellung'];
         foreach ($this->localized('description') as $lang => $text) {
             foreach ($expected[$lang] as $needle) {
                 $this->assertStringContainsString($needle, $text, "description ($lang)");

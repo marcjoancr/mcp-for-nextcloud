@@ -469,6 +469,80 @@
       "properties": [],
       "fields": [],
       "external": []
+    },
+    "OCA\\Forms\\Db\\QuestionMapper": {
+      "kind": "class",
+      "methods": {
+        "__construct": [
+          "db",
+          "optionMapper"
+        ],
+        "delete": [
+          "entity"
+        ],
+        "deleteByForm": [
+          "formId"
+        ],
+        "findByForm": [
+          "formId",
+          "loadDeleted?"
+        ],
+        "findById": [
+          "questionId"
+        ],
+        "getTableName": [],
+        "insert": [
+          "entity"
+        ],
+        "insertOrUpdate": [
+          "entity"
+        ],
+        "update": [
+          "entity"
+        ]
+      },
+      "types": {
+        "__construct": [
+          "OCP\\IDBConnection",
+          "OCA\\Forms\\Db\\OptionMapper"
+        ],
+        "delete": [
+          "OCP\\AppFramework\\Db\\Entity"
+        ],
+        "deleteByForm": [
+          "int"
+        ],
+        "findByForm": [
+          "int",
+          "bool"
+        ],
+        "findById": [
+          "int|float"
+        ],
+        "getTableName": [],
+        "insert": [
+          "OCP\\AppFramework\\Db\\Entity"
+        ],
+        "insertOrUpdate": [
+          "OCP\\AppFramework\\Db\\Entity"
+        ],
+        "update": [
+          "OCP\\AppFramework\\Db\\Entity"
+        ]
+      },
+      "constants": [],
+      "properties": [],
+      "fields": [
+        "db",
+        "entityClass",
+        "tableName"
+      ],
+      "external": []
     }
+  },
+  "historyQuestionMapper": {
+    "version": "5.3.0",
+    "url": "https://raw.githubusercontent.com/nextcloud/forms/v5.3.0/lib/Db/QuestionMapper.php",
+    "sha256": "9a66c3f984a279aba30ea44bfc79c1092bd391ec7a292a23b50bd0974e7c808a"
   }
 }

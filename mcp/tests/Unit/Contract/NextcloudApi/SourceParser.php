@@ -23,6 +23,7 @@ final class SourceParser {
         'OCA\\Circles\\' => 'apps/circles/lib/',
         'OCA\\Deck\\' => 'apps/deck/lib/',
         'OCA\\Mail\\' => 'apps/mail/lib/',
+        'OCA\\Forms\\' => 'apps/forms/lib/',
         'OCA\\Talk\\' => 'apps/spreed/lib/',
         'OCA\\Files_Versions\\' => 'apps/files_versions/lib/',
         'OCA\\Files_Trashbin\\' => 'apps/files_trashbin/lib/',

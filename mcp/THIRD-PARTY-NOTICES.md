@@ -136,7 +136,10 @@ included in the production package.
 
 The Forms read-only signatures in `tests/fixtures/nextcloud-api/forms-read.json` come from the
 [Forms 5.3.0 signature capture](https://github.com/sintax-tech/mcp-for-nextcloud/blob/7d3e29bc21751c723d9228fce6f1426219772bbf/mcp/tests/fixtures/nextcloud-api/forms/5.3.0.json).
-They retain the upstream version and archive digest. The native acceptance cell uses Forms 5.4.1;
+They retain the upstream version and archive digest. The hidden-question mapper signatures are
+regenerated with `tests/fixtures/nextcloud-api/generate-forms-history.php` from the official
+[Forms 5.3.0 QuestionMapper source](https://raw.githubusercontent.com/nextcloud/forms/v5.3.0/lib/Db/QuestionMapper.php);
+its exact SHA-256 is retained beside the baseline and in every server fixture. The native acceptance cell uses Forms 5.4.1;
 its archive digest is recorded in `tests/Integration/ci/forms-pins.json`.
 
 The selected Mail implementation and tests retain upstream Sintax attribution

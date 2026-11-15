@@ -748,6 +748,9 @@ class Application extends App implements IBootstrap {
         $context->registerService(\OCA\Mcp\Modules\Forms\Execution\FormsBulkImpactCursor::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Execution\FormsBulkImpactCursor(
             $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\ActorIdentity::class),$c->get(\OCA\Mcp\OAuth\ConnectionContext::class),$c->get(\OCP\Security\ICrypto::class)
         ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Execution\FormsBulkWorkflow::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Execution\FormsBulkWorkflow(
+            $c->get(\OCA\Mcp\Modules\Forms\Execution\FormsBulkImpactCursor::class)
+        ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Integration\FormsGateway::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Integration\FormsNativeGateway(
             $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsCapabilities::class), static fn() => $c->get('OCA\\Forms\\Mcp\\Guard'),
             $c->get(\OCA\Mcp\Modules\Forms\Attachments\FormsAnswerUploads::class), $c->get(\OCA\Mcp\Modules\Forms\Attachments\FormsAnswerFiles::class),
