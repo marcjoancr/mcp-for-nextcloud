@@ -1,0 +1,18 @@
+{
+  "appinfo/routes.php": "78381f45d36e711e1f1ec61d3b3c4eb706118d4dc22d5d646a2d37129fc4cde9",
+  "files/list.php": "86e58fa19b8b026952923b63ea8212de7531befd3c02a378ffeba4170d749e97",
+  "templates/files/list.php": "7c143eff37db0a3536b1181b39eb394775275810e988149dbee805f9aff28abe",
+  "templates/main.php": "5d5771f9380e624fec62379a9a9bd548f5b8ef90dee2775f9d2aef853440d3b8",
+  "templates/settings-admin.php": "d1c13f2788921400518396a745df4cd10f517d5fb3a7666ce03b3b23d8284748",
+  "templates/settings-personal.php": "5fec60c7d8f101f14602cfbad87a58f79ea807e59e6025a4cea38845e1791c7f",
+  "templates/settings-team-folders.php": "d419880815eaba0b8dc664fa3f624f61fac99895f664736d9a06499b2a1c6b36",
+  "vendor/autoload.php": "1a4de0d21f8e34c563cd6a2ac2cf611422041a3f90f2a02dbc1d278239d5a9fd",
+  "vendor/composer/ClassLoader.php": "d4b2313e562edf942838ec316d983c1a3459ca67da3e5658e861200b0b3693c2",
+  "vendor/composer/InstalledVersions.php": "21f4ba19e7859cb3f85b8b1680c970ee25d972546c1606dcae0e7e5f43f626f0",
+  "vendor/composer/autoload_classmap.php": "a89f23f1b4bbdc4edc410437077e1f3b07a1dc98abc176622480d34f161d2a6a",
+  "vendor/composer/autoload_namespaces.php": "ede505407590638a435137f4e060136f1008de79fc169b3de9793423b0cea38c",
+  "vendor/composer/autoload_psr4.php": "5724655594c5c40ff7c4821d07a716b69e113fe60cfe3275f59a5c0fee234cc9",
+  "vendor/composer/autoload_real.php": "0a791faee26efdc42f53d71cd8a74524e0e9fed6e6888aecd554a1ba4664ac1b",
+  "vendor/composer/autoload_static.php": "4b09981b266c73a539988b1e3d04cee648172b9fad8efa6ef71a780da0af4cdc",
+  "vendor/composer/installed.php": "1402eaba3b9c2d1f36bc49e5ae223d80d97032b8461b8f303b64765d243bfff3"
+}
