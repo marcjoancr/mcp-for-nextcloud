@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tests\Integration\Forms;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-/** Explicit disposable Maria cell; exact-job SQL faults occur only after a real managed file deletion. */
+/** Disposable Maria cell; exact-job SQL faults follow real managed file deletion or response-file movement. */
 final class FormsBulkSafetyHttpTest extends TestCase {
     public static function positions():array {return ['first'=>[1],'second'=>[2]];}
     #[DataProvider('positions')]
@@ -15,6 +15,17 @@ final class FormsBulkSafetyHttpTest extends TestCase {
             $result=$this->probe('bulk-file-fault-http','MCP_FORMS_FILE_FAULT_HTTP_PROBE',[
                 'actual_file_deletion_then_receipt_persistence_failure','fresh_http_backup_discovery','uncertain_never_replayed',
                 'all_recovery_bytes_and_answer_mappings','private_closed_restore_preserves_original_claim','restoration_oracle_rejects_wrong_bindings']);
+            self::assertSame($position,$result['position']);
+        } finally {putenv($previous===false?'MCP_FORMS_FILE_FAULT_POSITION':'MCP_FORMS_FILE_FAULT_POSITION='.$previous);}
+    }
+    #[DataProvider('positions')]
+    public function testResponseReplacementFailureAfterEachMovedFilePreservesOriginalAndRecovery(int $position):void {
+        $previous=getenv('MCP_FORMS_FILE_FAULT_POSITION');putenv('MCP_FORMS_FILE_FAULT_POSITION='.$position);
+        try {
+            $result=$this->probe('response-replacement-fault-http','MCP_FORMS_RESPONSE_FAULT_HTTP_PROBE',[
+                'original_response_and_upload_rows_rolled_back','real_renames_reached_exact_fault_position',
+                'fresh_http_recovery_discovery','uncertain_effects_never_replayed',
+                'all_original_and_staged_bytes_recovered','new_private_closed_response_bindings']);
             self::assertSame($position,$result['position']);
         } finally {putenv($previous===false?'MCP_FORMS_FILE_FAULT_POSITION':'MCP_FORMS_FILE_FAULT_POSITION='.$previous);}
     }
