@@ -73,8 +73,8 @@ final class TransferFilesOnlyCommitFlowTest extends TestCase {
  public function testFileFreeTransferDoesNotMaterializeEitherHomeOrFileResources():void {
   $f=$this->fixture(0);$result=$f->state->fence->transact(fn()=>$f->bulk->commitTransfer($f->j,microtime(true),function()use($f):int{$f->db->owner='bob';return 1;}));self::assertSame(1,$result);self::assertSame([],$f->state->homeLookups);self::assertSame([],$f->state->locked);self::assertSame([[],[],[],[]],$f->state->admissions);
  }
- public function testManagedShareDispatchKeepsTheExistingSourcePathUntilItsSeparateReplacement():void {
-  $f=$this->fixture(1);$f->j['counts']['managed_shares']=1;$result=$f->state->fence->transact(fn()=>$f->bulk->commitTransfer($f->j,microtime(true),function()use($f):int{$f->db->owner='bob';return 1;}));self::assertSame(1,$result);self::assertSame([],$f->state->admissions);self::assertSame(array_reverse($f->state->locked),$f->state->released);
+ public function testManagedShareDispatchRequiresItsFinalCollectorBeforeFilesOrOwnerEffects():void {
+  $f=$this->fixture(1);$f->j['counts']['managed_shares']=1;$error=null;try{$f->state->fence->transact(fn()=>$f->bulk->commitTransfer($f->j,microtime(true),function()use($f):int{$f->db->owner='bob';return 1;}));}catch(LogicException$e){$error=$e->getMessage();}self::assertSame('Managed transfer final collector is required',$error);self::assertSame('alice',$f->db->owner);self::assertSame([],$f->state->admissions);self::assertSame([],$f->state->locked);self::assertSame([],$f->state->released);self::assertSame(['begin','rollback'],$f->db->events);
  }
  public function testMalformedManagedShareCountsRefuseBeforeLocksOrEffects():void {
   foreach([null,-1,'0']as$count){$f=$this->fixture(1);$f->j['counts']['managed_shares']=$count;$error=null;try{$f->bulk->commitTransfer($f->j,microtime(true),static fn()=>1);}catch(RuntimeException$e){$error=$e->getMessage();}self::assertSame('Transfer managed share count is invalid',$error);self::assertSame([],$f->state->locked);self::assertSame([],$f->db->events);}

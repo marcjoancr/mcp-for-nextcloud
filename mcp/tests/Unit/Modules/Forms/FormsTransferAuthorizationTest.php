@@ -75,4 +75,35 @@ final class FormsTransferAuthorizationTest extends TestCase {
         $f->native->assertTransferFiles($f->original,$f->control,['files'=>[]],[],[],static function()use(&$called):array{$called++;return[['files'=>[]],[],[]];});self::assertSame(1,$called);self::assertSame(0,$f->resource->lookups);self::assertSame([],$f->resource->seen);
     }
 
+    private function managedFixture():object {
+        $f=$this->fixture();$f->services->grants->setGrant('alice','files','share',true);
+        $f->bulk['files_operations']=['read','create','share'];
+        $f->original=$f->proof->create('alice',0,'forms_transfer',['transfer'],['form_id'=>4,'files_operations'=>$f->bulk['files_operations']]);
+        $f->control=$f->proof->create('alice',0,'forms_continue_operation',['continue_operations'],['form_id'=>4,'bulk_authority'=>$f->bulk]);return$f;
+    }
+    public function testManagedTransferAdmitsOriginalAndPairedAuthorityBeforeResolvingEveryResource():void {
+        foreach([false,true]as$paired){$f=$this->managedFixture();$collected=0;$resolved=0;$manifest=['files'=>[['file_id'=>11]]];
+            $f->native->assertTransferWithShares($f->original,$paired?$f->control:null,static function()use($f,$manifest,&$collected):array{$collected++;return[$manifest,[$f->copy],[$f->parent]];},static function()use($f,$manifest,&$resolved):array{self::assertSame([11,22,33],$f->resource->seen);$resolved++;return[$manifest,[$f->copy],[$f->parent]];});
+            self::assertSame(1,$collected);self::assertSame(1,$resolved);
+        }
+    }
+    public function testManagedTransferRechecksBothToolSelectionsAfterCollectionWaits():void {
+        foreach(['forms_transfer','forms_continue_operation']as$revoked){$f=$this->managedFixture();$collected=0;$resolved=0;$denied=false;$manifest=['files'=>[['file_id'=>11]]];
+            try{$f->native->assertTransferWithShares($f->original,$f->control,static function()use($f,$manifest,$revoked,&$collected):array{$collected++;$f->selection->save('alice',0,array_values(array_diff($f->tools,[$revoked])),'1');return[$manifest,[$f->copy],[$f->parent]];},static function()use($f,$manifest,&$resolved):array{$resolved++;return[$manifest,[$f->copy],[$f->parent]];});}catch(ToolFailure){$denied=true;}
+            self::assertTrue($denied,$revoked);self::assertSame(1,$collected);self::assertSame(0,$resolved);self::assertSame([],$f->resource->seen);
+        }
+    }
+    public function testManagedTransferRequiresCapturedShareAuthorityBeforeCollection():void {
+        $f=$this->fixture();$collected=0;$denied=false;try{$f->native->assertTransferWithShares($f->original,null,static function()use(&$collected):array{$collected++;return[[],[],[]];},static fn()=>[[],[],[]]);}catch(ToolFailure){$denied=true;}
+        self::assertTrue($denied);self::assertSame(0,$collected);self::assertSame([],$f->resource->seen);
+    }
+    public function testManagedTransferRefusesMalformedCollectionBeforeResourceResolution():void {
+        $f=$this->managedFixture();$resolved=0;$error=null;try{$f->native->assertTransferWithShares($f->original,$f->control,static fn()=>['not-a-list'=>[]],static function()use(&$resolved):array{$resolved++;return[[],[],[]];});}catch(\RuntimeException$e){$error=$e->getMessage();}
+        self::assertSame('Joint transfer projection is invalid',$error);self::assertSame(0,$resolved);self::assertSame([],$f->resource->seen);
+    }
+    public function testManagedTransferCannotResolveAnotherSourceProjection():void {
+        $f=$this->managedFixture();$manifest=['files'=>[['file_id'=>11]]];$error=null;try{$f->native->assertTransferWithShares($f->original,$f->control,static fn()=>[$manifest,[$f->copy],[$f->parent]],static fn()=>[['files'=>[]],[],[]]);}catch(\RuntimeException$e){$error=$e->getMessage();}
+        self::assertSame('Joint transfer final projection differs',$error);
+    }
+
 }

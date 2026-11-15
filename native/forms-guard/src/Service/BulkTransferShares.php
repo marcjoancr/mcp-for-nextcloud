@@ -36,9 +36,14 @@ final class BulkTransferShares {
  public static function capture(array $row,array $j):array {
   $row['live']=!ManagedShares::isAbsent($row['files_share_id']);
   if(!$row['live']){return $row;}
+  FinalShareProfile::assertCurrent();
   $folder=Server::get(IRootFolder::class)->getUserFolder($j['form']['owner_id'])->getById((int)$row['folder_id'])[0]??null;
   if(!$folder instanceof Folder||$folder->getOwner()?->getUID()!==$j['form']['owner_id']){throw new \RuntimeException('Managed transfer folder is unavailable');}
-  StorageAdmission::node($folder);self::relative($j['form']['owner_id'],$folder->getPath());$row['folder_path']=$folder->getPath();$row['share_state']=self::shareState($row['files_share_id']);return $row;
+  StorageAdmission::node($folder);self::relative($j['form']['owner_id'],$folder->getPath());$row['folder_path']=$folder->getPath();$row['share_state']=self::shareState($row['files_share_id']);
+  $result=Server::get(IDBConnection::class)->executeQuery('SELECT '.FinalShareRows::COLUMNS.' FROM *PREFIX*share WHERE id = ?',[FinalShareRows::id($row['files_share_id'])]);try{$row['core_state']=$result->fetch();}finally{$result->closeCursor();}
+  if(!is_array($row['core_state'])){throw new \RuntimeException('Transfer original share disappeared');}
+  if($row['approved_tuple']['type']===1){$row['group_lifetime']=NativeGroupHistory::capture($row['approved_tuple']['recipient'],$j);}
+  return $row;
  }
  private function authority(array $j,array $r,?Folder $folder=null):void {
   OriginContext::assertFresh();$v=OriginContext::current()['verified'];
@@ -108,9 +113,10 @@ final class BulkTransferShares {
   $cursor=0;while($rows=$this->store->page($j['id'],'share_recipients',$cursor)){foreach($rows as$row){BulkDeadline::check();$cursor=$row['id'];$id=$this->store->mapped($j['id'],'staged_recipients',$row['id']);foreach([$row['id'],$id]as$lock){$this->db->executeQuery('SELECT id FROM *PREFIX*share WHERE id = ? FOR UPDATE',[$lock])->fetchOne();}$this->assertRecipientSource($row['data']);if($this->recipientState($id)!==$this->store->one($j['id'],'staged_recipients',$row['id'])){throw new \RuntimeException('Staged recipient decision changed');}}}
  }
  /** Native policy checks and exact provider SQL activate quarantined rows in the final transaction. */
- private function activate(array $j,array $r,array $m,Folder $folder):void {
+ private function activate(array $j,array $r,array $m,Folder $folder):array {
+  $expiry=null;
   $impact=['files'=>[],'files_share'=>true,'share_impact'=>['parent'=>['file_id'=>(int)$r['folder_id']],'folder_ids'=>[(int)$r['folder_id']],'recipient'=>$r['approved_tuple']['recipient'],'type'=>$r['approved_tuple']['type'],'create'=>true,'permissions'=>['read']],'destination_owner'=>$j['input']['owner_id'],'destination_path'=>self::path($j,$r['folder_path'])];
-  OriginContext::withFileImpact('forms_transfer',$impact,function()use($j,$r,$m,$folder):void{
+  OriginContext::withFileImpact('forms_transfer',$impact,function()use($j,$r,$m,$folder,&$expiry):void{
    $expected=(int)$this->db->executeQuery('SELECT COUNT(*) FROM *PREFIX*share WHERE parent = ? AND share_type = 2',[(int)substr($r['files_share_id'],11)])->fetchOne();$parent=(int)substr($m['files_share_id'],11);
    if((int)$this->db->executeQuery('SELECT COUNT(*) FROM *PREFIX*share WHERE parent = ?',[$parent])->fetchOne()!==$expected){throw new \RuntimeException('Unapproved or duplicate staged recipient rows');}
    $authorize=function(\OCP\Share\IShare $share,bool $create)use($j,$r,$m,$folder):void{OriginContext::assertFileEffect([(int)$r['folder_id']]);$this->authority($j,$r,$folder);self::stagedIdentity($share,$m,1);self::assertMetadata($share,$r['share_state']);if(!$create||$share->getSharedBy()!==$j['uid']){throw new \RuntimeException('Transfer activation initiator changed');}};
@@ -121,21 +127,40 @@ final class BulkTransferShares {
     foreach($batch as$row){$actual=$this->recipientState($row['id']);foreach(['share_with','accepted','permissions','attributes']as$key){if($actual[$key]!==$row['source'][$key]){throw new \RuntimeException('Activated recipient differs from approved decision');}}if($actual['expiration']!==$row['expiration']){throw new \RuntimeException('Activated recipient expiry differs from approved restriction');}}
    }
    $this->authority($j,$r,$folder);if((int)$this->db->executeQuery('SELECT COUNT(*) FROM *PREFIX*share WHERE parent = ?',[$parent])->fetchOne()!==$expected){throw new \RuntimeException('Recipient set changed during activation');}
+   $expiry=$manager->activationExpiry();
   });
+  return $expiry??throw new \RuntimeException('Transfer activation inputs were not recorded');
  }
  /** All mappings switch within the existing final SQL transaction. Original shares remain untouched. */
- public function commit(array $j):void {
+ public function commit(array $j):?FinalTransferShareCheck {
+  if($j['counts']['managed_shares']===0){if($j['counts']['share_recipients']!==0)throw new \RuntimeException('Transfer recipient inventory has no managed parent');return null;}
+  $capability=OriginContext::transferSharingAuthority();$final=new FinalTransferShareCheck($this->db,$this->store,$j,$capability['fresh'],$capability['frame']);
   $this->verifyRecipients($j);$cursor=0;while($rows=$this->store->page($j['id'],'managed_shares',$cursor)){foreach($rows as$row){
-   BulkDeadline::check();$cursor=$row['id'];$r=$row['data'];
+   BulkDeadline::check();$cursor=$row['id'];$r=$row['data'];$expiry=null;$m=null;
    if($r['live']??false){$m=$this->store->one($j['id'],'staged_shares',$row['id']);foreach([$r['files_share_id'],$m['files_share_id']]as$shareId){if($shareId!==null){$this->db->executeQuery('SELECT id FROM *PREFIX*share WHERE id = ? FOR UPDATE',[(int)substr($shareId,11)])->fetchOne();}}$folder=Server::get(IRootFolder::class)->getUserFolder($j['input']['owner_id'])->getById((int)$m['folder_id'])[0]??null;if(!$folder instanceof Folder){throw new \RuntimeException('Staged transfer folder unavailable');}$this->authority($j,$r,$folder);
     if($m['files_share_id']!==null){$share=SharingIdentity::manager()->getShareById($m['files_share_id'],onlyValid:false);self::stagedIdentity($share,$m,0);if($share->getSharedBy()!==$j['uid']||self::shareState($m['files_share_id'])!==$m['share_state']){throw new \RuntimeException('Staged transfer identity or recipient state changed');}
-     $this->activate($j,$r,$m,$folder);
+     $expiry=$this->activate($j,$r,$m,$folder);
      $this->db->executeStatement('INSERT INTO *PREFIX*forms_mcp_file_shares (files_share_id,form_id,native_share_id,folder_id) VALUES (?,?,?,?)',[$m['files_share_id'],$j['form']['id'],$m['native_share_id'],$m['folder_id']]);
     }
     $exists=$this->db->executeQuery('SELECT folder_id FROM *PREFIX*forms_mcp_folders WHERE form_id = ? AND folder_id = ?',[$j['form']['id'],$m['folder_id']])->fetchOne();if($exists===false){$this->db->executeStatement('INSERT INTO *PREFIX*forms_mcp_folders (form_id,folder_id) VALUES (?,?)',[$j['form']['id'],$m['folder_id']]);}
    }
    $count=$this->db->executeStatement('DELETE FROM *PREFIX*forms_mcp_file_shares WHERE files_share_id = ? AND form_id = ? AND native_share_id = ? AND folder_id = ?',[$r['files_share_id'],$j['form']['id'],$r['native_share_id'],$r['folder_id']]);if($count!==1){throw new \RuntimeException('Original managed share mapping changed');}
    $this->db->executeStatement('DELETE FROM *PREFIX*forms_mcp_folders WHERE form_id = ? AND folder_id = ?',[$j['form']['id'],$r['folder_id']]);
+   if($m===null){$final->verified($row['id'],['source_folder'=>(int)$r['folder_id'],'absent'=>true]);}
+   else{$final->verified($row['id'],$this->verifiedActivation($j,$r,$m),$expiry);}
   }}
+  $final->seal();return $final;
+ }
+ private function verifiedActivation(array $j,array $r,array $m):array {
+  $parent=null;$children=[];
+  if($m['files_share_id']!==null){
+   $result=$this->db->executeQuery('SELECT '.FinalShareRows::COLUMNS.' FROM *PREFIX*share WHERE id = ?',[FinalShareRows::id($m['files_share_id'])]);try{$parent=$result->fetch();}finally{$result->closeCursor();}if(!is_array($parent)){throw new \RuntimeException('Activated transfer share disappeared');}FinalShareRows::target($parent,$r,$m,$j);
+   $budget=new FinalShareBudget(static fn()=>BulkDeadline::check());$result=$this->db->executeQuery('SELECT '.FinalShareRows::COLUMNS.' FROM *PREFIX*share WHERE parent = ? ORDER BY id LIMIT 1001',[(int)$parent['id']]);$children=$budget->rows($result->fetchAssociative(...),$result->closeCursor(...),1000);
+   $approved=[];$cursor=0;while($page=$this->store->page($j['id'],'share_recipients',$cursor)){foreach($page as$item){$cursor=$item['id'];$child=$item['data'];if((int)$child['parent']!==FinalShareRows::id($r['files_share_id'])){continue;}$id=$this->store->mapped($j['id'],'staged_recipients',$item['id']);if(isset($approved[$id])){throw new \RuntimeException('Duplicate activated recipient mapping');}$approved[$id]=$child;}}
+   if(count($approved)!==count($children)){throw new \RuntimeException('Activated recipient inventory changed');}
+   foreach($children as$child){$id=(int)$child['id'];if(!isset($approved[$id])){throw new \RuntimeException('Unapproved activated recipient');}FinalShareRows::child($child,$approved[$id],$id,$parent,$j);unset($approved[$id]);}
+   if($approved!==[]){throw new \RuntimeException('Activated recipient inventory changed');}
+  }elseif($r['approved_tuple']['type']!==0||$r['approved_tuple']['recipient']!==$j['input']['owner_id']){throw new \RuntimeException('Transfer ownership mapping changed');}
+  return ['source_folder'=>(int)$r['folder_id'],'absent'=>false,'mapping'=>$m,'parent'=>$parent,'children'=>$children];
  }
 }

@@ -55,4 +55,43 @@ final class TransferFinalFiles {
   foreach($streams as[$source,$copy,$meta]){$this->bytes($source,$meta);$this->bytes($copy,$meta);}
   unset($streams);$this->admitted($final);BulkDeadline::check();
  }
+ /** Managed-share path only: one policy-read phase followed by one joint native ACL resolver. */
+ public function assertManaged(FinalTransferShareCheck $sharing,\Closure $authorizeJoint):void {
+  [, , ,$streams]=$this->admitted(true);
+  foreach($streams as[$source,$copy,$meta]){$this->bytes($source,$meta);$this->bytes($copy,$meta);}unset($streams);
+  $budget=new FinalShareBudget(static fn()=>BulkDeadline::check(),strlen(FinalShareBudget::encode([$this->records,$this->sources,$this->parents])));
+  $collected=false;$resolved=false;$manifest=null;$projection=null;$sourceFolders=[];
+  try {
+   $authorizeJoint(function()use($sharing,$budget,&$collected,&$manifest,&$projection,&$sourceFolders):array {
+    if($collected)throw new \LogicException('Joint transfer collection repeated');$collected=true;
+    ($this->target)(true);[$manifest,$copies,$parents]=$this->nodes();
+    $sharing->collect($budget);
+    $projection=$this->nodes();$sourceFolders=[];foreach($this->sources as$p)$sourceFolders[]=$this->identity($p,false);
+    // Record the actual snapshots consumed by Files; a later sharing renewal cannot silently stale them.
+    foreach($projection[3]as[$source,$copy]){$sharing->captureFile($source,$budget);$sharing->captureFile($copy,$budget);}
+    foreach([...$sourceFolders,...$projection[2]]as$node)$sharing->captureFile($node,$budget);
+    $sharing->renewViews($budget);
+    [$shareSources,$shareDestinations]=$sharing->resourceProjection();
+    $ids=[];foreach([...$manifest['files'],...$shareSources]as$row)$ids[$row['file_id']]=$row;
+    $manifest=['files'=>array_values($ids)];$byId=[];
+    foreach([...$parents,...$shareDestinations]as$node){$id=$node->getId();if(isset($byId[$id])&&$byId[$id]->getPath()!==$node->getPath())throw new \RuntimeException('Joint transfer destination is ambiguous');$byId[$id]=$node;}
+    if(count($manifest['files'])>2000||count($byId)>2000)throw new \RuntimeException('Joint transfer projection bound exceeded');
+    $sharing->admitSnapshot();
+    return[$manifest,$copies,array_values($byId)];
+   },function()use($sharing,&$collected,&$resolved,&$manifest,&$projection,&$sourceFolders):array {
+    if(!$collected||$resolved)throw new \LogicException('Joint transfer resolution escaped or repeated');$resolved=true;
+    // One final non-locking SQL snapshot compares both families' complete native inputs.
+    // All materialization/metadata admission and latest MCP policy reads are already finished.
+    $sharing->verifySnapshot();
+    foreach($projection[3] as[$source,$copy]){FinalNativeAcl::initialized($source);FinalNativeAcl::initialized($copy);}
+    foreach([...$sourceFolders,...$projection[2]]as$node)FinalNativeAcl::initialized($node);
+    foreach($projection[3] as[$source,$copy]){FinalNativeAcl::readable($source);FinalNativeAcl::readable($copy);}
+    foreach($sourceFolders as$node)FinalNativeAcl::readable($node);
+    foreach($projection[2]as$node)FinalNativeAcl::readable($node,true);
+    $sharing->resolve();BulkDeadline::check();$projection[0]=$manifest;return$projection;
+   });
+   if(!$collected||!$resolved)throw new \LogicException('Joint transfer authorization was not synchronous');
+  }finally{$sharing->close();}
+ }
+
 }

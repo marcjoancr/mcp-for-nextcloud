@@ -58,6 +58,36 @@ final class OriginContext {
             BulkDeadline::check();
         };
     }
+    /** Private original/current authority for native transfer reads; never reconstructed from a UID. */
+    public static function transferSharingAuthority():array {
+        $context=self::current();$business=self::$businessFrame;$input=$context['input'];$uid=$context['verified']['uid']??null;
+        $fence=Server::get(FormsRevisionFence::class);
+        if ($business===null || !$fence->active() || $context['verified']['tool']!=='forms_transfer' || !is_string($uid) || $uid==='' || !is_string($input['owner_id']??null) || $input['owner_id']==='' || !is_int($input['id']??null) || $input['id']<1 || $input['id']!==($context['verified']['references']['form_id']??null) || !in_array('share',$context['verified']['references']['files_operations']??[],true)) {throw new \RuntimeException('Transfer sharing business frame is unavailable');}
+        self::assertFresh();$origin=$context['origin'];$control=self::$frameBulkControl;$system=ScopedTransferTimeZone::systemFingerprint();$closed=false;
+        $fence->afterTransaction(static function(bool $committed)use(&$closed):void {$closed=true;});
+        $frame=static function()use($business,$origin,$control,$input,$fence,&$closed):void {
+            if ($closed || self::$businessFrame!==$business || self::$current===null || self::$current['origin']!==$origin || self::$current['input']!==$input || self::$frameBulkControl!==$control || !$fence->active()) {throw new \RuntimeException('Transfer sharing business frame changed');}
+            BulkDeadline::check();
+        };
+        $boundary=self::$fileBoundary;$target=$input['owner_id'];
+        $joint=static function(\Closure $collect,\Closure $resolve)use($frame,$origin,$control,$boundary,$target):void {
+            $frame();
+            $bounded=static function()use($collect,$frame,$boundary,$target):array {
+                $frame();$projection=$collect();
+                if(!is_array($projection)||!array_is_list($projection)||count($projection)!==3)throw new \RuntimeException('Joint transfer projection is invalid');
+                foreach([...$projection[1],...$projection[2]]as$node)if(!$node instanceof \OCP\Files\Node||$node->getOwner()?->getUID()!==$target)throw new \RuntimeException('Joint transfer destination owner changed');
+                if($boundary!==null)foreach(array_chunk($projection[0]['files'],100)as$page)$boundary('forms_transfer',['files'=>$page]);
+                $frame();return$projection;
+            };
+            Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assertTransferWithShares($origin,$control,$bounded,$resolve);
+            $frame();
+        };
+        return ['uid'=>$uid,'frame'=>$frame,'joint'=>$joint,'fresh'=>static function()use($frame,$system):void {
+            $frame();self::assertFresh();
+            if (!hash_equals($system,ScopedTransferTimeZone::systemFingerprint())) {throw new \RuntimeException('Transfer system configuration changed');}
+            $frame();
+        }];
+    }
     /** Read-only Circle dependency authority for this exact verified business frame, including current bulk control. */
     public static function circleReadAuthority(string $uid): \Closure {
         $context=self::current();$frame=self::$businessFrame;

@@ -123,9 +123,9 @@ final class BulkFiles {
    }finally{$folder->unlock(ILockingProvider::LOCK_EXCLUSIVE);}
   });});
  }
- public function commitTransfer(array $j,float $start,callable $commit):int {
+ public function commitTransfer(array $j,float $start,callable $commit,?\Closure $sharing=null):int {
   $managed=$j['counts']['managed_shares']??null;if(!is_int($managed)||$managed<0)throw new \OCA\Forms\Mcp\BeforeEffect('Transfer managed share count is invalid');
-  return $managed===0?$this->commitWithoutManagedShares($j,$start,$commit):$this->commitWithManagedShares($j,$start,$commit);
+  return $managed===0?$this->commitWithoutManagedShares($j,$start,$commit):$this->commitWithManagedShares($j,$start,$commit,$sharing??throw new \LogicException('Managed transfer final collector is required'));
  }
  private function commitWithoutManagedShares(array $j,float $start,callable $commit):int {
   if($j['counts']['managed_shares']!==0)throw new \LogicException('File-only transfer requires no managed shares');
@@ -162,24 +162,48 @@ final class BulkFiles {
   $validator=new TransferFinalFiles($records,array_values($sources),array_values($parents),$j['input']['owner_id'],static fn(string$path)=>$root->get($path),$cache,static fn($node)=>StorageAdmission::node($node),$targetAuthority,$authority);
   $validator->assert();$fence->beforeCommit(static fn()=>$validator->assert(true));BulkDeadline::check();return$commit();
  }
- private function commitWithManagedShares(array $j,float $start,callable $commit):int {
-  $locked=[];Server::get(FormsRevisionFence::class)->afterTransaction(function()use(&$locked):void{foreach(array_reverse($locked)as$file){$file->unlock(ILockingProvider::LOCK_SHARED);}$locked=[];});$target=Server::get(IRootFolder::class)->getUserFolder($j['input']['owner_id']);$cursor=0;
-  try{
-   while($rows=$this->store->page($j['id'],'files',$cursor)){
-    foreach($rows as$r){
-     if(microtime(true)-$start>18){throw new \OCA\Forms\Mcp\BeforeEffect('Transfer file verification budget exhausted');}
-     $cursor=$r['id'];if(HistoricalFiles::isUnavailable($r['data'])){continue;}$source=$this->source($j,$r['id']);$source->lock(ILockingProvider::LOCK_SHARED);$locked[]=$source;
-     $copyId=$this->store->mapped($j['id'],'files',$r['id']);$copy=$target->getById($copyId)[0]??null;
-     if(!$copy instanceof File){throw new \OCA\Forms\Mcp\BeforeEffect('Verified transfer copy is unavailable');}$copy->lock(ILockingProvider::LOCK_SHARED);$locked[]=$copy;
-     OriginContext::assertFresh();StorageAdmission::node($source);StorageAdmission::node($copy);DestinationFiles::authorize($copy->getParent(),true);$meta=$this->store->one($j['id'],'copies',$r['id']);
-     $cache=$this->db->executeQuery('SELECT storage,path,size,etag FROM *PREFIX*filecache WHERE fileid = ?',[$copyId])->fetch();
-     OriginContext::assertFiles($j['action'],$this->manifest($j,$r['data'])+['destination'=>['owner'=>$j['input']['owner_id'],'file_id'=>$copyId,'path'=>$meta['path']]]);
-     if($cache!==$meta['cache']||$copy->getPath()!==$meta['path']||$copy->getEtag()!==$meta['etag']||(int)$copy->getSize()!==$meta['size']||$copy->getOwner()?->getUID()!==$j['input']['owner_id']){throw new \OCA\Forms\Mcp\BeforeEffect('Verified transfer copy changed before ownership switch');}
-    }
-   }
-   if(!hash_equals($j['file_revision'],$this->fingerprint((int)$j['form']['id']))||microtime(true)-$start>18){throw new \OCA\Forms\Mcp\BeforeEffect('Transfer source changed or verification budget exhausted');}
-   $this->db->executeQuery('SELECT uid FROM *PREFIX*users WHERE uid = ? FOR UPDATE',[$j['input']['owner_id']])->fetchOne();OriginContext::assertFresh();Server::get(\OCA\Mcp\Mcp\Operations\ActorIdentity::class)->assertCurrent($j['input']['owner_id'],$j['target_actor']);if(($j['target_native_actor']??null)!==null){NativeHistoryIdentity::assertCurrent($j['input']['owner_id'],$j['target_native_actor']);}(new FreshCore($j['input']['owner_id']))->assertPrincipal(false,false);if(!hash_equals($j['target_principal']??'',\OCA\Forms\Mcp\Comments\CommentsRuntime::principal($j['input']['owner_id']))){throw new \OCA\Forms\Mcp\BeforeEffect('Approved transfer target incarnation changed');}return $commit();
-  }finally{/* Locks remain owned until the surrounding native transaction commits or rolls back. */}
+ private function commitWithManagedShares(array $j,float $start,callable $commit,\Closure $sharing):int {
+  $locked=[];$fence=Server::get(FormsRevisionFence::class);
+  $fence->afterTransaction(function()use(&$locked):void{$errors=[];foreach(array_reverse($locked)as$file){try{$file->unlock(ILockingProvider::LOCK_SHARED);}catch(\Throwable$e){$errors[]=$e;}}$locked=[];if($errors!==[])throw new \RuntimeException('Transfer file lock release is unverified',0,$errors[0]);});
+  $root=Server::get(IRootFolder::class);$target=$root->getUserFolder($j['input']['owner_id']);$cursor=0;$records=[];$sources=[];$parents=[];$seen=0;$unavailable=0;$bytes=0;
+  $authority=OriginContext::transferFilesAuthority();
+  $cache=function(int$id):array{$row=$this->db->executeQuery('SELECT storage,path,size,etag FROM *PREFIX*filecache WHERE fileid = ?',[$id])->fetch();if(!is_array($row))throw new \OCA\Forms\Mcp\BeforeEffect('Transfer file cache is unavailable');return$row;};
+  $addParent=function(Folder$folder)use(&$parents,&$locked,$j,&$bytes):int{
+   BulkDeadline::check();$p=['id'=>(int)$folder->getId(),'path'=>$folder->getPath(),'owner'=>$folder->getOwner()?->getUID(),'storage'=>$folder->getStorage()->getId()];
+   if($p['owner']!==$j['input']['owner_id'])throw new \OCA\Forms\Mcp\BeforeEffect('Transfer parent owner changed');
+   if(isset($parents[$p['id']])){if($parents[$p['id']]!==$p)throw new \OCA\Forms\Mcp\BeforeEffect('Transfer parent identity is ambiguous');return$p['id'];}
+   if(count($parents)>=2000)throw new \OCA\Forms\Mcp\BeforeEffect('Transfer parent bound exceeded');$folder->lock(ILockingProvider::LOCK_SHARED);$locked[]=$folder;BulkDeadline::check();StorageAdmission::node($folder);
+   $bytes+=strlen(json_encode($p,JSON_THROW_ON_ERROR));if($bytes>1048576)throw new \OCA\Forms\Mcp\BeforeEffect('Transfer final projection exceeds byte budget');$parents[$p['id']]=$p;return$p['id'];
+  };
+  while($rows=$this->store->page($j['id'],'files',$cursor))foreach($rows as$r){
+   BulkDeadline::check();$cursor=$r['id'];if(++$seen>1000)throw new \OCA\Forms\Mcp\BeforeEffect('Transfer file bound exceeded');if(HistoricalFiles::isUnavailable($r['data'])){$unavailable++;continue;}
+   $source=$this->source($j,$r['id']);$source->lock(ILockingProvider::LOCK_SHARED);$locked[]=$source;BulkDeadline::check();StorageAdmission::node($source);
+   $copyId=$this->store->mapped($j['id'],'files',$r['id']);$copy=$target->getById($copyId)[0]??null;if(!$copy instanceof File)throw new \OCA\Forms\Mcp\BeforeEffect('Verified transfer copy is unavailable');$copy->lock(ILockingProvider::LOCK_SHARED);$locked[]=$copy;BulkDeadline::check();StorageAdmission::node($copy);$meta=$this->store->one($j['id'],'copies',$r['id']);
+   if((int)$meta['file_id']!==$copyId||$meta['sha256']!==$r['data']['sha256'])throw new \OCA\Forms\Mcp\BeforeEffect('Transfer copy binding changed');
+   $record=['source'=>['id'=>$r['id'],'path'=>$r['data']['path'],'owner'=>$j['uid'],'storage'=>$source->getStorage()->getId(),'etag'=>$r['data']['etag'],'size'=>$r['data']['size'],'sha256'=>$r['data']['sha256'],'cache'=>hash('sha256',json_encode($cache($r['id']),JSON_THROW_ON_ERROR))],
+    'copy'=>['id'=>$copyId,'path'=>$meta['path'],'owner'=>$j['input']['owner_id'],'storage'=>$copy->getStorage()->getId(),'etag'=>$meta['etag'],'size'=>$meta['size'],'cache'=>hash('sha256',json_encode($meta['cache'],JSON_THROW_ON_ERROR))],'parent_id'=>$addParent($copy->getParent())];
+   $bytes+=strlen(json_encode($record,JSON_THROW_ON_ERROR));if($bytes>1048576)throw new \OCA\Forms\Mcp\BeforeEffect('Transfer final projection exceeds byte budget');$records[]=$record;
+  }
+  if($seen!==$j['counts']['files']||$unavailable!==($j['historical_unavailable_files']??0))throw new \OCA\Forms\Mcp\BeforeEffect('Transfer exact file inventory changed');
+  $cursor=0;$shareRows=0;
+  while($rows=$this->store->page($j['id'],'managed_shares',$cursor))foreach($rows as$r){
+   BulkDeadline::check();$cursor=$r['id'];if(++$shareRows>BulkStore::MAX_ROWS)throw new \OCA\Forms\Mcp\BeforeEffect('Transfer sharing bound exceeded');$m=$r['data'];if(!($m['live']??false))continue;
+   $source=$root->get($m['folder_path']);if(!$source instanceof Folder||(int)$source->getId()!==(int)$m['folder_id']||$source->getOwner()?->getUID()!==$j['uid'])throw new \OCA\Forms\Mcp\BeforeEffect('Transfer source folder changed');
+   if(!isset($sources[(int)$m['folder_id']])){if(count($sources)>=1000)throw new \OCA\Forms\Mcp\BeforeEffect('Transfer source folder bound exceeded');$source->lock(ILockingProvider::LOCK_SHARED);$locked[]=$source;BulkDeadline::check();StorageAdmission::node($source);$p=['id'=>(int)$m['folder_id'],'path'=>$m['folder_path'],'owner'=>$j['uid'],'storage'=>$source->getStorage()->getId()];$sources[$p['id']]=$p;$bytes+=strlen(json_encode($p,JSON_THROW_ON_ERROR));if($bytes>1048576)throw new \OCA\Forms\Mcp\BeforeEffect('Transfer final projection exceeds byte budget');}
+   $mapped=$this->store->one($j['id'],'staged_shares',$r['id']);$folder=$root->get($mapped['folder_path']);if(!$folder instanceof Folder||(int)$folder->getId()!==(int)$mapped['folder_id'])throw new \OCA\Forms\Mcp\BeforeEffect('Transfer staged folder changed');$addParent($folder);
+  }
+  if($shareRows!==$j['counts']['managed_shares'])throw new \OCA\Forms\Mcp\BeforeEffect('Transfer exact share inventory changed');
+  if(!hash_equals($j['file_revision'],$this->fingerprint((int)$j['form']['id'])))throw new \OCA\Forms\Mcp\BeforeEffect('Transfer source changed');
+  $this->db->executeQuery('SELECT uid FROM *PREFIX*users WHERE uid = ? FOR UPDATE',[$j['input']['owner_id']])->fetchOne();BulkDeadline::check();
+  $targetAuthority=function(bool$final)use($j):void{
+   OriginContext::assertFresh();Server::get(\OCA\Mcp\Mcp\Operations\ActorIdentity::class)->assertCurrent($j['input']['owner_id'],$j['target_actor']);if(($j['target_native_actor']??null)!==null)NativeHistoryIdentity::assertCurrent($j['input']['owner_id'],$j['target_native_actor']);(new FreshCore($j['input']['owner_id']))->assertPrincipal(false,false);
+   if(!hash_equals($j['target_principal']??'',\OCA\Forms\Mcp\Comments\CommentsRuntime::principal($j['input']['owner_id'])))throw new \OCA\Forms\Mcp\BeforeEffect('Approved transfer target incarnation changed');
+   $form=$this->db->executeQuery('SELECT owner_id,state FROM *PREFIX*forms_v2_forms WHERE id = ?',[$j['form']['id']])->fetch();$expected=$final?$j['input']['owner_id']:$j['uid'];if(!is_array($form)||$form['owner_id']!==$expected||(int)$form['state']===(int)2)throw new \OCA\Forms\Mcp\BeforeEffect('Transfer owner transition changed');
+   BulkDeadline::check();
+  };
+  $validator=new TransferFinalFiles($records,array_values($sources),array_values($parents),$j['input']['owner_id'],static fn(string$path)=>$root->get($path),$cache,static fn($node)=>StorageAdmission::node($node),$targetAuthority,$authority);
+  $joint=OriginContext::transferSharingAuthority()['joint'];
+  $validator->assert();$fence->beforeCommit(static function()use($validator,$sharing,$joint):void{$check=$sharing();if(!$check instanceof FinalTransferShareCheck)throw new \LogicException('Managed transfer final collector is unavailable');$validator->assertManaged($check,$joint);});BulkDeadline::check();return$commit();
  }
  public function remap(array &$j,float $start):void {
   $references=0;foreach(['answers','uploads','artifacts']as$kind){$cursor=0;while($rows=$this->store->page($j['id'],$kind,$cursor)){

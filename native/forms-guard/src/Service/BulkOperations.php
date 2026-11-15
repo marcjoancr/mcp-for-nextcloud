@@ -226,10 +226,10 @@ final class BulkOperations {
   $this->admit($j['uid'],$j['action'],$j['input'],$authorize);BulkDeadline::check();
   foreach($rows as$r){if(microtime(true)-$start>16){break;}
    if($j['action']==='forms_transfer'){
-    $count=Server::get(BulkFiles::class)->commitTransfer($j,$start,function()use(&$j,$start,$r):int{
-     Server::get(BulkFiles::class)->remap($j,$start);Server::get(BulkTransferShares::class)->commit($j);Server::get(LinkedMarkers::class)->retire((int)$j['form']['id']);OriginContext::assertFresh();if(microtime(true)-$start>18){throw new BeforeEffect('Transfer mapping deadline exhausted');}
+    $finalSharing=null;$count=Server::get(BulkFiles::class)->commitTransfer($j,$start,function()use(&$j,$start,$r,&$finalSharing):int{
+     Server::get(BulkFiles::class)->remap($j,$start);$finalSharing=Server::get(BulkTransferShares::class)->commit($j);Server::get(LinkedMarkers::class)->retire((int)$j['form']['id']);OriginContext::assertFresh();if(microtime(true)-$start>18){throw new BeforeEffect('Transfer mapping deadline exhausted');}
      return $this->db->executeStatement('UPDATE *PREFIX*forms_v2_forms SET owner_id = ?,locked_by = NULL,locked_until = NULL,file_id = NULL,file_format = NULL WHERE id = ? AND owner_id = ?',[$j['input']['owner_id'],$r['id'],$j['form']['owner_id']]);
-    });
+    },static function()use(&$finalSharing):FinalTransferShareCheck{return $finalSharing??throw new \LogicException('Managed transfer final collector is unavailable');});
    }else{
     if($kind==='form'){
      $remaining=$this->counts((int)$j['form']['id']);unset($remaining['form'],$remaining['files']);if(array_sum($remaining)!==0){throw new BeforeEffect('Unapproved children prevent final form removal');}

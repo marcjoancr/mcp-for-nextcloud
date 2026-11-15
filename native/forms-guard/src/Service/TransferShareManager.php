@@ -9,17 +9,26 @@ use OCP\Share\IShare;
 final class TransferShareManager extends \OC\Share20\Manager {
  private Folder $transferSource;
  private \Closure $transferAuthority;
+ private ?array $activationExpiry=null;
+ public function activationExpiry():array {return $this->activationExpiry??throw new \RuntimeException('Transfer activation inputs are unavailable');}
  public static function scoped(\OC\Share20\Manager $manager,Folder $source,\Closure $authority):self {
   if($manager::class!==\OC\Share20\Manager::class||!SharingIdentity::verify()){throw new \RuntimeException('Unqualified transfer sharing graph');}
+  FinalShareProfile::assertCurrent();
   $copy=(new \ReflectionClass(self::class))->newInstanceWithoutConstructor();
   foreach((new \ReflectionClass(\OC\Share20\Manager::class))->getProperties()as$p){if(!$p->isStatic()&&$p->isInitialized($manager)){$p->setValue($copy,$p->getValue($manager));}}
   $dispatcher=(new \ReflectionProperty(\OC\Share20\Manager::class,'dispatcher'))->getValue($copy);(new \ReflectionProperty(\OC\Share20\Manager::class,'dispatcher'))->setValue($copy,TransferShareDispatcher::scoped($dispatcher,$authority));
-  $copy->transferSource=$source;$copy->transferAuthority=$authority;return $copy;
+  $copy->transferSource=$source;$copy->transferAuthority=$authority;
+  (new \ReflectionProperty(\OC\Share20\Manager::class,'dateTimeZone'))->setValue($copy,ScopedTransferTimeZone::capture());
+  return $copy;
  }
  public function validateTransfer(IShare $share):void {$validation=clone $share;$validation->setPermissions(1);$this->generalChecks($validation);}
  public function validateActivation(IShare $share):void {
   $this->generalChecks($share);if($share->getShareType()===0){parent::userCreateChecks($share);}elseif($share->getShareType()===1){parent::groupCreateChecks($share);}else{throw new \RuntimeException('Unqualified transfer share type');}
+  $timezone=(new \ReflectionProperty(\OC\Share20\Manager::class,'dateTimeZone'))->getValue($this);
+  if (!$timezone instanceof ScopedTransferTimeZone) {throw new \RuntimeException('Transfer activation timezone is unqualified');}
+  $this->activationExpiry=TransferExpiryInputs::capture($this,$timezone);
   parent::validateExpirationDateInternal($share);parent::pathCreateChecks($share->getNode());($this->transferAuthority)($share,true);
+  TransferExpiryInputs::assertCurrent($this->activationExpiry,TransferExpiryInputs::policy($this,$timezone),$share->getExpirationDate()?->format('Y-m-d H:i:s'),time());
  }
  protected function generalChecks(IShare $share):void {
   ($this->transferAuthority)($share,true);

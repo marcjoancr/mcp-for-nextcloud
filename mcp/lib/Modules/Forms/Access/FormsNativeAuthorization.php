@@ -69,6 +69,25 @@ final class FormsNativeAuthorization {
             $projection=$resolve();if(!is_array($projection)||($projection[0]??null)!==$manifest)throw new \RuntimeException('Forms transfer final resolution differs');
         });
     }
+    /** Private managed-transfer ABI; callers provide closed native collectors, never UID-supplied authority. */
+    public function assertTransferWithShares(array $origin,?array $control,\Closure $collect,\Closure $resolve):void {
+        $context=$control===null?$this->assert($origin):$this->assertPair($origin,$control);
+        if($context['tool']!=='forms_transfer'||!is_int($context['references']['form_id']??null)||$context['references']['form_id']<1||!in_array('share',$context['references']['files_operations']??[],true))
+            throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure(\OCA\Mcp\Mcp\Tools\Results\ToolFailure::FORBIDDEN);
+        $this->policy->resourceBoundary($context['uid'],function()use($context,$origin,$control,$collect,$resolve):void {
+            $projection=$collect();
+            if(!is_array($projection)||!array_is_list($projection)||count($projection)!==3)throw new \RuntimeException('Joint transfer projection is invalid');
+            [$manifest,$copies,$parents]=$projection;
+            // The first Files policy read happens AFTER all sharing SQL/config/member/view reads.
+            $this->policy->resourceBoundary($context['uid'],function()use($context,$origin,$control,$manifest,$copies,$parents,$resolve):void {
+                $current=$control===null?$this->assert($origin):$this->assertPair($origin,$control);
+                if($current!==$context)throw new \RuntimeException('Joint transfer business authority changed');
+                $this->impact->assertTransferFiles($context['uid'],$manifest,$copies,$parents);
+                $final=$resolve();
+                if(!is_array($final)||($final[0]??null)!==$manifest)throw new \RuntimeException('Joint transfer final projection differs');
+            });
+        });
+    }
     public function assert(array $origin):array {
         $context=$this->proof->verify($origin);$this->deferred->assert($context);return $context;
     }
