@@ -6,6 +6,11 @@
  */
 declare(strict_types=1);
 if(getenv('MCP_FORMS_HTTP_BOUNDARY')!=='1')exit(2);
+$trackedOrigin=dirname(__DIR__,5).'/native/forms-guard/tests/origin-fixture.php';
+$originFixture=getenv('MCP_FORMS_NATIVE_ORIGIN_FIXTURE')?:(is_file($trackedOrigin)?$trackedOrigin:'/tmp/origin-fixture.php');
+if(!is_file($originFixture)||is_link($originFixture)){fwrite(STDERR,"Stage tracked native/forms-guard/tests/origin-fixture.php or set MCP_FORMS_NATIVE_ORIGIN_FIXTURE before this disposable fixture.\n");exit(2);}
+require_once $originFixture;
+if(!function_exists('formsNativeOrigin')){fwrite(STDERR,"Invalid native Forms policy fixture.\n");exit(2);}
 define('OC_CONSOLE',true);chdir('/var/www/html');require 'lib/base.php';
 use OCP\Server;
 $stage='bootstrap';$checks=[];$backupRow=null;$backupChanged=false;$exitCode=0;
@@ -16,7 +21,7 @@ try {
     $user=Server::get(\OCP\IUserManager::class)->createUser($uid,$password);Server::get(\OCP\IUserSession::class)->setUser($user);
     $api=(new \OCA\Forms\AppInfo\Application())->getContainer()->get(\OCA\Forms\Controller\ApiController::class);
     $id=$api->newForm()->getData()['id'];$question=$api->newQuestion($id,'short',null,'Public linked field')->getData()['id'];
-    require '/tmp/origin-fixture.php';formsNativeOrigin($uid,'forms_summarize_results',['id'=>$id]);
+    formsNativeOrigin($uid,'forms_summarize_results',['id'=>$id]);
     $db=Server::get(\OCP\IDBConnection::class);
     $clients=Server::get(\OCA\Mcp\Db\OAuthClientsMapper::class);
     if(!\OCA\Mcp\OAuth\ClientResolver::nativeEnabled($clients))Server::get(\OCA\Mcp\OAuth\OAuthClientsService::class)->update(Server::get(\OCA\Mcp\Db\PolicyStateMapper::class)->state()['revision'],null,true,null);
@@ -29,7 +34,7 @@ try {
     $token=$tokens->exchangeCode(['code'=>$code,'code_verifier'=>$verifier,'client_id'=>\OCA\Mcp\OAuth\NativeClient::CLIENT_ID,'redirect_uri'=>$redirect,'resource'=>$resource])['access_token'];
     $connection=(int)$db->executeQuery('SELECT MAX(id) FROM *PREFIX*mcp_oauth_tokens WHERE user_id = ?',[$uid])->fetchOne();
     $selection=Server::get(\OCA\Mcp\OAuth\ConnectionToolsStore::class);$saved=$selection->get($uid,$connection);
-    $selection->save($uid,$connection,['forms_link_results_file','forms_unlink_results_file','forms_continue_operation','forms_cancel_operation','forms_read_settings','forms_get_operation','forms_summarize_results'],$saved['revision'],['forms_link_results_file'=>['link_results']]);
+    $selection->save($uid,$connection,['forms_link_results_file','forms_unlink_results_file','forms_continue_operation','forms_cancel_operation','forms_read_settings','forms_get_operation','forms_summarize_results'],$saved['revision'],['forms_link_results_file'=>($mode==='preflight_matrix'?['link_results','read_respondents','read_response_files']:['link_results'])]);
     $rpc=static function(string $name,array $args)use($token):array {
         $curl=curl_init('http://127.0.0.1/index.php/apps/mcp/');
         curl_setopt_array($curl,[CURLOPT_POST=>true,CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>60,
@@ -52,6 +57,65 @@ try {
     else $db->executeStatement('UPDATE *PREFIX*appconfig SET configvalue = ?,type = ? WHERE appid = ? AND configkey = ?',[$backupSettings,\OCP\IAppConfig::VALUE_STRING,'mcp','backup_settings']);
     $backupChanged=true;
     $path='public-linked-results.csv';$arguments=['id'=>$id,'path'=>$path,'format'=>'csv'];$home=Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($uid);
+    if($mode==='preflight_matrix') {
+        $stage='linked preflight matrix';
+        $policy=Server::get(\OCA\Mcp\Access\Grants\GrantPolicy::class);
+        $count=static fn():array=>[
+            (int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*mcp_operations WHERE actor_uid=?',[$uid])->fetchOne(),
+            (int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*mcp_forms_jobs WHERE actor_uid=?',[$uid])->fetchOne(),
+            (int)$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_mcp_linked WHERE form_id=?',[$id])->fetchOne(),
+        ];
+        $before=$count();
+        $denyPreview=static function(array $args)use($rpc):void {
+            try{$rpc('forms_link_results_file',$args);}catch(RuntimeException $error){
+                if(str_starts_with($error->getMessage(),'Workflow refused forms_link_results_file')||$error->getMessage()==='Transport refused forms_link_results_file HTTP 200 code -32602')return;throw $error;
+            }throw new RuntimeException('Linked preflight permission refusal missing.');
+        };
+        $baseline=static function(array $args)use($rpc):void{
+            $p=$rpc('forms_link_results_file',$args);
+            if(!isset($p['plan_state'],$p['operation_id']))throw new RuntimeException('Positive linked preflight control missing.');
+        };
+        foreach([
+            ['forms','link_results',[]],['files','create',[]],['files','edit',[]],
+            ['forms','read_respondents',['include_respondents'=>true]],
+            ['forms','read_response_files',['include_files'=>true]],['files','read',['include_files'=>true]]
+        ]as[$module,$operation,$extra]){
+            $stage='positive '.$module.'.'.$operation;$args=$arguments+$extra;$baseline($args);
+            $policy->setGrant($uid,$module,$operation,false);
+            $stage='denied '.$module.'.'.$operation;try{$denyPreview($args);}finally{$policy->setGrant($uid,$module,$operation,true);}
+            $baseline($args);$checks[$module.'_'.$operation.'_current_denied_then_restored']=true;
+        }
+        $saved=$selection->get($uid,$connection);$restrictedVariants=$saved['variants'];unset($restrictedVariants['forms_link_results_file']);
+        $selection->save($uid,$connection,array_values(array_diff($saved['tools'],['forms_link_results_file'])),$saved['revision'],$restrictedVariants);
+        try{$denyPreview($arguments);}finally{$now=$selection->get($uid,$connection);$selection->save($uid,$connection,$saved['tools'],$now['revision'],$saved['variants']);}
+        $baseline($arguments);$checks['current_connection_tool_selection_denied_then_restored']=true;
+        $writer=Server::get(\OCA\Mcp\Access\ResourceScope\ResourceScopeWriter::class);$state=Server::get(\OCA\Mcp\Db\PolicyStateMapper::class);
+        $oldScope=Server::get(\OCA\Mcp\Db\ResourceScopeMapper::class)->forModule($uid,'files');
+        $writer->setResourceScope($state->state()['revision'],$uid,$uid,'files',[]);
+        try{$denyPreview($arguments);}finally{$writer->setResourceScope($state->state()['revision'],$uid,$uid,'files',$oldScope===null?null:$oldScope['items']);}
+        $baseline($arguments);$checks['empty_current_files_scope_denied_then_restored']=true;
+        $basic=static function(string $tool,array $args)use($uid,$password):array {
+            $c=curl_init('http://127.0.0.1/index.php/apps/mcp/');curl_setopt_array($c,[CURLOPT_POST=>true,CURLOPT_RETURNTRANSFER=>true,CURLOPT_TIMEOUT=>60,CURLOPT_USERPWD=>$uid.':'.$password,
+                CURLOPT_HTTPHEADER=>['Host: localhost','Content-Type: application/json','Accept: application/json, text/event-stream','MCP-Protocol-Version: 2025-06-18'],
+                CURLOPT_POSTFIELDS=>json_encode(['jsonrpc'=>'2.0','id'=>1,'method'=>'tools/call','params'=>['name'=>$tool,'arguments'=>$args]],JSON_THROW_ON_ERROR)]);
+            $body=curl_exec($c);$status=curl_getinfo($c,CURLINFO_HTTP_CODE);curl_close($c);$data=json_decode((string)$body,true,64,JSON_THROW_ON_ERROR);
+            if($status!==200||isset($data['error'])||!is_array($data['result']??null))throw new RuntimeException('Authenticated Basic tool transport failed.');
+            return $data['result'];
+        };
+        $read=$basic('forms_read_settings',['id'=>$id]);
+        if($read['isError']??false)throw new RuntimeException('Authenticated Basic positive read failed.');
+        $settings=$read['structuredContent']??json_decode($read['content'][0]['text'],true,64,JSON_THROW_ON_ERROR);
+        if(($settings['id']??null)!==$id||($settings['ownerId']??null)!==$uid)throw new RuntimeException('Basic read did not resolve the exact owned source.');
+        $checks['basic_authenticated_owner_read']=true;
+        $refused=$basic('forms_link_results_file',$arguments);
+        if(!($refused['isError']??false)||($refused['content'][0]['text']??null)!=='A new owned association and a persistent original connection are required.')
+            throw new RuntimeException('Basic link did not reach the specific persistent-connection prerequisite.');
+        $checks['basic_connection_cannot_authorize_future_worker']=true;
+        if($before!==$count()||$home->nodeExists($path))throw new RuntimeException('Preflight refusal/control created an export effect or reservation.');
+        $checks['all_previews_and_denials_no_export_effects']=true;
+        echo json_encode(['ok'=>true,'checks'=>$checks],JSON_THROW_ON_ERROR);return;
+    }
+
     if($mode==='versions_disabled') {
         $enabled=$db->executeQuery('SELECT configvalue FROM *PREFIX*appconfig WHERE appid = ? AND configkey = ?',['files_versions','enabled'])->fetchOne();
         if($enabled===false)throw new RuntimeException('Versions enablement fixture is unavailable.');
@@ -176,7 +240,7 @@ try {
         'seed_sha256'=>hash('sha256',$oldBytes),'final_sha256'=>hash('sha256',$fresh->getContent())]:null;
     echo json_encode(['ok'=>true,'checks'=>$checks]+($evidence===null?[]:['verification'=>$evidence]),JSON_THROW_ON_ERROR);
 } catch(Throwable $error) {
-    echo json_encode(['ok'=>false,'stage'=>$stage,'error'=>$error->getMessage()],JSON_THROW_ON_ERROR);$exitCode=1;
+    echo json_encode(['ok'=>false,'stage'=>$stage,'error'=>$error->getMessage(),'checks'=>$checks],JSON_THROW_ON_ERROR);$exitCode=1;
 } finally {
     if($backupChanged) {
         if($backupRow===false)$db->executeStatement('DELETE FROM *PREFIX*appconfig WHERE appid = ? AND configkey = ?',['mcp','backup_settings']);

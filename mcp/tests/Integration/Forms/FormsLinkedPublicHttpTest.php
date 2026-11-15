@@ -7,7 +7,8 @@
 declare(strict_types=1);
 namespace OCA\Mcp\Tests\Integration\Forms;
 use PHPUnit\Framework\TestCase;
-/** Real persistent OAuth HTTP approval, initial recovery, cron update and unlink preserving output. */
+/** Real persistent OAuth HTTP approval, initial recovery, cron update and unlink preserving output.
+ * Stage the tracked native origin policy fixture in the cell (MCP_FORMS_NATIVE_ORIGIN_FIXTURE). */
 final class FormsLinkedPublicHttpTest extends TestCase {
     /** @dataProvider modes */
     public function testPublicActivationRecoveryCronAndUnlink(string $mode):void {
@@ -25,6 +26,14 @@ final class FormsLinkedPublicHttpTest extends TestCase {
     public function testCancellationAfterSourceChangeKeepsAuthorityAndReleasesReservation():void {
         $result=$this->probe('cancel_source');
         foreach(['cancel_changed_source','no_output_effect','reservation_released'] as $key)self::assertTrue($result['checks'][$key],$key);
+    }
+    public function testCurrentGrantsSelectionScopeAndPersistentConnectionAreRequiredBeforeLinking():void {
+        $result=$this->probe('preflight_matrix');
+        foreach(['forms_link_results_current_denied_then_restored','files_create_current_denied_then_restored',
+            'files_edit_current_denied_then_restored','forms_read_respondents_current_denied_then_restored',
+            'forms_read_response_files_current_denied_then_restored','files_read_current_denied_then_restored',
+            'current_connection_tool_selection_denied_then_restored','empty_current_files_scope_denied_then_restored',
+            'basic_authenticated_owner_read','basic_connection_cannot_authorize_future_worker','all_previews_and_denials_no_export_effects']as$key)self::assertTrue($result['checks'][$key]??false,$key);
     }
     public function testDisabledVersionsIsRefusedBeforeEffectsWithEitherCopyPreference():void {
         $result=$this->probe('versions_disabled');
