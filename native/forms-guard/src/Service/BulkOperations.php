@@ -113,7 +113,7 @@ final class BulkOperations {
   $j=$this->store->load($id);$this->actor($uid,$j);
   return OriginContext::within($uid,$j['origin'],'lookup',$j['input'],fn()=> $this->fence->withLock(function()use($uid,$id,$key,$approvedVersion):?array{
    OriginContext::assertFresh();$j=$this->store->load($id);$this->actor($uid,$j);$receipt=$this->store->receipt($id,$key);
-   if($receipt!==null){if($receipt['version']!==$approvedVersion+1){throw new BeforeEffect('Step receipt version does not match');}return $receipt;}
+   if($receipt!==null){if($receipt['version']!==$approvedVersion+1){throw new BeforeEffect('Step receipt version does not match');}return BulkStepEvidence::resolve($receipt,$j,static fn(string $operation)=>Server::get(ManagedSharePhase::class)->phase($operation));}
    if($j['state']==='uncertain'&&($j['claim']['step_key']??null)===$key&&$j['version']===$approvedVersion+1){return $this->dto($j);}
    if($j['state']==='pending'&&$j['version']===$approvedVersion&&!isset($j['claim'])&&hash_equals($j['native_manifest']??'',BulkEpoch::runtime())){return null;}
    throw new BeforeEffect('Step evidence is unavailable; absence does not prove no effect');
@@ -123,14 +123,14 @@ final class BulkOperations {
  public function step(string $uid,string $id,int $version,string $key,callable $authorize,?callable $files=null):array {
   self::key($key);$j=$this->store->load($id);$this->actor($uid,$j);
   return OriginContext::within($uid,$j['origin'],$j['action'],$j['input'],fn()=> $this->fence->withLock(function()use($uid,$id,$version,$key,$authorize,$files):array {
-   $j=$this->store->load($id);$this->actor($uid,$j);$this->sourceWriter($j['action']);$prior=$this->store->receipt($id,$key);if($prior!==null){return $prior;}
+   $j=$this->store->load($id);$this->actor($uid,$j);$this->sourceWriter($j['action']);$prior=$this->store->receipt($id,$key);if($prior!==null){return BulkStepEvidence::resolve($prior,$j,static fn(string $operation)=>Server::get(ManagedSharePhase::class)->phase($operation));}
    if($j['version']!==$version){throw new BeforeEffect('Bulk version conflict');}
    if(!in_array($j['state'],['pending'],true)){return $this->dto($j);}
    if(($j['historical_unavailable_files']??0)>0){HistoricalFiles::requireReady();}
    if(in_array($j['phase'],['backup_files','copy_files','delete_files','restore_files','remove_shares','stage_shares','stage_recipients'],true)){
     return $this->fileStep($j,$uid,$key,$authorize,$files);
    }
-   return $this->fence->transaction(function()use(&$j,$uid,$key,$authorize,$files):array {
+   $dto=$this->fence->transaction(function()use(&$j,$uid,$key,$authorize,$files):array {
     $this->sourceWriter($j['action']);if(!$this->sourceMatches($j)){$j['state']=($j['done']>0||($j['source_effects']??false)||(array_sum($j['retained_files']??[])+($j['retained_shares']??0)+($j['retained_folders']??0))>0)?'partial':'failed_before_effect';$j['reason']='source_changed';}
     else {
      $this->admit($uid,$j['action'],$j['input'],$authorize);if(!$j['sealed']&&$j['action']!=='forms_restore'&&!hash_equals($j['file_revision'],AuthoringScale::fingerprint($j['action'],$j['input'],(int)$j['form']['id']))){throw new BeforeEffect('Managed Files changed before recovery seal');}
@@ -146,6 +146,7 @@ final class BulkOperations {
     }
     BulkDeadline::check();$j['version']++;$j['revision']=$this->fence->revision();$j['epoch']=$this->sourceEpoch($j);$this->store->save($j);$dto=$this->dto($j);$this->store->record($j['id'],$key,$dto);BulkDeadline::check();return $dto;
    });
+   return BulkStepEvidence::resolve($dto,$j,static fn(string $operation)=>Server::get(ManagedSharePhase::class)->phase($operation));
   }));
  }
  private function fileStep(array $j,string $uid,string $key,callable $authorize,?callable $files):array {
