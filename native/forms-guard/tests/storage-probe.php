@@ -51,10 +51,24 @@ try {
     $user = Server::get(\OCP\IUserManager::class)->get($uid);
     Server::get(\OCP\IUserSession::class)->setUser($user);
     require __DIR__ . '/origin-fixture.php';
+    $roots = Server::get(\OCP\Files\IRootFolder::class);
+    $sourceOwner = null; $sourceUser = null; $sourceFolder = null; $share = null;
+    if (($request['case'] ?? null) === 'linked_shared_destination_acl') {
+        Server::get(\OCP\App\IAppManager::class)->loadApp('files_sharing');
+        $sourceOwner = 'shared-destination-' . bin2hex(random_bytes(5));
+        $sourceUser = Server::get(\OCP\IUserManager::class)->createUser($sourceOwner, bin2hex(random_bytes(24)));
+        Server::get(\OCP\IUserSession::class)->setUser($sourceUser);
+        $sourceFolder = $roots->getUserFolder($sourceOwner)->newFolder('linked-' . bin2hex(random_bytes(4)));
+        Server::get(\OCP\IUserSession::class)->setUser($user);
+        $shares = Server::get(\OCP\Share\IManager::class);
+        $permissions = \OCP\Constants::PERMISSION_ALL;
+        $share = $shares->createShare($shares->newShare()->setNode($sourceFolder)->setShareType(\OCP\Share\IShare::TYPE_USER)
+            ->setSharedWith($uid)->setSharedBy($sourceOwner)->setPermissions($permissions));
+        $share = $shares->acceptShare($share, $uid);
+    }
     $container = (new \OCA\Forms\AppInfo\Application())->getContainer();
     $api = $container->get(\OCA\Forms\Controller\ApiController::class);
     $guard = $container->get(Guard::class);
-    $roots = Server::get(\OCP\Files\IRootFolder::class);
     $root = $roots->getUserFolder($uid);
     $db = Server::get(\OCP\IDBConnection::class);
     $config = Server::get(\OCP\IConfig::class);
@@ -140,13 +154,6 @@ try {
             'bytes_preserved' => $nodes !== [] && hash('sha256', $nodes[0]->getContent()) === $expected,
             'native_form_preserved' => (bool)$db->executeQuery('SELECT id FROM *PREFIX*forms_v2_forms WHERE id = ?', [$id])->fetchOne()];
     } elseif ($request['case'] === 'linked_shared_destination_acl') {
-        $sourceOwner = 'shared-destination-' . bin2hex(random_bytes(5));
-        $sourceUser = Server::get(\OCP\IUserManager::class)->createUser($sourceOwner, bin2hex(random_bytes(24)));
-        $sourceFolder = $roots->getUserFolder($sourceOwner)->newFolder('linked-' . bin2hex(random_bytes(4)));
-        $shares = Server::get(\OCP\Share\IManager::class);
-        $permissions = \OCP\Constants::PERMISSION_ALL;
-        $share = $shares->createShare($shares->newShare()->setNode($sourceFolder)->setShareType(\OCP\Share\IShare::TYPE_USER)
-            ->setSharedWith($uid)->setSharedBy($sourceOwner)->setPermissions($permissions));
         $sharedFolder = $root->get($share->getTarget());
         if (!$sharedFolder instanceof \OCP\Files\Folder) {throw new RuntimeException('Shared destination folder did not mount');}
         $origin = formsNativeOrigin($uid, 'forms_link_results_file', ['id' => $id]);

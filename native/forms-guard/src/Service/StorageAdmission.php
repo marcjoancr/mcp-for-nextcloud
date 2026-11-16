@@ -55,6 +55,11 @@ final class StorageAdmission {
         'OC\Files\Storage\Wrapper\Availability' => 3,
         'OC\Files\Storage\Wrapper\PermissionsMask' => 4,
     ];
+    /** Exact native prefix measured on qualified SharedMounts; all other stacks stay closed. */
+    private const SHARED_MOUNT_WRAPPERS = [
+        'OCA\Files_Trashbin\Storage' => 1,
+        'OCA\FilesLock\Storage\LockWrapper' => 2,
+    ];
     private const BACKENDS = [
         'OC\Files\Storage\Local',
         'OC\Files\Storage\Home',
@@ -432,6 +437,7 @@ final class StorageAdmission {
 
     private static function sharedStorage(IStorage $storage): \OCA\Files_Sharing\SharedStorage {
         $seen = [];
+        $rank = 0;
         for ($depth = 0; $depth < 16; $depth++) {
             if (isset($seen[spl_object_id($storage)])) {
                 throw new \RuntimeException('Forms shared destination wrapper cycle');
@@ -440,9 +446,16 @@ final class StorageAdmission {
             if ($storage::class === 'OCA\Files_Sharing\SharedStorage') {
                 return $storage;
             }
-            if (!in_array($storage::class, [ManagedFileStorage::class, NewFileStorage::class, MutationBoundaryStorage::class, NativeHomeStorage::class], true)) {
+            $class = $storage::class;
+            if (in_array($class, [ManagedFileStorage::class, NewFileStorage::class, MutationBoundaryStorage::class, NativeHomeStorage::class], true)) {
+                $storage = $storage->getWrapperStorage();
+                continue;
+            }
+            if (!isset(self::SHARED_MOUNT_WRAPPERS[$class]) || self::SHARED_MOUNT_WRAPPERS[$class] <= $rank) {
                 throw new \RuntimeException('Forms linked destination wrapper is unqualified');
             }
+            self::source(new \ReflectionClass($class));
+            $rank = self::SHARED_MOUNT_WRAPPERS[$class];
             $storage = $storage->getWrapperStorage();
         }
         throw new \RuntimeException('Forms linked destination wrapper limit exceeded');
