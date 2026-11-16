@@ -264,5 +264,6 @@ try {
     }
     echo json_encode(['ok' => true, 'result' => $result], JSON_THROW_ON_ERROR) . "\n";
 } catch (Throwable $error) {
-    echo json_encode(['ok' => false, 'error' => $error->getMessage(), 'class' => $error::class], JSON_THROW_ON_ERROR) . "\n";
+    echo json_encode(['ok' => false, 'error' => $error->getMessage(), 'class' => $error::class,
+        'error_class' => $error::class, 'public_file' => basename($error->getFile()), 'line' => $error->getLine()], JSON_THROW_ON_ERROR) . "\n";
 }
