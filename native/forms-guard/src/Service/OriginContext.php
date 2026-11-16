@@ -22,6 +22,43 @@ final class OriginContext {
         if(array_key_exists('_mcp_origin',$input)){if($input['_mcp_origin']!==$origin)throw new \RuntimeException('Stored Forms transport authority changed');unset($input['_mcp_origin']);}
         if($input!==$context['input'])throw new \RuntimeException('Stored Forms job input changed');
     }
+    /** One-shot child input carries signed originals; the child must verify them again. */
+    public static function nativeHomeEnvelope(array $job,array $claim):array {
+        self::assertJobInput($job);self::assertFresh();$context=self::current();$phase=$claim['home_phase']??null;
+        $expected=['nonce','phase','uid','action','target_uid','step_key','version'];
+        $phases=match($job['action']??null){'forms_transfer'=>['copy_files','stage_shares','stage_recipients','apply'],'forms_restore'=>['restore','restore_files'],default=>[]};
+        if(self::$businessFrame===null||Server::get(FormsRevisionFence::class)->active()
+            ||(($job['action']??null)==='forms_transfer'&&($job['sealed']??false)!==true)||!in_array($job['phase']??null,$phases,true)
+            ||!is_string($job['id']??null)||!preg_match('/^[a-f0-9]{64}$/D',$job['id'])
+            ||!is_int($job['version']??null)||$job['version']<1||!is_array($phase)
+            ||count($phase)!==count($expected)||array_diff($expected,array_keys($phase))!==[])
+            throw new \RuntimeException('Native Home claim is unavailable');
+        $target=match($job['action']){'forms_transfer'=>$context['input']['owner_id']??null,'forms_restore'=>$job['uid'],default=>null};
+        if(!is_string($target)||$target===''||str_contains($target,'/')||str_contains($target,'\\')||str_contains($target,"\0")||in_array($target,['.','..'],true)
+            ||!is_string($phase['nonce'])||!preg_match('/^[a-f0-9]{64}$/D',$phase['nonce'])
+            ||!is_string($phase['step_key'])||!preg_match('/^[A-Za-z0-9_-]{16,128}$/D',$phase['step_key'])
+            ||$phase['phase']!==$job['phase']||$phase['uid']!==$job['uid']||$phase['action']!==$job['action']
+            ||$phase['target_uid']!==$target||$phase['version']!==$job['version']
+            ||!is_int($job['form']['id']??null)||$job['form']['id']<1)
+            throw new \RuntimeException('Native Home claim binding changed');
+        $backupId=null;$backupSeal=null;
+        if($job['action']==='forms_restore'){
+            $backupId=$context['input']['backup_id']??null;
+            if(!is_string($backupId)||!preg_match('/^[a-f0-9]{64}$/D',$backupId))throw new \RuntimeException('Native Home restore backup is unavailable');
+            $backup=Server::get(BulkStore::class)->load($backupId);
+            if(($backup['id']??null)!==$backupId||($backup['sealed']??false)!==true||($backup['uid']??null)!==$job['uid']
+                ||($backup['actor']??null)!==($job['actor']??null)||!is_string($backup['seal']??null)||!preg_match('/^[a-f0-9]{64}$/D',$backup['seal'])
+                ||($backup['form']??null)!==$job['form']||($backup['counts']??null)!==($job['counts']??null)
+                ||($backup['backup_format']??1)!==($job['backup_format']??1))throw new \RuntimeException('Native Home restore backup changed');
+            $backupSeal=$backup['seal'];
+        }
+        $origin=$context['origin'];$control=self::$frameBulkControl;
+        $verified=Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assertNativeHome($origin,$control,$target);
+        foreach(['read','create']as$operation)if(!in_array($operation,$verified['references']['files_operations']??[],true))
+            throw new \RuntimeException('Original native Home Files grant is unavailable');
+        return ['protocol'=>1,'job_id'=>$job['id'],'form_id'=>$job['form']['id'],'uid'=>$job['uid'],'action'=>$job['action'],
+            'target_uid'=>$target,'files_path'=>'/'.$target.'/files','home_phase'=>$phase,'origin'=>$origin,'control'=>$control,'backup_id'=>$backupId,'backup_seal'=>$backupSeal];
+    }
     public static function withFileBoundary(?callable $callback,callable $work): mixed {
         $old=self::$fileBoundary;self::$fileBoundary=$callback===null?null:\Closure::fromCallable($callback);
         try{return $work();}finally{self::$fileBoundary=$old;}

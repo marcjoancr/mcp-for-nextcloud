@@ -15,6 +15,14 @@ final class FormsAuthorizationTest extends TestCase {
         self::assertSame(['create','read','edit'],FormsAuthorization::fileOperations('forms_export_results',['include_files'=>true,'overwrite'=>true],[]));
         self::assertSame(['read'],FormsAuthorization::fileOperations('forms_download_results',[],['historical'=>['files_operations'=>['read']]]));
     }
+    public function testFreshHomeTransferAndRestoreRequireOriginalFilesReadAndCreateAuthority():void {
+        self::assertSame(['read','create'],FormsAuthorization::fileOperations('forms_transfer',[],['counts'=>['files'=>1,'managed_shares'=>0],'historical_unavailable_files'=>0]));
+        self::assertSame(['read','create'],FormsAuthorization::fileOperations('forms_restore',[],['counts'=>['files'=>1],'historical_unavailable_files'=>0]));
+        self::assertSame([],FormsAuthorization::fileOperations('forms_transfer',[],['counts'=>['files'=>0,'managed_shares'=>0]]));
+        self::assertSame([],FormsAuthorization::fileOperations('forms_transfer',[],['counts'=>['files'=>3,'managed_shares'=>0],'historical_unavailable_files'=>3]));
+        self::assertSame([],FormsAuthorization::fileOperations('forms_restore',[],['counts'=>['files'=>3],'historical_unavailable_files'=>3]));
+        self::assertSame(['read'],FormsAuthorization::fileOperations('forms_transfer',[],['historical'=>['files_operations'=>['read']]]));
+    }
     public function testPublicLinkAuthorityCannotComeFromOrdinaryShare():void {
         self::assertSame(['public_link'],FormsAuthorization::operations('forms_share',['kind'=>'link'],[]));
         self::assertSame(['share'],FormsAuthorization::operations('forms_share',['kind'=>'group'],[]));

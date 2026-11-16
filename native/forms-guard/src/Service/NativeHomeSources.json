@@ -1,0 +1,733 @@
+{
+  "schema": 1,
+  "profile": {
+    "uid_backend": "OC\\User\\Database",
+    "root_provider": "OC\\Files\\Mount\\RootMountProvider",
+    "home_provider": "OC\\Files\\Mount\\LocalHomeMountProvider",
+    "home_storage": "OC\\Files\\Storage\\Home",
+    "objectstore": false,
+    "objectstore_multibucket": false
+  },
+  "registrations": {
+    "events": {
+      "OCP\\Files\\Events\\BeforeFileSystemSetupEvent": [
+        {
+          "priority": 0,
+          "position": 0,
+          "kind": "service_listener",
+          "class": "OCA\\FilesLock\\Listeners\\BeforeFileSystemSetupListener",
+          "method": "handle",
+          "class_sha256": "826795693985a7427061c659c1a1ec152c84debed7a09b42b563847f48e59819",
+          "method_start": 37,
+          "method_end": 52,
+          "source_sha256": "826795693985a7427061c659c1a1ec152c84debed7a09b42b563847f48e59819",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 1,
+          "kind": "service_listener",
+          "class": "OCA\\Files_Trashbin\\Listener\\EventListener",
+          "method": "handle",
+          "class_sha256": "e983f8a8bab450c801d6a319b25a2328ced0b900ae11f64a4555e75b2dde623d",
+          "method_start": 44,
+          "method_end": 84,
+          "source_sha256": "e983f8a8bab450c801d6a319b25a2328ced0b900ae11f64a4555e75b2dde623d",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 2,
+          "kind": "callable",
+          "class": "OC\\Encryption\\Manager",
+          "method": "{closure}",
+          "class_sha256": "c63200a9ec97b70d468a02b5fc3cd91278365c24d568215205d215e714d36d48",
+          "method_start": 207,
+          "method_end": 213,
+          "source_sha256": "c63200a9ec97b70d468a02b5fc3cd91278365c24d568215205d215e714d36d48",
+          "captures_sha256": "434d5e1fe109524cbac44d16d672278ab9e9377006289a94369e9cf265b9d865",
+          "capture_shape": {
+            "bound_class": "OC\\Encryption\\Manager"
+          }
+        }
+      ],
+      "OCP\\Files\\Events\\UserHomeSetupEvent": [
+        {
+          "priority": 0,
+          "position": 0,
+          "kind": "service_listener",
+          "class": "OCA\\Files_Sharing\\Listener\\UserHomeSetupListener",
+          "method": "handle",
+          "class_sha256": "3ca3cbf9cddf931b60bdabb74f81f5964a1ca1add6f8bbe0edfffc235a77baea",
+          "method_start": 39,
+          "method_end": 52,
+          "source_sha256": "3ca3cbf9cddf931b60bdabb74f81f5964a1ca1add6f8bbe0edfffc235a77baea",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        }
+      ],
+      "OCP\\Share\\Events\\VerifyMountPointEvent": [],
+      "OCA\\Files_Sharing\\Event\\ShareMountedEvent": [],
+      "OCP\\Share\\Events\\ShareMovedEvent": [
+        {
+          "priority": 0,
+          "position": 0,
+          "kind": "service_listener",
+          "class": "OCA\\Files_Sharing\\Listener\\SharesUpdatedListener",
+          "method": "handle",
+          "class_sha256": "c414c9248afdca4b2a23bf8b090c9a2231c0828d94969ab76ea0e9b0a66e99bc",
+          "method_start": 66,
+          "method_end": 131,
+          "source_sha256": "c414c9248afdca4b2a23bf8b090c9a2231c0828d94969ab76ea0e9b0a66e99bc",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        }
+      ],
+      "OCP\\Share\\Events\\BeforeShareDeletedEvent": [
+        {
+          "priority": 0,
+          "position": 0,
+          "kind": "service_listener",
+          "class": "OCA\\Activity\\Listener\\ShareEventListener",
+          "method": "handle",
+          "class_sha256": "77f841f5ba68dc62e3409761a3b4503ffb06c866174be8ad3f32eade271c0e35",
+          "method_start": 29,
+          "method_end": 41,
+          "source_sha256": "77f841f5ba68dc62e3409761a3b4503ffb06c866174be8ad3f32eade271c0e35",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 1,
+          "kind": "service_listener",
+          "class": "OCA\\Files_Sharing\\Listener\\SharesUpdatedListener",
+          "method": "handle",
+          "class_sha256": "c414c9248afdca4b2a23bf8b090c9a2231c0828d94969ab76ea0e9b0a66e99bc",
+          "method_start": 66,
+          "method_end": 131,
+          "source_sha256": "c414c9248afdca4b2a23bf8b090c9a2231c0828d94969ab76ea0e9b0a66e99bc",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 2,
+          "kind": "callable",
+          "class": "OC\\Share20\\LegacyHooks",
+          "method": "{closure}",
+          "class_sha256": "623cc3333b0269a7af1f06da49f486b79b53eb333353c6c9e7e5c289109daa2b",
+          "method_start": 24,
+          "method_end": 26,
+          "source_sha256": "623cc3333b0269a7af1f06da49f486b79b53eb333353c6c9e7e5c289109daa2b",
+          "captures_sha256": "7b24f964f1658657f19efc7b10998cbd4bfe9948221e5924f8e99281c633c8f1",
+          "capture_shape": {
+            "bound_class": "OC\\Share20\\LegacyHooks"
+          }
+        }
+      ],
+      "OCP\\Share\\Events\\ShareDeletedEvent": [
+        {
+          "priority": 0,
+          "position": 0,
+          "kind": "service_listener",
+          "class": "OCA\\Files\\Collaboration\\Resources\\Listener",
+          "method": "handle",
+          "class_sha256": "3328cf4409bd725d1bc7bd33cedb64097c99efea5ec8dcf1e9195ccbb0399bf7",
+          "method_start": 31,
+          "method_end": 35,
+          "source_sha256": "3328cf4409bd725d1bc7bd33cedb64097c99efea5ec8dcf1e9195ccbb0399bf7",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 1,
+          "kind": "service_listener",
+          "class": "OCA\\Photos\\Listener\\AlbumsManagementEventListener",
+          "method": "handle",
+          "class_sha256": "1ce2893622b502ec0a6b6fa5dea20ffacc29f96543e6b27a205dcc884a5ddf5f",
+          "method_start": 34,
+          "method_end": 104,
+          "source_sha256": "1ce2893622b502ec0a6b6fa5dea20ffacc29f96543e6b27a205dcc884a5ddf5f",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 2,
+          "kind": "service_listener",
+          "class": "OCA\\RelatedResources\\Listener\\FileShareUpdate",
+          "method": "handle",
+          "class_sha256": "cc16373a8fc36d541bfed2e5ee6375e8aabc4b0cc0feaf15ddc01a33b87f739c",
+          "method_start": 32,
+          "method_end": 42,
+          "source_sha256": "cc16373a8fc36d541bfed2e5ee6375e8aabc4b0cc0feaf15ddc01a33b87f739c",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 3,
+          "kind": "service_listener",
+          "class": "OC\\Collaboration\\Reference\\File\\FileReferenceEventListener",
+          "method": "handle",
+          "class_sha256": "73d13a459d83196cbe3cce33265c2ca87412e89f68a615c3c35f94bc8175f968",
+          "method_start": 41,
+          "method_end": 59,
+          "source_sha256": "73d13a459d83196cbe3cce33265c2ca87412e89f68a615c3c35f94bc8175f968",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 4,
+          "kind": "callable",
+          "class": "OC\\Share20\\LegacyHooks",
+          "method": "{closure}",
+          "class_sha256": "623cc3333b0269a7af1f06da49f486b79b53eb333353c6c9e7e5c289109daa2b",
+          "method_start": 27,
+          "method_end": 29,
+          "source_sha256": "623cc3333b0269a7af1f06da49f486b79b53eb333353c6c9e7e5c289109daa2b",
+          "captures_sha256": "7b24f964f1658657f19efc7b10998cbd4bfe9948221e5924f8e99281c633c8f1",
+          "capture_shape": {
+            "bound_class": "OC\\Share20\\LegacyHooks"
+          }
+        }
+      ],
+      "OCP\\Share\\Events\\ShareDeletedFromSelfEvent": [
+        {
+          "priority": 0,
+          "position": 0,
+          "kind": "service_listener",
+          "class": "OCA\\Activity\\Listener\\ShareEventListener",
+          "method": "handle",
+          "class_sha256": "77f841f5ba68dc62e3409761a3b4503ffb06c866174be8ad3f32eade271c0e35",
+          "method_start": 29,
+          "method_end": 41,
+          "source_sha256": "77f841f5ba68dc62e3409761a3b4503ffb06c866174be8ad3f32eade271c0e35",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 1,
+          "kind": "service_listener",
+          "class": "OCA\\Files\\Collaboration\\Resources\\Listener",
+          "method": "handle",
+          "class_sha256": "3328cf4409bd725d1bc7bd33cedb64097c99efea5ec8dcf1e9195ccbb0399bf7",
+          "method_start": 31,
+          "method_end": 35,
+          "source_sha256": "3328cf4409bd725d1bc7bd33cedb64097c99efea5ec8dcf1e9195ccbb0399bf7",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 2,
+          "kind": "callable",
+          "class": "OC\\Share20\\LegacyHooks",
+          "method": "{closure}",
+          "class_sha256": "623cc3333b0269a7af1f06da49f486b79b53eb333353c6c9e7e5c289109daa2b",
+          "method_start": 30,
+          "method_end": 32,
+          "source_sha256": "623cc3333b0269a7af1f06da49f486b79b53eb333353c6c9e7e5c289109daa2b",
+          "captures_sha256": "7b24f964f1658657f19efc7b10998cbd4bfe9948221e5924f8e99281c633c8f1",
+          "capture_shape": {
+            "bound_class": "OC\\Share20\\LegacyHooks"
+          }
+        }
+      ],
+      "OCP\\Files\\Config\\Event\\UserMountAddedEvent": [],
+      "OCP\\Files\\Config\\Event\\UserMountUpdatedEvent": [],
+      "OCP\\Files\\Config\\Event\\UserMountRemovedEvent": [],
+      "OCP\\User\\Events\\UserConfigChangedEvent": [],
+      "OCP\\Files\\Events\\BeforeFolderScannedEvent": [],
+      "OCP\\Files\\Events\\FolderScannedEvent": [],
+      "OCP\\Files\\Events\\BeforeFileScannedEvent": [],
+      "OCP\\Files\\Events\\FileScannedEvent": [],
+      "OCP\\Files\\Events\\FileCacheUpdated": [],
+      "OCP\\Files\\Events\\Node\\NodeCreatedEvent": [
+        {
+          "priority": 0,
+          "position": 0,
+          "kind": "service_listener",
+          "class": "OCA\\Circles\\Listeners\\NodeEventListener",
+          "method": "handle",
+          "class_sha256": "9c7f6f695ff80228ca8add811558e048edae51e7a70379e6588e2c97bce2f95a",
+          "method_start": 38,
+          "method_end": 53,
+          "source_sha256": "9c7f6f695ff80228ca8add811558e048edae51e7a70379e6588e2c97bce2f95a",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 1,
+          "kind": "service_listener",
+          "class": "OCA\\Files_Versions\\Listener\\FileEventsListener",
+          "method": "handle",
+          "class_sha256": "187b1f6e102629bcbb40316d18f955edd8f8bd0c52cb5da14ca53a1cb8963433",
+          "method_start": 80,
+          "method_end": 125,
+          "source_sha256": "187b1f6e102629bcbb40316d18f955edd8f8bd0c52cb5da14ca53a1cb8963433",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        }
+      ],
+      "OCP\\Files\\Events\\Node\\NodeWrittenEvent": [
+        {
+          "priority": 0,
+          "position": 0,
+          "kind": "service_listener",
+          "class": "OC\\FilesMetadata\\Listener\\MetadataUpdate",
+          "method": "handle",
+          "class_sha256": "3bb5141cd1749f4976cc7addb6cf0ec2a9a58a7c224f8be9e93642ef0a97a37f",
+          "method_start": 37,
+          "method_end": 47,
+          "source_sha256": "3bb5141cd1749f4976cc7addb6cf0ec2a9a58a7c224f8be9e93642ef0a97a37f",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 1,
+          "kind": "service_listener",
+          "class": "OCA\\Circles\\Listeners\\NodeEventListener",
+          "method": "handle",
+          "class_sha256": "9c7f6f695ff80228ca8add811558e048edae51e7a70379e6588e2c97bce2f95a",
+          "method_start": 38,
+          "method_end": 53,
+          "source_sha256": "9c7f6f695ff80228ca8add811558e048edae51e7a70379e6588e2c97bce2f95a",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 2,
+          "kind": "service_listener",
+          "class": "OCA\\Files_Trashbin\\Listener\\EventListener",
+          "method": "handle",
+          "class_sha256": "e983f8a8bab450c801d6a319b25a2328ced0b900ae11f64a4555e75b2dde623d",
+          "method_start": 44,
+          "method_end": 84,
+          "source_sha256": "e983f8a8bab450c801d6a319b25a2328ced0b900ae11f64a4555e75b2dde623d",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 3,
+          "kind": "service_listener",
+          "class": "OCA\\Files_Versions\\Listener\\FileEventsListener",
+          "method": "handle",
+          "class_sha256": "187b1f6e102629bcbb40316d18f955edd8f8bd0c52cb5da14ca53a1cb8963433",
+          "method_start": 80,
+          "method_end": 125,
+          "source_sha256": "187b1f6e102629bcbb40316d18f955edd8f8bd0c52cb5da14ca53a1cb8963433",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 4,
+          "kind": "service_listener",
+          "class": "OCA\\Text\\Listeners\\NodeWrittenResetDocumentListener",
+          "method": "handle",
+          "class_sha256": "93017c91966c4e5f9b176f85f28fc2b41063e2018e1dca0cba0b9877ae1ac2b7",
+          "method_start": 36,
+          "method_end": 57,
+          "source_sha256": "93017c91966c4e5f9b176f85f28fc2b41063e2018e1dca0cba0b9877ae1ac2b7",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": -1,
+          "position": 0,
+          "kind": "service_listener",
+          "class": "OCA\\Files_Versions\\Listener\\VersionAuthorListener",
+          "method": "handle",
+          "class_sha256": "b84daca1a31bdd299ae160c6be9f0714369101210a15ac841c21f97ca909d19f",
+          "method_start": 35,
+          "method_end": 39,
+          "source_sha256": "b84daca1a31bdd299ae160c6be9f0714369101210a15ac841c21f97ca909d19f",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        }
+      ],
+      "OCP\\Files\\Events\\Node\\NodeDeletedEvent": [
+        {
+          "priority": 0,
+          "position": 0,
+          "kind": "service_listener",
+          "class": "OCA\\Circles\\Listeners\\NodeEventListener",
+          "method": "handle",
+          "class_sha256": "9c7f6f695ff80228ca8add811558e048edae51e7a70379e6588e2c97bce2f95a",
+          "method_start": 38,
+          "method_end": 53,
+          "source_sha256": "9c7f6f695ff80228ca8add811558e048edae51e7a70379e6588e2c97bce2f95a",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 1,
+          "kind": "service_listener",
+          "class": "OCA\\FilesReminders\\Listener\\NodeDeletedListener",
+          "method": "handle",
+          "class_sha256": "a6f3a8242f17774368aecd1f98214b834dfcd699e1051b922db9ee1c6d2ae04b",
+          "method_start": 25,
+          "method_end": 32,
+          "source_sha256": "a6f3a8242f17774368aecd1f98214b834dfcd699e1051b922db9ee1c6d2ae04b",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 2,
+          "kind": "service_listener",
+          "class": "OCA\\Files_Versions\\Listener\\FileEventsListener",
+          "method": "handle",
+          "class_sha256": "187b1f6e102629bcbb40316d18f955edd8f8bd0c52cb5da14ca53a1cb8963433",
+          "method_start": 80,
+          "method_end": 125,
+          "source_sha256": "187b1f6e102629bcbb40316d18f955edd8f8bd0c52cb5da14ca53a1cb8963433",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 3,
+          "kind": "service_listener",
+          "class": "OCA\\Photos\\Listener\\AlbumsManagementEventListener",
+          "method": "handle",
+          "class_sha256": "1ce2893622b502ec0a6b6fa5dea20ffacc29f96543e6b27a205dcc884a5ddf5f",
+          "method_start": 34,
+          "method_end": 104,
+          "source_sha256": "1ce2893622b502ec0a6b6fa5dea20ffacc29f96543e6b27a205dcc884a5ddf5f",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 4,
+          "kind": "service_listener",
+          "class": "OC\\Collaboration\\Reference\\File\\FileReferenceEventListener",
+          "method": "handle",
+          "class_sha256": "73d13a459d83196cbe3cce33265c2ca87412e89f68a615c3c35f94bc8175f968",
+          "method_start": 41,
+          "method_end": 59,
+          "source_sha256": "73d13a459d83196cbe3cce33265c2ca87412e89f68a615c3c35f94bc8175f968",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        }
+      ],
+      "OCP\\Files\\Cache\\CacheEntryRemovedEvent": [],
+      "OCP\\Files\\Cache\\CacheEntryInsertedEvent": [],
+      "OCP\\Files\\Cache\\CacheEntryUpdatedEvent": [],
+      "OCP\\Files\\Cache\\CacheEntriesRemovedEvent": [
+        {
+          "priority": 1,
+          "position": 0,
+          "kind": "service_listener",
+          "class": "OCA\\Files\\Listener\\SyncLivePhotosListener",
+          "method": "handle",
+          "class_sha256": "64b811c09b14d43c35878a07d26fbf1bf9db7526654d6c20afefeeef3128d589",
+          "method_start": 53,
+          "method_end": 89,
+          "source_sha256": "64b811c09b14d43c35878a07d26fbf1bf9db7526654d6c20afefeeef3128d589",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": 0,
+          "position": 0,
+          "kind": "service_listener",
+          "class": "OC\\FilesMetadata\\Listener\\MetadataDelete",
+          "method": "handle",
+          "class_sha256": "5ed9bfbe3bf711afe6724c7da8f01d669800a6044a9b7e8cf7555981e32c5861",
+          "method_start": 31,
+          "method_end": 55,
+          "source_sha256": "5ed9bfbe3bf711afe6724c7da8f01d669800a6044a9b7e8cf7555981e32c5861",
+          "captures_sha256": "e47d4ecca9b08d91e042bf4921435c3dee80541bcbdf4187c859d8f2229123ba",
+          "capture_shape": {
+            "resolved_class": null,
+            "container_class": "OC\\Server"
+          }
+        }
+      ]
+    },
+    "hooks": {
+      "OC_Filesystem/preSetup": [],
+      "OC_Filesystem/post_initMountPoints": [],
+      "OC_Filesystem/setup": []
+    },
+    "providers": {
+      "providers": [
+        {
+          "class": "OC\\Files\\Mount\\CacheMountProvider",
+          "class_sha256": "4b1febb5fb5451be0d6dc4a53269896fd5f9f5c19fd4c61962b9245371b830ad"
+        },
+        {
+          "class": "OCA\\Files_Sharing\\MountProvider",
+          "class_sha256": "405b8d095d566981a5143857cf10b35fbd27ec157acfbee16be49788cd37c149"
+        },
+        {
+          "class": "OCA\\Files_Sharing\\External\\MountProvider",
+          "class_sha256": "542cc74beccb177cfb3a28823fd4987708cdc7d68ae9a947324162237a8d59ca"
+        },
+        {
+          "class": "OCA\\Files_External\\Config\\ConfigAdapter",
+          "class_sha256": "23e023a30d2b87b1947a5e563b9b9fca0a34b98e84213e2871ac527318b7bc6f"
+        }
+      ],
+      "homeProviders": [
+        {
+          "class": "OC\\Files\\Mount\\LocalHomeMountProvider",
+          "class_sha256": "450e7e13f6cc0d6b75b1d7f045561377bd5c8da9ccad245d6a361f3087bdf758"
+        },
+        {
+          "class": "OC\\Files\\Mount\\ObjectHomeMountProvider",
+          "class_sha256": "aa77b11a4052494aded83b968caf864ff05fa4e9aa8897a1a86bd6379549f6e9"
+        }
+      ],
+      "rootProviders": [
+        {
+          "class": "OC\\Files\\Mount\\RootMountProvider",
+          "class_sha256": "9433289dec598488586e0258049a39662c61386b965970005bdc6a161acbde4a"
+        }
+      ]
+    },
+    "storage_wrappers": [
+      {
+        "name": "mount_options",
+        "priority": 50,
+        "callback": {
+          "priority": 50,
+          "position": 0,
+          "kind": "callable",
+          "class": "OC\\Files\\SetupManager",
+          "method": "{closure}",
+          "class_sha256": "02c54af1b5faf40268dad0a7c00405cb1dc8e7b8b9869b88979528616075fc3e",
+          "method_start": 171,
+          "method_end": 177,
+          "source_sha256": "02c54af1b5faf40268dad0a7c00405cb1dc8e7b8b9869b88979528616075fc3e",
+          "captures_sha256": "ecc5457062e1036d383403047d448db53638b6a18b41a963628b428b68c03661",
+          "capture_shape": {
+            "bound_class": "OC\\Files\\SetupManager"
+          }
+        },
+        "selector_mounts": []
+      },
+      {
+        "name": "sharing_mask",
+        "priority": 50,
+        "callback": {
+          "priority": 50,
+          "position": 1,
+          "kind": "callable",
+          "class": "OC\\Files\\SetupManager",
+          "method": "{closure}",
+          "class_sha256": "02c54af1b5faf40268dad0a7c00405cb1dc8e7b8b9869b88979528616075fc3e",
+          "method_start": 184,
+          "method_end": 194,
+          "source_sha256": "02c54af1b5faf40268dad0a7c00405cb1dc8e7b8b9869b88979528616075fc3e",
+          "captures_sha256": "b159c744d91a2d52d384e2df1d8669b2c3aed264452ed9f15484a893198fa971",
+          "capture_shape": {
+            "reSharingEnabled": {
+              "type": "bool",
+              "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+            },
+            "sharingEnabledForUser": {
+              "type": "bool",
+              "sha256": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b"
+            },
+            "bound_class": "OC\\Files\\SetupManager"
+          }
+        },
+        "selector_mounts": []
+      },
+      {
+        "name": "OC\\Files\\Storage\\Wrapper\\Availability",
+        "priority": 50,
+        "callback": {
+          "priority": 50,
+          "position": 2,
+          "kind": "callable",
+          "class": "OC\\Files\\SetupManager",
+          "method": "{closure}",
+          "class_sha256": "02c54af1b5faf40268dad0a7c00405cb1dc8e7b8b9869b88979528616075fc3e",
+          "method_start": 197,
+          "method_end": 203,
+          "source_sha256": "02c54af1b5faf40268dad0a7c00405cb1dc8e7b8b9869b88979528616075fc3e",
+          "captures_sha256": "ecc5457062e1036d383403047d448db53638b6a18b41a963628b428b68c03661",
+          "capture_shape": {
+            "bound_class": "OC\\Files\\SetupManager"
+          }
+        },
+        "selector_mounts": []
+      },
+      {
+        "name": "OC\\Files\\Storage\\Wrapper\\Encoding",
+        "priority": 50,
+        "callback": {
+          "priority": 50,
+          "position": 3,
+          "kind": "callable",
+          "class": "OC\\Files\\SetupManager",
+          "method": "{closure}",
+          "class_sha256": "02c54af1b5faf40268dad0a7c00405cb1dc8e7b8b9869b88979528616075fc3e",
+          "method_start": 205,
+          "method_end": 210,
+          "source_sha256": "02c54af1b5faf40268dad0a7c00405cb1dc8e7b8b9869b88979528616075fc3e",
+          "captures_sha256": "ecc5457062e1036d383403047d448db53638b6a18b41a963628b428b68c03661",
+          "capture_shape": {
+            "bound_class": "OC\\Files\\SetupManager"
+          }
+        },
+        "selector_mounts": []
+      },
+      {
+        "name": "OC\\Files\\Storage\\Wrapper\\Quota",
+        "priority": 50,
+        "callback": {
+          "priority": 50,
+          "position": 4,
+          "kind": "callable",
+          "class": "OC\\Files\\SetupManager",
+          "method": "{closure}",
+          "class_sha256": "02c54af1b5faf40268dad0a7c00405cb1dc8e7b8b9869b88979528616075fc3e",
+          "method_start": 213,
+          "method_end": 224,
+          "source_sha256": "02c54af1b5faf40268dad0a7c00405cb1dc8e7b8b9869b88979528616075fc3e",
+          "captures_sha256": "7efb201efdedd9ece0fb5e49e8f19e173d9c783acc06911637d6e8302138b6f3",
+          "capture_shape": {
+            "quotaIncludeExternal": {
+              "type": "bool",
+              "sha256": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa"
+            },
+            "bound_class": "OC\\Files\\SetupManager"
+          }
+        },
+        "selector_mounts": []
+      },
+      {
+        "name": "readonly",
+        "priority": 50,
+        "callback": {
+          "priority": 50,
+          "position": 5,
+          "kind": "callable",
+          "class": "OC\\Files\\SetupManager",
+          "method": "{closure}",
+          "class_sha256": "02c54af1b5faf40268dad0a7c00405cb1dc8e7b8b9869b88979528616075fc3e",
+          "method_start": 226,
+          "method_end": 241,
+          "source_sha256": "02c54af1b5faf40268dad0a7c00405cb1dc8e7b8b9869b88979528616075fc3e",
+          "captures_sha256": "ecc5457062e1036d383403047d448db53638b6a18b41a963628b428b68c03661",
+          "capture_shape": {
+            "bound_class": "OC\\Files\\SetupManager"
+          }
+        },
+        "selector_mounts": []
+      }
+    ]
+  },
+  "sources": {
+    "3rdparty/symfony/event-dispatcher/EventDispatcher.php": "212bc21d00210a52c56901aec7dd6ec4b9544bde241890e93470211a18aa2e45",
+    "3rdparty/pimple/pimple/src/Pimple/Container.php": "83f96c41f64cff2b3cb707b4f79052a1f65f6b28d8c82107e69a2d8d4ddc39ac",
+    "lib/private/AppFramework/DependencyInjection/DIContainer.php": "7f4bf50c2f01c085a9822e7ccc4de5917f891b932d2a22f2ea1634e92c6628c7",
+    "lib/private/AppFramework/Utility/SimpleContainer.php": "092b9f276d85e82f7137ce4609f3b6ab384695fa2218622b5f6c3fc2f5c3c1ea",
+    "lib/private/EventDispatcher/EventDispatcher.php": "2c5161be589fc368549ddac57d0a8586afd167fe1f108ea0825b896327ba3936",
+    "lib/private/EventDispatcher/ServiceEventListener.php": "0fff0c14fae0723f9c13d6ef56caca4f90dd4ba7db53f2805fa6e42a792d0482",
+    "lib/private/ServerContainer.php": "f30fbf03b8c001c5ebda4234d2fb6eac5fa769b4dfbf7bc7f7997353730adbf7",
+    "lib/private/Files/Storage/StorageFactory.php": "b2bb067fce7f470de0e4d0707a6c67e9fd6dc5c26d5a0ec6df8db2efc73b3d9f",
+    "lib/private/Server.php": "ca8b7707e59796e0a28bedc62fc03f56bc1dceb07a73a73bf73c6c7f39724115",
+    "lib/private/Files/Filesystem.php": "6d0ac1886352c2e60af7f7055cf46a9388a11d1b3d2977acd81ae92dfe4fa8e9",
+    "lib/private/Files/SetupManager.php": "02c54af1b5faf40268dad0a7c00405cb1dc8e7b8b9869b88979528616075fc3e",
+    "lib/private/Files/Config/MountProviderCollection.php": "a682566b7056b2b3690919800a276ea7e3be43c0d0b83d24d008e959dbb59338",
+    "lib/private/legacy/OC_Hook.php": "8dd8225102a5c932dcdedce7cca5ecac48708fdc08144311119d99159e7ad7a8",
+    "lib/private/Files/Mount/Manager.php": "343747b1628ba8ab2a94e8471a7fb6c798df822b2470b256a9aba6fe99918342",
+    "lib/private/App/AppManager.php": "5e2382c24ad5dbbdd6ad79e5bc890426e3e9493b1c9b4e5b525f0743fbb0db99"
+  }
+}

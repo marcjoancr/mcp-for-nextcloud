@@ -26,6 +26,13 @@ final class FormsDestinationAccessTest extends TestCase {
         $guard->expects(self::never())->method('isTraversable');
         (new FormsFileImpact($root,$guard))->assertDestination($parent,true);
     }
+    public function testFutureHomeRequiresAnExplicitUnrestrictedReadableFilesScope():void {
+        $guard=$this->createMock(FilesAccessGuard::class);
+        $guard->expects(self::once())->method('clearCache')->with(true);
+        $guard->expects(self::once())->method('assertScopeReadable');
+        $guard->expects(self::once())->method('assertUnrestrictedScope')->with('actor');
+        (new FormsFileImpact($this->createMock(IRootFolder::class),$guard))->assertUnrestrictedDestinationScope('actor');
+    }
     public function testUnreadableUncreatableOrHiddenParentsCannotReceiveBytes():void {
         foreach([[false,true,true],[true,false,true],[true,true,false]] as [$read,$create,$visible]){
             $guard=$this->createMock(FilesAccessGuard::class);$parent=$this->createMock(Folder::class);

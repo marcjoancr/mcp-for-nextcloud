@@ -14,13 +14,14 @@ final class FinalReadQuery extends \OC\DB\QueryBuilder\QueryBuilder {
    if($p->isStatic())throw new \RuntimeException('Final read native query state is unqualified');
    if($p->isInitialized($native))$p->setValue($copy,$p->getValue($native));
   }
-  (new \ReflectionProperty(\OC\DB\QueryBuilder\QueryBuilder::class,'connection'))->setValue($copy,$recorder);
+  // Keep the native connection private for expression construction (DBAL requires getInner).
+  // All query execution still routes explicitly through the recorder below.
   return$copy;
  }
  public function getConnection(){return$this->recorder;}
  public function executeQuery(?\OCP\IDBConnection$connection=null):\OCP\DB\IResult {
   if($connection!==null)throw new \LogicException('Final read alternate connection is closed');
-  return parent::executeQuery();
+  return parent::executeQuery($this->recorder);
  }
  public function executeStatement(?\OCP\IDBConnection$connection=null):int {throw new \LogicException('Final read query writes are closed');}
 }

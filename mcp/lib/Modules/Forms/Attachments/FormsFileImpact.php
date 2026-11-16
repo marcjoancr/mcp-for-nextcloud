@@ -17,6 +17,10 @@ final class FormsFileImpact {
         if(!$folder->isReadable()||($create?(!$folder->isCreatable()||!$this->access->isVisible($folder)):!$this->access->isTraversable($folder)))
             throw new \RuntimeException('Forms destination is outside the current Files access');
     }
+    /** A future Home has no native node yet, so only an explicitly unrestricted captured Files scope can admit it. */
+    public function assertUnrestrictedDestinationScope(string $uid):void {
+        $this->access->clearCache(true);$this->access->assertScopeReadable();$this->access->assertUnrestrictedScope($uid);
+    }
     /** Caller supplies freshly reconstructed, identity-checked native copies and actual write parents. */
     public function assertTransferFiles(string $uid,array $manifest,array $copies,array $parents):void {
         if(!array_is_list($copies)||!array_is_list($parents)||count($copies)>1000||count($parents)>2000

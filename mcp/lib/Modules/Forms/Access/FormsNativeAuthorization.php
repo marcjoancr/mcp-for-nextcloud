@@ -39,6 +39,21 @@ final class FormsNativeAuthorization {
             throw new \RuntimeException('Forms destination authority is unavailable.');
         $this->policy->resourceBoundary($context['uid'],fn()=>$this->impact->assertDestination($folder,$create));
     }
+    /** Pure binding check used by focused tests and the fresh-Home capability below. */
+    public static function assertNativeHomeContext(array $context,string $targetUid):void {
+        $files=$context['references']['files_operations']??null;
+        if($targetUid===''||strlen($targetUid)>255||preg_match('/[\x00-\x1f\x7f]/',$targetUid)
+            ||!in_array($context['tool']??null,['forms_transfer','forms_restore'],true)||!is_array($files)
+            ||!in_array('read',$files,true)||!in_array('create',$files,true))
+            throw new \RuntimeException('Forms destination authority is unavailable.');
+    }
+    /** Fresh Home has no node id yet; require current/original authority and an unrestricted Files scope. */
+    public function assertNativeHome(array $origin,?array $control,string $targetUid):array {
+        $context=$control===null?$this->assert($origin):$this->assertPair($origin,$control);
+        self::assertNativeHomeContext($context,$targetUid);
+        $this->policy->resourceBoundary($context['uid'],fn()=>$this->impact->assertUnrestrictedDestinationScope($context['uid']));
+        return $context;
+    }
     public function assertFiles(array $origin,string $action,array $manifest):void {
         $context=$this->assert($origin);
         if(($manifest['source_files']??[])!==[])$this->policy->resourceBoundary($context['uid'],fn()=>$this->impact->assertVisible($context['uid'],['files'=>$manifest['source_files']]));

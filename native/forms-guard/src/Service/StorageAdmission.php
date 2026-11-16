@@ -52,7 +52,9 @@ final class StorageAdmission {
     public static function operation(string $uid, string $action, array $input): void {
         if ($action === 'forms_restore') {
             self::recovery();
-            self::userPath($uid, 'Forms', true);
+            // Admission of a restore must remain metadata-only; a fresh recipient Home is prepared by the
+            // one-shot child only after the sealed backup and exact file inventory are known.
+            self::userPath($uid, 'Forms', true, true);
             return;
         }
         $fileActions = [
@@ -95,21 +97,92 @@ final class StorageAdmission {
             self::userPath($form->getOwnerId(), 'Forms/unsubmitted', true);
         }
         if ($action === 'forms_transfer') {
-            self::userPath($input['owner_id'], $path, true);
+            self::userPath($input['owner_id'], $path, true, true, true);
         }
         if ($action !== 'forms_upload_response_files') {
             self::recovery();
         }
     }
 
-    public static function userPath(string $uid, string $path, bool $descendants = false): void {
+    public static function userPath(string $uid, string $path, bool $descendants = false, bool $prospective = false, bool $checkCollision = false): void {
         $segments = explode('/', str_replace('\\', '/', $path));
         if (in_array('..', $segments, true) || preg_match('/[\x00-\x1f\x7f]/', $path)) {
             throw new \RuntimeException('Forms storage path is unavailable');
         }
+        if ($prospective) {
+            self::prospectiveUserPath($uid, $segments, $descendants, $checkCollision);
+            return;
+        }
         $root = Server::get(IRootFolder::class)->getUserFolder($uid);
         $segments = array_values(array_filter($segments, static fn (string $segment): bool => $segment !== '' && $segment !== '.'));
         self::path($root->getPath() . '/' . implode('/', $segments), $descendants);
+    }
+
+    /** Admit a target Home from already materialized mount metadata, never from Root::getUserFolder. */
+    private static function prospectiveUserPath(string $uid, array $segments, bool $descendants, bool $checkCollision): void {
+        $full = NativeHomePath::prospectiveFilesPath($uid);
+        $segments = array_values(array_filter($segments, static fn (string $segment): bool => $segment !== '' && $segment !== '.'));
+        if ($segments !== []) { $full .= '/' . implode('/', $segments); }
+        $manager = Server::get(IMountManager::class);
+        if ($manager::class !== 'OC\\Files\\Mount\\Manager') {
+            throw new \RuntimeException('Forms Home mount metadata is unavailable');
+        }
+        $mounts = $manager->getAll();
+        if (!is_array($mounts)) { throw new \RuntimeException('Forms Home mount metadata is unavailable'); }
+        $home = NativeHomePath::selectedHomeMount($uid, $mounts);
+        if ($home === null) {
+            $prefix = '/' . $uid . '/';
+            foreach ($mounts as $mount) {
+                if (!is_object($mount) || !method_exists($mount, 'getMountPoint')) {
+                    throw new \RuntimeException('Forms Home mount metadata is unavailable');
+                }
+                $point = $mount->getMountPoint();
+                if (!is_string($point) || $point === '' || str_contains($point, "\0")) {
+                    throw new \RuntimeException('Forms Home mount metadata is unavailable');
+                }
+                if (str_starts_with($point, $prefix)) {
+                    throw new \RuntimeException('Forms Home mount metadata is unavailable');
+                }
+            }
+            $homePath = self::prospectiveHomePath($uid);
+            if ($checkCollision) { NativeHomePath::assertNoPathCollision($homePath, 'files/' . implode('/', $segments)); }
+            return;
+        }
+        $homeStorage = $home->getStorage();
+        if (!$homeStorage instanceof IStorage) { throw new \RuntimeException('Forms storage mount is unavailable'); }
+        self::storage($homeStorage);
+        $mount = NativeHomePath::mountForPath($full, $mounts) ?? $home;
+        $storage = $mount->getStorage();
+        if (!$storage instanceof IStorage) { throw new \RuntimeException('Forms storage mount is unavailable'); }
+        self::storage($storage);
+        if ($descendants) {
+            $count = 0;
+            foreach ($mounts as $child) {
+                $point = $child->getMountPoint();
+                if (!is_string($point)) { throw new \RuntimeException('Forms Home mount metadata is unavailable'); }
+                if ($point !== $full && str_starts_with($point, rtrim($full, '/') . '/')) {
+                    if (++$count > 100) { throw new \RuntimeException('Forms storage mount limit exceeded'); }
+                    $childStorage = $child->getStorage();
+                    if (!$childStorage instanceof IStorage) { throw new \RuntimeException('Forms storage mount is unavailable'); }
+                    self::storage($childStorage);
+                }
+            }
+        }
+    }
+
+    /** Pure default Database/Local Home path from the fresh native user record and system config. */
+    public static function prospectiveHomePath(string $uid): string {
+        $user = (new FreshCore($uid))->user();
+        $config = Server::get(IConfig::class);
+        $data = $config->getSystemValue('datadirectory', '');
+        if (!is_string($data)) { throw new \RuntimeException('Forms local Home profile is unavailable'); }
+        return NativeHomePath::assertDefaultLocalConfig(
+            $uid,
+            $user->getHome(),
+            $data,
+            $config->getSystemValue('objectstore', false),
+            $config->getSystemValue('objectstore_multibucket', false),
+        );
     }
 
     /** Resolving mounts does not create the appdata directory. */
@@ -167,7 +240,7 @@ final class StorageAdmission {
             }
             $seen[spl_object_id($storage)] = true;
             $class = $storage::class;
-            if ($class === ManagedFileStorage::class || $class === NewFileStorage::class || $class === MutationBoundaryStorage::class) {
+            if ($class === ManagedFileStorage::class || $class === NewFileStorage::class || $class === MutationBoundaryStorage::class || $class === NativeHomeStorage::class) {
                 // These exact final classes are covered by the independently pinned companion manifest.
                 $storage = $storage->getWrapperStorage();
                 continue;

@@ -86,6 +86,13 @@ class FilesAccessGuard extends VisibilityGuard {
         $this->scope->items($this->scope->operationUser());
     }
 
+    /** Future Home paths have no node id; admit them only when the active Files scope is explicitly unrestricted. */
+    public function assertUnrestrictedScope(string $userId): void {
+        if ($this->scope->items($userId) !== null) {
+            throw new \RuntimeException('Files scope does not include all resources');
+        }
+    }
+
     /**
      * What a listing of the user's root shows when the root itself is outside the scope: the selected folders the
      * user reaches, with their real paths, still subject to the exclusion and the native read.

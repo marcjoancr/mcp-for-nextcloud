@@ -14,6 +14,14 @@ final class FormsAuthorization {
     public static function fileOperations(string $tool,array $args,array $snapshot):array {
         if(isset($snapshot['historical']['files_operations']))return $snapshot['historical']['files_operations'];
         $ops=FormsCommands::definitions()[$tool]['grantAllOf']['files']??[];
+        if($tool==='forms_transfer') {
+            $files=$snapshot['counts']['files']??null;$unavailable=$snapshot['historical_unavailable_files']??0;$shares=$snapshot['counts']['managed_shares']??null;
+            if(is_int($files)&&$files>=0&&is_int($unavailable)&&$unavailable>=0&&$files>$unavailable
+                ||is_int($shares)&&$shares>0)$ops=array_merge($ops,['read','create']);
+        } elseif($tool==='forms_restore') {
+            $files=$snapshot['counts']['files']??null;$unavailable=$snapshot['historical_unavailable_files']??0;
+            if(is_int($files)&&$files>=0&&is_int($unavailable)&&$unavailable>=0&&$files>$unavailable)$ops=array_merge($ops,['read','create']);
+        }
         if($args['include_files']??false)$ops[]='read';
         if($args['overwrite']??false)$ops[]='edit';
         if($snapshot['file_manifest']['files_share']??false)$ops[]='share';

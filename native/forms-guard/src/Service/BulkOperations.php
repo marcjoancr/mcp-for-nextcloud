@@ -30,27 +30,41 @@ final class BulkOperations {
    throw new BeforeEffect('Source bulk lifecycle requires the activated qualified Forms comments writer');
   }
  }
- private function admit(string $uid,string $action,array $input,callable $authorize):void {
+ private function assertTransferDestinationAbsent(string $uid,string $path):void {
+  $manager=Server::get(\OCP\Files\Mount\IMountManager::class);
+  if($manager::class!=='OC\\Files\\Mount\\Manager'){throw new BeforeEffect('Transfer destination metadata is unavailable');}
+  $mounts=$manager->getAll();if(!is_array($mounts)){throw new BeforeEffect('Transfer destination metadata is unavailable');}
+  $home=NativeHomePath::selectedHomeMount($uid,$mounts);$target=(new FreshCore($uid))->user();$setup=$manager->getSetupManager();
+  if($setup::class!=='OC\\Files\\SetupManager'){throw new BeforeEffect('Transfer destination metadata is unavailable');}
+  if($home===null||!$setup->isSetupComplete($target)){
+   $home=StorageAdmission::prospectiveHomePath($uid);
+   NativeHomePath::assertNoPathCollision($home,'files/'.$path);
+   return;
+  }
+  $root=Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($uid);
+  if($root->nodeExists($path)){throw new BeforeEffect('Transfer destination already exists');}
+ }
+ private function admit(string $uid,string $action,array $input,callable $authorize,bool $metadataPreview=false):void {
   if(!BulkStore::ready()||!in_array($action,self::ACTIONS,true)){throw new BeforeEffect('Native bounded lifecycle unavailable');}
   OriginContext::assertFresh();if(strlen(json_encode($input,JSON_THROW_ON_ERROR))>1048576){throw new BeforeEffect('Bulk input exceeds budget');}
-  if($action==='forms_restore'){Server::get(\OCA\Forms\Mcp\Guard::class)->assertPrincipal($uid);if(Server::get(\OCP\IUserSession::class)->getUser()?->getUID()!==$uid){throw new BeforeEffect('Restore actor unavailable');}$backup=$this->recovery($uid,(string)$input['backup_id'],$input['backup_format']??1);if($backup['counts']['files']>($backup['historical_unavailable_files']??0)){DestinationFiles::admit(Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($uid),\OCA\Forms\Constants::FILES_FOLDER);}return;}
+  if($action==='forms_restore'){Server::get(\OCA\Forms\Mcp\Guard::class)->assertPrincipal($uid);if(Server::get(\OCP\IUserSession::class)->getUser()?->getUID()!==$uid){throw new BeforeEffect('Restore actor unavailable');}$backup=$this->recovery($uid,(string)$input['backup_id'],$input['backup_format']??1);if($backup['counts']['files']>($backup['historical_unavailable_files']??0)){DestinationFiles::admitProspective($uid,\OCA\Forms\Constants::FILES_FOLDER);}return;}
   $this->sourceWriter($action);$authorize();AuthoringScale::admit($action,$input);$form=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$input['id']);
   if($action==='forms_delete_form'&&(int)$this->db->executeQuery("SELECT COUNT(*) FROM *PREFIX*comments WHERE object_type = 'forms' AND object_id = ?",[(string)$input['id']])->fetchOne()>0&&!Server::get(\OCA\Forms\Mcp\Guard::class)->capabilities()['comments']){throw new BeforeEffect('Whole-form comment cleanup requires the activated native comments guard');}
   if($form->getState()===2){throw new BeforeEffect('Archived form is unavailable for bulk mutation');}
   if(in_array($action,['forms_delete_form','forms_transfer'],true)&&$form->getOwnerId()!==$uid){throw new BeforeEffect('Only the current form owner may perform this operation');}
-  if($action==='forms_transfer'&&(int)$this->db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_mcp_file_shares WHERE form_id = ?',[$input['id']])->fetchOne()>0&&!in_array('share',OriginContext::current()['verified']['references']['files_operations']??[],true)){throw new BeforeEffect('Original Files-sharing grant is required');}
+  if($action==='forms_transfer'&&(int)$this->db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_mcp_file_shares WHERE form_id = ?',[$input['id']])->fetchOne()>0&&!$metadataPreview&&!in_array('share',OriginContext::current()['verified']['references']['files_operations']??[],true)){throw new BeforeEffect('Original Files-sharing grant is required');}
   if($action==='forms_transfer'&&(int)$this->db->executeQuery('SELECT COUNT(*) FROM *PREFIX*forms_mcp_file_shares WHERE form_id = ?',[$input['id']])->fetchOne()>0){TransferShareDispatcher::inventory(Server::get(\OCP\EventDispatcher\IEventDispatcher::class));}
   if($action==='forms_transfer'){(new FreshCore($input['owner_id']??''))->assertPrincipal(false,false);$target=Server::get(\OCP\IUserManager::class)->get($input['owner_id']??'');if(!$target||!$target->isEnabled()){throw new BeforeEffect('Transfer target unavailable');}}
  }
  private function previewBinding(string $action,array $input,string $files):string {return in_array($action,AuthoringScale::ACTIONS,true)?BulkStore::digest([$files,array_diff_key($input,['_mcp_origin'=>true]),AuthoringScale::previewManifest($action,$input)]):($action==='forms_transfer'?BulkStore::digest([$files,\OCA\Forms\Mcp\Comments\CommentsRuntime::principal($input['owner_id']),Server::get(\OCA\Mcp\Mcp\Operations\ActorIdentity::class)->capture($input['owner_id']),NativeHistoryIdentity::ready()?NativeHistoryIdentity::capture($input['owner_id']):null]):$files);}
- public function snapshot(string $uid,string $action,array $input,callable $authorize):array {
-  $rev=$this->fence->revision();$this->admit($uid,$action,$input,$authorize);if($action==='forms_transfer'){Server::get(\OCA\Mcp\Mcp\Operations\ActorIdentity::class)->capture($input['owner_id']);if(NativeHistoryIdentity::ready()){NativeHistoryIdentity::capture($input['owner_id']);}}
+ public function snapshot(string $uid,string $action,array $input,callable $authorize,bool $metadataPreview=false):array {
+  $rev=$this->fence->revision();$this->admit($uid,$action,$input,$authorize,$metadataPreview);if($action==='forms_transfer'){Server::get(\OCA\Mcp\Mcp\Operations\ActorIdentity::class)->capture($input['owner_id']);if(NativeHistoryIdentity::ready()){NativeHistoryIdentity::capture($input['owner_id']);}}
   if($action==='forms_restore'){$backup=$this->recovery($uid,$input['backup_id'],$input['backup_format']??1);$counts=$backup['counts'];$form=$backup['form'];}
   else{$counts=$this->counts((int)$input['id'],$action,$input);$form=$this->db->executeQuery('SELECT id,owner_id,title FROM *PREFIX*forms_v2_forms WHERE id = ?',[$input['id']])->fetch();}
   $historyCount=$action==='forms_restore'?($backup['historical_unavailable_files']??0):(AuthoringScale::filesRelevant($action,$input)?count(Server::get(BulkFiles::class)->history((int)$input['id'])):0);
   if(array_sum($counts)>BulkStore::MAX_ROWS||$counts['files']>1000){throw new BeforeEffect('Bulk recovery row quota exceeded');}
-  if($action==='forms_transfer'&&($counts['files']>$historyCount||$counts['managed_shares']>0)){DestinationFiles::admit(Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($input['owner_id']),\OCA\Forms\Constants::FILES_FOLDER);}
-  if($action==='forms_transfer'&&($counts['files']>0||$counts['managed_shares']>0)){$native=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$input['id']);$path=Server::get(\OCA\Forms\Helper\FilePathHelper::class)->getFormUploadedFilesFolderPath($native);if(Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($input['owner_id'])->nodeExists($path)){throw new BeforeEffect('Transfer destination already exists');}}
+  if($action==='forms_transfer'&&($counts['files']>$historyCount||$counts['managed_shares']>0)){DestinationFiles::admitProspective($input['owner_id'],\OCA\Forms\Constants::FILES_FOLDER);}
+  if($action==='forms_transfer'&&($counts['files']>0||$counts['managed_shares']>0)){$native=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$input['id']);$path=Server::get(\OCA\Forms\Helper\FilePathHelper::class)->getFormUploadedFilesFolderPath($native);$this->assertTransferDestinationAbsent($input['owner_id'],$path);}
   if($rev!==$this->fence->revision()){throw new BeforeEffect('Forms changed during bulk preview');}
   return ['revision'=>'b1:'.$rev.':'.$this->previewBinding($action,$input,$action==='forms_restore'?str_repeat('0',64):AuthoringScale::fingerprint($action,$input,(int)$form['id'])),'action'=>$action,'form'=>['id'=>(int)$form['id'],'title'=>$form['title'],'ownerId'=>$form['owner_id']], 'counts'=>$counts,'file_manifest'=>in_array($action,AuthoringScale::ACTIONS,true)?AuthoringScale::previewManifest($action,$input):['files_share'=>($counts['managed_shares']??0)>0],'historical_unavailable_files'=>$historyCount,'source_epoch'=>BulkEpoch::epoch((int)$form['id']),'target'=>$input['owner_id']??null,'destination'=>$this->destination($uid,$action,$input),'preview_collections'=>['files','managed_shares'],'authoring'=>AuthoringScale::projection($action,$input),'recovery'=>AuthoringScale::metadata($action)?'non_restorable_effect_evidence':($historyCount>0?'sealed_current_state_with_unavailable_history':'complete_sealed_before_effect'),'files'=>'exact_managed_ids_only','folders'=>'retained','linked_outputs'=>'retained'];
  }
@@ -98,7 +112,7 @@ final class BulkOperations {
    $counts=$backup['counts']??$this->counts((int)$input['id'],$action,$input);if(array_sum($counts)>BulkStore::MAX_ROWS||$counts['files']>1000){throw new BeforeEffect('Bulk recovery row quota exceeded');}
    $form=$backup['form']??$this->db->executeQuery('SELECT * FROM *PREFIX*forms_v2_forms WHERE id = ?',[$input['id']])->fetch();
    $historyCount=$backup!==null?($backup['historical_unavailable_files']??0):(AuthoringScale::filesRelevant($action,$input)?count(Server::get(BulkFiles::class)->history((int)$form['id'])):0);
-   if($action==='forms_transfer'&&($counts['files']>$historyCount||$counts['managed_shares']>0)){DestinationFiles::admit(Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($input['owner_id']),\OCA\Forms\Constants::FILES_FOLDER);}
+   if($action==='forms_transfer'&&($counts['files']>$historyCount||$counts['managed_shares']>0)){DestinationFiles::admitProspective($input['owner_id'],\OCA\Forms\Constants::FILES_FOLDER);}
    $j=['id'=>hash('sha256','forms-bulk:'.$key),'key'=>$key,'actor'=>OriginContext::identity($uid),'uid'=>$uid,'action'=>$action,'input'=>$input,'fingerprint'=>$fingerprint,'origin'=>OriginContext::current()['origin'],'revision'=>$this->fence->revision(),'backup_format'=>AuthoringScale::metadata($action)?'authoring_effects_v1':($backup['backup_format']??($historyCount>0?2:1)),'historical_unavailable_files'=>$historyCount,'authoring_manifest'=>in_array($action,AuthoringScale::ACTIONS,true)?AuthoringScale::previewManifest($action,$input):[],'file_revision'=>$fileRevision,'epoch'=>$backup?0:BulkEpoch::epoch((int)$form['id']),'global_epoch'=>BulkEpoch::epoch(0),'native_manifest'=>BulkEpoch::runtime(),'target_principal'=>$targetPrincipal,'target_actor'=>$action==='forms_transfer'?Server::get(\OCA\Mcp\Mcp\Operations\ActorIdentity::class)->capture($input['owner_id']):null,'target_native_actor'=>$action==='forms_transfer'&&NativeHistoryIdentity::ready()?NativeHistoryIdentity::capture($input['owner_id']):null,'question_effect_count'=>$action==='forms_delete_question'?1:null,'form'=>$form,'counts'=>$counts,'state'=>'pending','phase'=>$backup?'restore':'capture','kind'=>0,'cursor'=>0,'version'=>1,'captured'=>0,'done'=>0,'bytes'=>0,'chain'=>'','verified_chain'=>'','verified'=>0,'sealed'=>false,'restored_form_id'=>null];
    if(AuthoringScale::metadata($action)){AuthoringScale::assertOriginalFiles($j['authoring_manifest']);}$this->store->create($j);BulkDeadline::check();return $this->dto($j);
    });
@@ -116,6 +130,7 @@ final class BulkOperations {
    OriginContext::assertFresh();$j=$this->store->load($id);$this->actor($uid,$j);$receipt=$this->store->receipt($id,$key);
    if($receipt!==null){if($receipt['version']!==$approvedVersion+1){throw new BeforeEffect('Step receipt version does not match');}return BulkStepEvidence::resolve($receipt,$j,static fn(string $operation)=>Server::get(ManagedSharePhase::class)->phase($operation));}
    if($j['state']==='uncertain'&&($j['claim']['step_key']??null)===$key&&$j['version']===$approvedVersion+1){return $this->dto($j);}
+   if($j['state']==='uncertain'&&($j['native_home_claim']['home_phase']['step_key']??null)===$key&&$j['version']===$approvedVersion+1){return $this->dto($j);}
    if($j['state']==='pending'&&$j['version']===$approvedVersion&&!isset($j['claim'])&&hash_equals($j['native_manifest']??'',BulkEpoch::runtime())){return null;}
    throw new BeforeEffect('Step evidence is unavailable; absence does not prove no effect');
   }));
@@ -123,7 +138,9 @@ final class BulkOperations {
  public function status(string $uid,string $id):array {$j=$this->store->load($id);$this->actor($uid,$j);return OriginContext::within($uid,$j['origin'],'lookup',$j['input'],fn()=> $this->dto($j));}
  public function step(string $uid,string $id,int $version,string $key,callable $authorize,?callable $files=null):array {
   self::key($key);$j=$this->store->load($id);$this->actor($uid,$j);
-  return OriginContext::within($uid,$j['origin'],$j['action'],$j['input'],fn()=> $this->fence->withLock(function()use($uid,$id,$version,$key,$authorize,$files):array {
+  return OriginContext::within($uid,$j['origin'],$j['action'],$j['input'],function()use($uid,$id,$version,$key,$authorize,$files):array {
+   if(!NativeHomeChild::claimBulkStep($uid,$id,$version,$key)){$homeStep=$this->nativeHomeStep($uid,$id,$version,$key,$authorize);if($homeStep!==null){return $homeStep;}}
+   return $this->fence->withLock(function()use($uid,$id,$version,$key,$authorize,$files):array {
    $j=$this->store->load($id);$this->actor($uid,$j);$this->sourceWriter($j['action']);$prior=$this->store->receipt($id,$key);if($prior!==null){return BulkStepEvidence::resolve($prior,$j,static fn(string $operation)=>Server::get(ManagedSharePhase::class)->phase($operation));}
    if($j['version']!==$version){throw new BeforeEffect('Bulk version conflict');}
    if(!in_array($j['state'],['pending'],true)){return $this->dto($j);}
@@ -148,7 +165,64 @@ final class BulkOperations {
     BulkDeadline::check();$j['version']++;$j['revision']=$this->fence->revision();$j['epoch']=$this->sourceEpoch($j);$this->store->save($j);$dto=$this->dto($j);$this->store->record($j['id'],$key,$dto);BulkDeadline::check();return $dto;
    });
    return BulkStepEvidence::resolve($dto,$j,static fn(string $operation)=>Server::get(ManagedSharePhase::class)->phase($operation));
-  }));
+  });
+  });
+ }
+ /** A fresh child owns target setup and the complete ordinary Forms step that uses it. */
+ private function nativeHomeStep(string $uid,string $id,int $version,string $key,callable $authorize):?array {
+  $job=$this->store->load($id);$this->actor($uid,$job);
+  if($job['state']!=='pending'||$job['version']!==$version||($job['action']!=='forms_restore'&&!$job['sealed'])){return null;}
+  $phase=$job['phase'];$target=match($job['action']){'forms_transfer'=>$job['input']['owner_id']??null,'forms_restore'=>$job['uid'],default=>null};
+  $files=(int)($job['counts']['files']??0)-(int)($job['historical_unavailable_files']??0);
+  $hasTargetEffects=$job['action']==='forms_transfer'
+   ?($files>0||(int)($job['counts']['managed_shares']??0)>0)
+   :($job['action']==='forms_restore'&&$files>0);
+  $targetPhases=$job['action']==='forms_transfer'?['copy_files','stage_shares','stage_recipients','apply']:['restore_files'];
+  if(!$hasTargetEffects||!is_string($target)||!in_array($phase,$targetPhases,true)){return null;}
+  if(isset($job['native_home_claim'])){throw new BeforeEffect('Native Home step requires explicit recovery');}
+  $manager=Server::get(\OCP\Files\Mount\IMountManager::class);
+  if($manager::class!=='OC\\Files\\Mount\\Manager'){throw new BeforeEffect('Native Home mount metadata is unavailable');}
+  $mounts=$manager->getAll();if(!is_array($mounts)){throw new BeforeEffect('Native Home mount metadata is unavailable');}
+  $home=NativeHomePath::selectedHomeMount($target,$mounts);$targetUser=(new FreshCore($target))->user();$setup=$manager->getSetupManager();
+  if($setup::class!=='OC\\Files\\SetupManager'){throw new BeforeEffect('Native Home setup metadata is unavailable');}
+  if($home!==null&&$setup->isSetupComplete($targetUser)){return null;}
+
+  $journalFile=NativeHomeProcess::createJournalFile();$path=$journalFile['path'];$stream=$journalFile['stream'];
+  $homeClaim=['home_phase'=>['nonce'=>bin2hex(random_bytes(32)),'phase'=>$phase,'uid'=>$uid,'action'=>$job['action'],
+   'target_uid'=>$target,'step_key'=>$key,'version'=>$version]];
+  $claimed=false;$envelope=null;
+  try {
+   $job=$this->fence->transaction(function()use($uid,$id,$version,$key,$authorize,$homeClaim,$path):array{
+    OriginContext::assertFresh();$current=$this->store->load($id);$this->actor($uid,$current);
+    if($current['state']!=='pending'||$current['version']!==$version||$current['phase']!==$homeClaim['home_phase']['phase']
+      ||isset($current['native_home_claim'])||($current['action']!=='forms_restore'&&!$current['sealed'])){throw new BeforeEffect('Native Home claim changed');}
+    $this->admit($uid,$current['action'],$current['input'],$authorize);
+    $current['native_home_claim']=$homeClaim;$current['native_home_journal']=basename($path);$this->store->save($current);return$current;
+   });
+   $claimed=true;
+   $envelope=OriginContext::nativeHomeEnvelope($job,$homeClaim);
+   $root=\OC::$SERVERROOT;$script=dirname(__DIR__).'/native-home-worker.php';
+   $receipt=NativeHomeProcess::run($envelope,$script,$root,$stream);
+   $dto=$receipt['dto']??null;
+   if(!is_array($dto)||($dto['bulk_id']??null)!==$id||($dto['version']??null)!==$version+1){throw new \RuntimeException('Native Home bulk step receipt differs');}
+   if(in_array($dto['state']??null,['pending','completed','partial','cancelled','failed_before_effect'],true)){@unlink($path);}
+   return $dto;
+  } catch(\Throwable $error) {
+   if(!$claimed){@unlink($path);}
+   $journalEvidence=null;
+   if($claimed&&is_array($envelope)){try{$journalEvidence=NativeHomeJournal::read($stream,$envelope);}catch(\Throwable){}}
+   try{$this->fence->transaction(function()use($uid,$id,$version,$key,$journalEvidence):void{
+    $current=$this->store->load($id);$receipt=$this->store->receipt($id,$key);
+    if($receipt!==null||!isset($current['native_home_claim'])||($current['native_home_claim']['home_phase']['step_key']??null)!==$key){return;}
+    if(is_array($journalEvidence)){$this->store->putMapping($current,'native_home',$version,$journalEvidence);$current['native_home_receipt']=['phase'=>$current['native_home_claim']['home_phase']['phase'],'version'=>$version,
+      'state'=>$journalEvidence['state'],'effects'=>$journalEvidence['effects'],'pending'=>count($journalEvidence['pending']),'failed'=>$journalEvidence['failed'],'chain'=>$journalEvidence['chain']];}
+    if(($current['version']??null)===$version){$current['state']='uncertain';$current['reason']='native_home_recovery_required';$current['version']=$version+1;$this->store->save($current);}
+   });}catch(\Throwable){}
+   $current=$this->store->load($id);$receipt=$this->store->receipt($id,$key);
+   if($receipt!==null){return BulkStepEvidence::resolve($receipt,$current,static fn(string $operation)=>Server::get(ManagedSharePhase::class)->phase($operation));}
+   if(($current['state']??null)==='uncertain'&&($current['version']??null)===$version+1){return $this->dto($current);}
+   throw new BeforeEffect('Native Home initialization failed; recovery evidence was retained',0,$error);
+  } finally {if(is_resource($stream)){fclose($stream);}}
  }
  private function fileStep(array $j,string $uid,string $key,callable $authorize,?callable $files):array {
   if(!$this->sourceMatches($j)){return $this->fence->transaction(function()use(&$j,$key):array{$j['state']=($j['done']>0||($j['source_effects']??false)||(array_sum($j['retained_files']??[])+($j['retained_shares']??0)+($j['retained_folders']??0))>0)?'partial':'failed_before_effect';$j['reason']='source_changed';$j['version']++;$this->store->save($j);$dto=$this->dto($j);$this->store->record($j['id'],$key,$dto);return $dto;});}

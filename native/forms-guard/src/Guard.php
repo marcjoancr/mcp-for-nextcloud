@@ -33,7 +33,7 @@ final class Guard {
     }
     public function bulkSnapshot(string $uid,string $action,array $input): array {
         $this->bulkAdmission($uid);
-        return Service\BulkDeadline::run(fn()=>OriginContext::within($uid,$input['_mcp_origin']??[],$action,$input,fn()=>Server::get(Service\BulkOperations::class)->snapshot($uid,$action,$input,fn()=> $this->authorize($uid,$action,$input))));
+        return Service\BulkDeadline::run(fn()=>OriginContext::within($uid,$input['_mcp_origin']??[],$action,$input,fn()=>Server::get(Service\BulkOperations::class)->snapshot($uid,$action,$input,fn()=> $this->authorize($uid,$action,$input),metadataPreview:true)));
     }
     /** Private keyset cursor; public adapters must wrap it in their own actor-bound continuation. */
     public function bulkPreviewPage(string $uid,string $action,array $input,string $revision,string $kind,int $cursor=0,int $limit=50):array {
