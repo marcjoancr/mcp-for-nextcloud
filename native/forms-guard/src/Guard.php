@@ -462,14 +462,18 @@ final class Guard {
                     $expectedId = (int)$node->getId();
                     $expectedEtag = (string)$node->getEtag();
                 }
-                \OCA\Forms\Mcp\Service\StorageAdmission::node($node);
-                \OCA\Forms\Mcp\Service\StorageAdmission::path($path);
+                if (($origin['tool'] ?? null) === 'forms_link_results_file') {
+                    \OCA\Forms\Mcp\Service\StorageAdmission::linkedDestination($node, $uid, $path, $childName !== null, $origin['tool']);
+                } else {
+                    \OCA\Forms\Mcp\Service\StorageAdmission::node($node);
+                    \OCA\Forms\Mcp\Service\StorageAdmission::path($path);
+                }
                 $mount = Server::get(\OCP\Files\Mount\IMountManager::class)->find($path);
                 if ($mount === null) {
                     throw new \RuntimeException('Forms destination mount is unavailable');
                 }
                 $target = $mount->getInternalPath($path);
-                $check = function (string $stage='preflight') use ($uid, $origin, $formId, $authorize, $path, $mount,$deferred,$node,$backup): void {
+                $check = function (string $stage='preflight') use ($uid, $origin, $formId, $authorize, $path, $mount,$deferred,$node,$backup,$childName): void {
                     OriginContext::assertFresh();
                     if ($deferred) {
                         DeferredFileContext::assert($uid);
@@ -481,6 +485,9 @@ final class Guard {
                     } else {$this->actor($uid);}
                     if (Server::get(\OCP\Files\Mount\IMountManager::class)->find($path) !== $mount) {
                         throw new \RuntimeException('Forms destination mount changed');
+                    }
+                    if (($origin['tool'] ?? null) === 'forms_link_results_file') {
+                        \OCA\Forms\Mcp\Service\StorageAdmission::linkedDestination($node, $uid, $path, $childName !== null, $origin['tool']);
                     }
                     $forms = (new ScopedServices($uid,$deferred))->forms();
                     $form = $forms->getFormIfAllowed($formId, 'results');
@@ -498,8 +505,11 @@ final class Guard {
                 };
                 $check();
                 $wrapper = null;
-                $mount->wrapStorage(function ($mountPath, $storage) use ($target, $expectedId, $expectedEtag, $check, &$wrapper) {
-                    $wrapper = new \OCA\Forms\Mcp\Service\MutationBoundaryStorage($storage, $target, $expectedId, $expectedEtag, $check);
+                $mount->wrapStorage(function ($mountPath, $storage) use ($target, $expectedId, $expectedEtag, $check, $node, $uid, $path, $childName, $origin, &$wrapper) {
+                    $linkedAdmission = ($origin['tool'] ?? null) === 'forms_link_results_file'
+                        ? fn() => \OCA\Forms\Mcp\Service\StorageAdmission::linkedDestination($node, $uid, $path, $childName !== null, $origin['tool'])
+                        : null;
+                    $wrapper = new \OCA\Forms\Mcp\Service\MutationBoundaryStorage($storage, $target, $expectedId, $expectedEtag, $check, $linkedAdmission);
                     return $wrapper;
                 });
             try {

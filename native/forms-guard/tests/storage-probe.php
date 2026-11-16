@@ -37,6 +37,12 @@ function commitStorageScope(string $uid, bool $deny): void {
     $output = stream_get_contents($pipes[1]); $error = stream_get_contents($pipes[2]); fclose($pipes[1]); fclose($pipes[2]);
     if (proc_close($process) !== 0 || trim($output) !== 'scope committed') {throw new RuntimeException('Scope writer failed: ' . $error);}
 }
+function commitSharedAcl(string $owner, string $shareId, ?int $permissions): void {
+    $process = proc_open([PHP_BINARY, __DIR__ . '/storage-share-acl-writer.php'], [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+    fwrite($pipes[0], json_encode(['owner' => $owner, 'share_id' => $shareId, 'permissions' => $permissions])); fclose($pipes[0]);
+    $output = stream_get_contents($pipes[1]); $error = stream_get_contents($pipes[2]); fclose($pipes[1]); fclose($pipes[2]);
+    if (proc_close($process) !== 0 || trim($output) !== 'shared ACL committed') {throw new RuntimeException('Shared ACL writer failed: ' . $error);}
+}
 
 try {
     Server::get(\OCP\App\IAppManager::class)->loadApp('forms');
@@ -133,6 +139,52 @@ try {
         $result = ['real_exclusive_lock_acquired' => $locks->revoked, 'mutation_refused' => $failed,
             'bytes_preserved' => $nodes !== [] && hash('sha256', $nodes[0]->getContent()) === $expected,
             'native_form_preserved' => (bool)$db->executeQuery('SELECT id FROM *PREFIX*forms_v2_forms WHERE id = ?', [$id])->fetchOne()];
+    } elseif ($request['case'] === 'linked_shared_destination_acl') {
+        $sourceOwner = 'shared-destination-' . bin2hex(random_bytes(5));
+        $sourceUser = Server::get(\OCP\IUserManager::class)->createUser($sourceOwner, bin2hex(random_bytes(24)));
+        $sourceFolder = $roots->getUserFolder($sourceOwner)->newFolder('linked-' . bin2hex(random_bytes(4)));
+        $shares = Server::get(\OCP\Share\IManager::class);
+        $permissions = \OCP\Constants::PERMISSION_ALL;
+        $share = $shares->createShare($shares->newShare()->setNode($sourceFolder)->setShareType(\OCP\Share\IShare::TYPE_USER)
+            ->setSharedWith($uid)->setSharedBy($sourceOwner)->setPermissions($permissions));
+        $sharedFolder = $root->get($share->getTarget());
+        if (!$sharedFolder instanceof \OCP\Files\Folder) {throw new RuntimeException('Shared destination folder did not mount');}
+        $origin = formsNativeOrigin($uid, 'forms_link_results_file', ['id' => $id]);
+        $write = static fn(string $name, string $bytes) => $guard->fileBoundary(
+            $uid, $origin, $sharedFolder, $name, static fn() => null,
+            static fn() => $sharedFolder->newFile($name, $bytes),
+        );
+        $first = $write('linked-destination.txt', 'recoverable shared output');
+        $revocationRejected = false;
+        $revoked = false;
+        try {
+            $guard->fileBoundary($uid, $origin, $sharedFolder, 'denied-after-acl.txt',
+                function (string $stage) use ($sourceOwner, $share, &$revoked): void {
+                    if ($stage === 'content' && !$revoked) {
+                        commitSharedAcl($sourceOwner, $share->getFullId(), \OCP\Constants::PERMISSION_READ);
+                        $revoked = true;
+                    }
+                },
+                static fn() => $sharedFolder->newFile('denied-after-acl.txt', 'must not be written'));
+        } catch (Throwable) {$revocationRejected = $revoked;}
+        $preflightRejected = false;
+        try {StorageAdmission::linkedDestination($sharedFolder, $uid, $sharedFolder->getPath() . '/denied-after-acl.txt', true, 'forms_link_results_file');}
+        catch (RuntimeException) {$preflightRejected = true;}
+        $preserved = $sourceFolder->get('linked-destination.txt')->getContent() === 'recoverable shared output'
+            && !$sourceFolder->nodeExists('denied-after-acl.txt');
+        commitSharedAcl($sourceOwner, $share->getFullId(), $permissions);
+        $sharedFolder = $root->get($share->getTarget());
+        $restored = $guard->fileBoundary(
+            $uid, $origin, $sharedFolder, 'linked-restored.txt', static fn() => null,
+            static fn() => $sharedFolder->newFile('linked-restored.txt', 'restored after acl'),
+        );
+        $unscopedRejected = false;
+        try {StorageAdmission::storage($sharedFolder->getStorage());} catch (RuntimeException) {$unscopedRejected = true;}
+        $result = ['positive_sink' => $first instanceof \OCP\Files\File, 'acl_revocation_rejected' => $revocationRejected,
+            'acl_preflight_rejected' => $preflightRejected, 'old_output_preserved' => $preserved, 'restored_sink' => $restored instanceof \OCP\Files\File,
+            'unscoped_storage_still_rejected' => $unscopedRejected];
+        commitSharedAcl($sourceOwner, $share->getFullId(), null);
+        Server::get(\OCP\IUserManager::class)->deleteUser($sourceUser);
     } elseif ($request['case'] === 'positive') {
         StorageAdmission::node($file);
         $deleted = $execute('forms_delete_form', ['id' => $id]);

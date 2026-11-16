@@ -18,8 +18,13 @@ final class MutationBoundaryStorage extends \OC\Files\Storage\Wrapper\Wrapper {
         private ?int $expectedId,
         private ?string $expectedEtag,
         private \Closure $authorize,
+        private ?\Closure $linkedStorageAdmission = null,
     ) {
-        StorageAdmission::storage($storage);
+        if ($this->linkedStorageAdmission !== null) {
+            ($this->linkedStorageAdmission)();
+        } else {
+            StorageAdmission::storage($storage);
+        }
         parent::__construct(['storage' => $storage]);
     }
 
@@ -30,7 +35,11 @@ final class MutationBoundaryStorage extends \OC\Files\Storage\Wrapper\Wrapper {
         $this->assertAdmitted();
         try {
             $storage = $this->getWrapperStorage();
-            StorageAdmission::storage($storage);
+            if ($this->linkedStorageAdmission !== null) {
+                ($this->linkedStorageAdmission)();
+            } else {
+                StorageAdmission::storage($storage);
+            }
             if ($this->expectedId === null) {
                 if ($storage->file_exists($path)) {
                     throw new \RuntimeException('Forms destination already exists');
@@ -52,6 +61,9 @@ final class MutationBoundaryStorage extends \OC\Files\Storage\Wrapper\Wrapper {
                 throw new \RuntimeException('Native Forms destination permission changed');
             }
             ($this->authorize)('content');
+            if ($this->linkedStorageAdmission !== null) {
+                ($this->linkedStorageAdmission)();
+            }
         } catch (\Throwable $error) {
             // The caller may already have created an empty file or a backup in an earlier stage.
             $this->failure ??= new \RuntimeException('Forms file mutation admission failed', 0, $error);

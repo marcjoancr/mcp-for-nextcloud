@@ -29,6 +29,12 @@ final class FormsStorageAdmissionTest extends TestCase {
     public function testChangedPinnedWrapperSourceIsRefusedBeforeEffects(): void {$this->assertRefused('source_drift');}
     public function testScopeRevocationAfterExclusiveLockPreservesNativeFiles(): void {$this->assertRefused('post_lock_scope');}
     public function testUploadSourceScopeIsRecheckedAfterStreamOpenAndExclusiveLock(): void {$this->assertRefused('post_lock_upload_source');}
+    public function testLinkedSharedDestinationRechecksFreshFilesAclAndCanRecoverAfterGrantReturns(): void {
+        $result = $this->probe('linked_shared_destination_acl');
+        foreach (['positive_sink', 'acl_revocation_rejected', 'acl_preflight_rejected', 'old_output_preserved', 'restored_sink', 'unscoped_storage_still_rejected'] as $check) {
+            self::assertTrue($result[$check] ?? false, 'Linked shared destination failed ' . $check);
+        }
+    }
     public function testPublicLinkRemovalDoesNotRequireFileStorageAdmission(): void {$this->assertRefused('public_link_without_files');}
     public function testQualifiedStorageSupportsUploadDeleteAndVerifiedRestore(): void {
         $result = $this->probe('positive'); self::assertTrue($result['verified']); self::assertTrue($result['recovery_available']);

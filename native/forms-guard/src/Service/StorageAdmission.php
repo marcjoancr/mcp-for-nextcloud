@@ -24,11 +24,19 @@ final class StorageAdmission {
         'OC\Files\Storage\LocalRootStorage' => '3a32e82f966d1d11d14149843a2cd82b9ca2d28154bf0bb2d1b521ee3bcdd3ab',
         'OC\Files\Storage\Common' => '06cd2432b09ac01d0dddaf4e623e2fc09b017e86bad1718868e33f3cd2bd3d8e',
         'OC\Files\Storage\Wrapper\Wrapper' => '5df69575791a5965fcb5349be379e35c0212f084530184f0cf4459ce77b8fc1b',
+        'OC\Files\Storage\Wrapper\Jail' => 'd6ab5be7eacaccb331ae1e59941e20a7ab5c5ceecc76f6ca126fa5abe1df926d',
         'OC\Files\Storage\Wrapper\Quota' => 'd5f4922f6356eda6ae631f28eb9f0142eec6c083e67b3f81215ff314cf6ca54e',
         'OC\Files\Storage\Wrapper\Availability' => 'a3491ad397032b5706e578bb0fce89df7cfaf49b09ec6e7f812018aedc977eb2',
         'OC\Files\Storage\Wrapper\PermissionsMask' => 'ebf2e1c2399901d9632d76be8d798480cf929308d339aa6b92a1ca2620e09752',
         'OCA\Files_Trashbin\Storage' => '02b0cb9c1c6e47d3c231ff4a9f83112c4668011b8a75623c8d527b26d69886af',
         'OCA\FilesLock\Storage\LockWrapper' => '185cc860224f1724691adf56316d4c679060b20472bd0f8f7ae902940487a95d',
+        'OCA\Files_Sharing\SharedStorage' => 'daabea358c320e39fae17920cb0f6e673c19c2160482b5440b16c16e2bded17f',
+        'OCA\Files_Sharing\SharedMount' => '1408ed20fae4df74907db4a2496c40cf4f9427d1c0b34ea16b6e0f1a046b879d',
+        'OC\Files\Mount\MountPoint' => '6affaab2526d599c0cacbfb544cfb54429427af73646ec26561d53dd07eb13f8',
+        'OC\Share20\Manager' => '4a13c43b201fc1458657c44e731f1814d937d97e935cc49222860c1e80dfaa44',
+        'OC\Share20\ProviderFactory' => 'e64b4715b48e5c7a9c3ddc9e05c7edfa1414fc2173f35f7717ae917b6036bda9',
+        'OC\Share20\DefaultShareProvider' => '9810df22fd4780bd96ef6e89c27daf1dca21125c735875726628ee101f5e012c',
+        'OC\Share20\Share' => 'fceef3f3db15f93652bc44ff7e97811adbeee3856c311637736b580233ef7c66',
         'OCA\Files_External\Lib\Storage\AmazonS3' => '08bfefc524ffe4a95df4d91554641357f6c8639b3059907da1a8c34e0147ce9e',
         'OC\Files\ObjectStore\S3ConnectionTrait' => 'cbb4f365396db28e4aadaa851e183a3419647a9acf11b99b772028a5138b3599',
         'OC\Files\ObjectStore\S3ConfigTrait' => '26230c2c6c5b87901f906784d765483d240dc41b7b05e11b970229711373eb13',
@@ -206,6 +214,52 @@ final class StorageAdmission {
         self::path($node->getPath());
     }
 
+    /** Admit a shared Files mount only as the original linked export destination. */
+    public static function linkedDestination(Node $node, string $uid, string $path, bool $create, string $originTool): void {
+        if ($originTool !== 'forms_link_results_file' || $uid === '' || str_contains($uid, '/') || str_contains($uid, "\0")) {
+            throw new \RuntimeException('Forms linked destination authority is unavailable');
+        }
+        $nodePath = rtrim($node->getPath(), '/') ?: '/';
+        $expectedPath = $create ? rtrim($nodePath, '/') . '/' . basename($path) : $nodePath;
+        if ($path !== $expectedPath) {
+            throw new \RuntimeException('Forms linked destination identity changed');
+        }
+        $mounts = Server::get(IMountManager::class);
+        $mount = $mounts->find($nodePath);
+        if ($mount === null || $mounts->find($path) !== $mount) {
+            throw new \RuntimeException('Forms linked destination mount is unavailable');
+        }
+        if ($mount::class !== 'OCA\Files_Sharing\SharedMount') {
+            self::node($node);
+            self::path($path);
+            return;
+        }
+        $homeRoot = '/' . $uid . '/files';
+        if ($nodePath !== $homeRoot && !str_starts_with($nodePath, $homeRoot . '/')) {
+            throw new \RuntimeException('Forms linked shared destination is outside the actor home');
+        }
+        self::source(new \ReflectionClass($mount::class));
+        $storage = $mount->getStorage();
+        $nodeStorage = $node->getStorage();
+        if (!$storage instanceof IStorage || !$nodeStorage instanceof IStorage
+            || $mount->getUser()->getUID() !== $uid
+            || ($path !== rtrim($mount->getMountPoint(), '/') && !str_starts_with($path, rtrim($mount->getMountPoint(), '/') . '/'))
+            || ($nodePath !== rtrim($mount->getMountPoint(), '/') && !str_starts_with($nodePath, rtrim($mount->getMountPoint(), '/') . '/'))) {
+            throw new \RuntimeException('Forms linked shared mount identity changed');
+        }
+        $shared = self::sharedStorage($storage);
+        if ($shared !== self::sharedStorage($nodeStorage)) {
+            throw new \RuntimeException('Forms linked shared node mount changed');
+        }
+        $share = $mount->getShare();
+        if ($shared->getShare()->getFullId() !== $share->getFullId() || $mount->getGroupedShares() !== []) {
+            throw new \RuntimeException('Forms linked shared mount is not a direct share');
+        }
+        $required = \OCP\Constants::PERMISSION_READ
+            | ($create ? \OCP\Constants::PERMISSION_CREATE : \OCP\Constants::PERMISSION_UPDATE);
+        self::validateStorage($storage, $uid, $required);
+    }
+
     public static function path(string $path, bool $descendants = false): void {
         self::configuration();
         $manager = Server::get(IMountManager::class);
@@ -230,6 +284,10 @@ final class StorageAdmission {
     }
 
     public static function storage(IStorage $storage): void {
+        self::validateStorage($storage, null, 0);
+    }
+
+    private static function validateStorage(IStorage $storage, ?string $recipientUid, int $requiredPermissions): void {
         self::configuration();
         $seen = [];
         $rank = 0;
@@ -244,6 +302,19 @@ final class StorageAdmission {
                 // These exact final classes are covered by the independently pinned companion manifest.
                 $storage = $storage->getWrapperStorage();
                 continue;
+            }
+            if ($class === 'OCA\Files_Sharing\SharedStorage') {
+                if ($recipientUid === null || $requiredPermissions === 0) {
+                    throw new \RuntimeException('Forms shared storage is unqualified outside linked destinations');
+                }
+                self::shared($storage, $recipientUid, $requiredPermissions);
+                $maskStorage = $storage->getWrapperStorage();
+                if ($maskStorage::class !== 'OC\Files\Storage\Wrapper\PermissionsMask') {
+                    throw new \RuntimeException('Forms shared permission mask is unqualified');
+                }
+                self::source(new \ReflectionClass($maskStorage::class));
+                self::validateStorage($maskStorage->getWrapperStorage(), null, 0);
+                return;
             }
             if (isset(self::WRAPPERS[$class])) {
                 if (self::WRAPPERS[$class] <= $rank) {
@@ -278,6 +349,76 @@ final class StorageAdmission {
             return;
         }
         throw new \RuntimeException('Forms storage wrapper limit exceeded');
+    }
+
+    private static function sharedStorage(IStorage $storage): \OCA\Files_Sharing\SharedStorage {
+        $seen = [];
+        for ($depth = 0; $depth < 16; $depth++) {
+            if (isset($seen[spl_object_id($storage)])) {
+                throw new \RuntimeException('Forms shared destination wrapper cycle');
+            }
+            $seen[spl_object_id($storage)] = true;
+            if ($storage::class === 'OCA\Files_Sharing\SharedStorage') {
+                return $storage;
+            }
+            if (!in_array($storage::class, [ManagedFileStorage::class, NewFileStorage::class, MutationBoundaryStorage::class, NativeHomeStorage::class], true)) {
+                throw new \RuntimeException('Forms linked destination wrapper is unqualified');
+            }
+            $storage = $storage->getWrapperStorage();
+        }
+        throw new \RuntimeException('Forms linked destination wrapper limit exceeded');
+    }
+
+    private static function shared(IStorage $storage, string $uid, int $requiredPermissions): void {
+        self::source(new \ReflectionClass($storage::class));
+        $share = $storage->getShare();
+        $grouped = (new \ReflectionProperty($storage, 'groupedShares'))->getValue($storage);
+        $recipient = (new \ReflectionProperty($storage, 'user'))->getValue($storage);
+        $permissions = $share->getPermissions();
+        if (!is_array($grouped) || $grouped !== [] || $recipient !== $uid
+            || $share->getShareType() !== \OCP\Share\IShare::TYPE_USER
+            || $share->getSharedWith() !== $uid || !is_int($permissions)
+            || $share->getExpirationDate() !== null
+            || ($permissions & $requiredPermissions) !== $requiredPermissions) {
+            throw new \RuntimeException('Forms linked shared destination permissions are unavailable');
+        }
+        $manager = Server::get(\OCP\Share\IManager::class);
+        if ($manager::class !== 'OC\Share20\Manager') {
+            throw new \RuntimeException('Forms native share reader is unqualified');
+        }
+        self::source(new \ReflectionClass($manager::class));
+        $factory = (new \ReflectionProperty($manager, 'factory'))->getValue($manager);
+        if ($factory::class !== 'OC\Share20\ProviderFactory') {
+            throw new \RuntimeException('Forms native share provider factory is unqualified');
+        }
+        self::source(new \ReflectionClass($factory::class));
+        $provider = $factory->getProvider('ocinternal');
+        if ($provider::class !== 'OC\Share20\DefaultShareProvider') {
+            throw new \RuntimeException('Forms native share provider is unqualified');
+        }
+        self::source(new \ReflectionClass($provider::class));
+        $fresh = $manager->getShareById($share->getFullId(), $uid);
+        if ($fresh::class !== 'OC\Share20\Share') {
+            throw new \RuntimeException('Forms native share identity is unqualified');
+        }
+        self::source(new \ReflectionClass($fresh::class));
+        $identity = static fn ($value): array => [
+            $value->getFullId(), $value->getId(), $value->getShareType(), $value->getSharedWith(),
+            $value->getShareOwner(), $value->getSharedBy(), $value->getNodeId(), $value->getNodeType(),
+            $value->getTarget(), $value->getPermissions(),
+        ];
+        if ($fresh::class !== $share::class || $fresh->getExpirationDate() !== null || $identity($fresh) !== $identity($share)) {
+            throw new \RuntimeException('Forms linked shared destination ACL changed');
+        }
+        $maskStorage = $storage->getWrapperStorage();
+        if ($maskStorage::class !== 'OC\Files\Storage\Wrapper\PermissionsMask') {
+            throw new \RuntimeException('Forms shared permission mask is unqualified');
+        }
+        self::source(new \ReflectionClass($maskStorage::class));
+        $mask = (new \ReflectionProperty($maskStorage, 'mask'))->getValue($maskStorage);
+        if ($mask !== $fresh->getPermissions()) {
+            throw new \RuntimeException('Forms linked shared permission mask changed');
+        }
     }
 
     private static function configuration(): void {
