@@ -10,12 +10,12 @@ use OCP\IUser;
 use PHPUnit\Framework\TestCase;
 final class FormsLinkedCircleAudienceTest extends TestCase {
     private SqliteDatabase $sql;
-    private function audience(\Closure $resolve):FormsLinkedAudience {
+    private function audience(\Closure $resolve,?\Closure $deferred=null):FormsLinkedAudience {
         $root=$this->createMock(IRootFolder::class);$home=$this->createMock(Folder::class);$parent=$this->createMock(Folder::class);$file=$this->createMock(File::class);$user=$this->createMock(IUser::class);
         $user->method('getUID')->willReturn('alice');$root->method('getUserFolder')->with('alice')->willReturn($home);$home->method('get')->willReturnCallback(static fn(string $path)=>$path==='exports'?$parent:$file);$home->method('nodeExists')->willReturn(true);
         foreach([[$home,1],[$parent,2],[$file,3]] as [$node,$id]){$node->method('getId')->willReturn($id);$node->method('getOwner')->willReturn($user);}
         $home->method('getPath')->willReturn('/alice/files');$parent->method('getPath')->willReturn('/alice/files/exports');$parent->method('getParent')->willReturn($home);
-        return new FormsLinkedAudience($root,$this->sql->connection(),static fn():int=>1000,$resolve);
+        return new FormsLinkedAudience($root,$this->sql->connection(),static fn():int=>1000,$resolve,$deferred);
     }
     protected function setUp():void {
         $this->sql=new SqliteDatabase($this,[]);
@@ -39,5 +39,27 @@ final class FormsLinkedCircleAudienceTest extends TestCase {
         $audience=$this->audience(static fn():array=>throw new \RuntimeException('Native Circle provider is unavailable'));
         $this->sql->dbal->executeStatement("INSERT INTO share VALUES (11,2,7,'circle-a',1,NULL,NULL)");
         $this->expectException(\RuntimeException::class);$audience->snapshot('alice','/exports/results.csv');
+    }
+    public function testDeferredCircleAudienceForwardsExactOriginalLinkProof():void {
+        $origin=['uid'=>'alice','tool'=>'forms_link_results_file','connection'=>8,'references'=>['form_id'=>4,'owner_id'=>'alice']];
+        $calls=0;$evidence=['circle_id'=>'circle-a','parent_share_id'=>11,'file_id'=>2,'files_share_provider'=>'ocCircleShare','share_type'=>7,
+            'circle_incarnation_digest'=>str_repeat('a',64),'native_membership_digest'=>str_repeat('b',64),
+            'native_recipient_projection_digest'=>str_repeat('c',64),'recipient_count'=>2];
+        $legacy=static fn(string $uid,string $circleId,int $shareId,int $fileId):array=>$evidence;
+        $deferred=static function(array $proof,string $uid,string $circleId,int $shareId,int $fileId)use(&$calls,$origin,$evidence):array {
+            $calls++;self::assertSame($origin,$proof);self::assertSame('alice',$uid);self::assertSame('circle-a',$circleId);self::assertSame(11,$shareId);self::assertSame(2,$fileId);return $evidence;
+        };
+        $audience=$this->audience($legacy,$deferred);$this->sql->dbal->executeStatement("INSERT INTO share VALUES (11,2,7,'circle-a',1,NULL,NULL)");
+        $result=$audience->snapshot('alice','/exports/results.csv',$origin);
+        self::assertSame(1,$calls);self::assertSame([['type'=>7,'recipient'=>'circle-a','permissions'=>1,'expires'=>null]],$result['recipients']);
+    }
+    public function testDeferredCircleAudienceRejectsMismatchedPrincipalProof():void {
+        $calls=0;$legacy=static fn(string $uid,string $circleId,int $shareId,int $fileId):array=>throw new \RuntimeException('Legacy resolver must not authorize a deferred read');
+        $deferred=static function()use(&$calls):array{$calls++;throw new \RuntimeException('Mismatched proof reached resolver');};
+        $audience=$this->audience($legacy,$deferred);$this->sql->dbal->executeStatement("INSERT INTO share VALUES (11,2,7,'circle-a',1,NULL,NULL)");
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Original linked Forms authority does not match');
+        $audience->snapshot('alice','/exports/results.csv',['uid'=>'bob','tool'=>'forms_link_results_file','references'=>['form_id'=>4,'owner_id'=>'alice']]);
+        self::assertSame(0,$calls);
     }
 }

@@ -16,8 +16,8 @@ use OCP\IDBConnection;
  * Includes inherited shares and group members; raw tokens/passwords never leave this method.
  */
 final class FormsLinkedAudience {
-    public function __construct(private IRootFolder $root,private IDBConnection $db,private \Closure $time,private ?\Closure $circleAudience=null) {}
-    public function snapshot(string $uid,string $path):array {
+    public function __construct(private IRootFolder $root,private IDBConnection $db,private \Closure $time,private ?\Closure $circleAudience=null,private ?\Closure $originCircleAudience=null) {}
+    public function snapshot(string $uid,string $path,?array $origin=null):array {
         $path=PathGuard::normalize($path);$home=$this->root->getUserFolder($uid);
         $parent=dirname(ltrim($path,'/'));$node=$parent==='.'?$home:$home->get($parent);
         if(!$node instanceof \OCP\Files\Folder)throw new \RuntimeException('Linked Forms destination parent is unavailable.');
@@ -47,7 +47,7 @@ final class FormsLinkedAudience {
             $share['mcp_effective']=$active;
             if($type===1)$groups[(string)$share['share_with']]=true;
             if($active&&in_array($type,[0,3],true)){$audienceRows++;$recipients[]=['type'=>$type,'recipient'=>$type===3?'public link':(string)$share['share_with'],'permissions'=>(int)$share['permissions'],'expires'=>$expires];}
-            if($active&&$type===7){$circleId=(string)$share['share_with'];$evidence=$this->circle($uid,$circleId,(int)$share['id'],(int)$share['file_source']);$circleEvidence[]=$evidence;$audienceRows+=$evidence['recipient_count'];if($evidence['recipient_count']>0){$recipients[]=['type'=>7,'recipient'=>$circleId,'permissions'=>(int)$share['permissions'],'expires'=>$expires];}}
+            if($active&&$type===7){$circleId=(string)$share['share_with'];$evidence=$this->circle($uid,$circleId,(int)$share['id'],(int)$share['file_source'],$origin);$circleEvidence[]=$evidence;$audienceRows+=$evidence['recipient_count'];if($evidence['recipient_count']>0){$recipients[]=['type'=>7,'recipient'=>$circleId,'permissions'=>(int)$share['permissions'],'expires'=>$expires];}}
             if($audienceRows>1000)throw new \RuntimeException('Linked Forms audience exceeds its bounded recipient limit.');
         }
         unset($share);$members=[];$bytes=strlen(json_encode([$bindings,$shares],JSON_THROW_ON_ERROR));
@@ -67,10 +67,20 @@ final class FormsLinkedAudience {
         return ['digest'=>hash('sha256','forms-linked-audience-v1:'.$encoded),'recipients'=>$recipients];
     }
 
-    private function circle(string $uid,string $circleId,int $shareId,int $fileId):array {
+    private function circle(string $uid,string $circleId,int $shareId,int $fileId,?array $origin):array {
         if($shareId<1||$fileId<1||$circleId==='')throw new \RuntimeException('Linked Forms Circle identity is unavailable.');
-        $resolver=$this->circleAudience;
-        $evidence=$resolver!==null?$resolver($uid,$circleId,$shareId,$fileId):(class_exists(\OCA\Forms\Mcp\Service\CircleRuntime::class)?\OCA\Forms\Mcp\Service\CircleRuntime::linkedAudienceEvidence($uid,$circleId,$shareId,$fileId):throw new \RuntimeException('Native Circle provider is unavailable.'));
+        if($origin!==null){
+            if(($origin['uid']??null)!==$uid||($origin['tool']??null)!=='forms_link_results_file'
+                ||($origin['references']['owner_id']??null)!==$uid||!is_int($origin['references']['form_id']??null)||$origin['references']['form_id']<1)
+                throw new \RuntimeException('Original linked Forms authority does not match');
+            $resolver=$this->originCircleAudience;
+            $evidence=$resolver!==null?$resolver($origin,$uid,$circleId,$shareId,$fileId)
+                :\OCP\Server::get('OCA\\Forms\\Mcp\\Guard')->linkedCircleAudience($origin,$circleId,$shareId,$fileId);
+        }else{
+            $resolver=$this->circleAudience;
+            $evidence=$resolver!==null?$resolver($uid,$circleId,$shareId,$fileId)
+                :(class_exists(\OCA\Forms\Mcp\Service\CircleRuntime::class)?\OCA\Forms\Mcp\Service\CircleRuntime::linkedAudienceEvidence($uid,$circleId,$shareId,$fileId):throw new \RuntimeException('Native Circle provider is unavailable.'));
+        }
         $keys=['circle_id','parent_share_id','file_id','files_share_provider','share_type','circle_incarnation_digest','native_membership_digest','native_recipient_projection_digest','recipient_count'];
         if(!is_array($evidence)||array_keys($evidence)!==$keys||$evidence['circle_id']!==$circleId||$evidence['parent_share_id']!==$shareId||$evidence['file_id']!==$fileId
             ||$evidence['files_share_provider']!=='ocCircleShare'||$evidence['share_type']!==7||!is_int($evidence['recipient_count'])||$evidence['recipient_count']<0||$evidence['recipient_count']>1000

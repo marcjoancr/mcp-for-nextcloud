@@ -47,7 +47,7 @@ final class FormsLinkedFiles implements FormsLinkedFileSink {
             $context=($this->authorize)($origin);
             if(($context['uid']??null)!==$uid)throw new \RuntimeException('Original linked Files authority changed.');
             $this->jobs->assertDelivery($uid,$job,$source);
-            if($this->audience->snapshot($uid,$approved['path'])!==$approved['audience'])
+            if($this->audience->snapshot($uid,$approved['path'],$origin)!==$approved['audience'])
                 throw new \RuntimeException('The approved linked Files audience changed.');
             $refs=array_map(static fn(int $id):array=>['file_id'=>$id],array_values($job['payload']['file_ids']??[]));
             if($approved['overwrite'])$refs[]=['file_id'=>$approved['file_id']];
@@ -80,10 +80,10 @@ final class FormsLinkedFiles implements FormsLinkedFileSink {
             return $result;
         };
         $backup=function(Node $node,?string $child,\Closure $policy,\Closure $write)use($uid,$native,$origin,$admitted):mixed {
-            $authorize=function(string $stage='preflight')use($uid,$node,$child,$policy,$admitted):void {
-                $this->policy->resourceBoundary($uid,function()use($uid,$node,$child,$policy,$admitted):void {
+            $authorize=function(string $stage='preflight')use($uid,$node,$child,$policy,$admitted,$origin):void {
+                $this->policy->resourceBoundary($uid,function()use($uid,$node,$child,$policy,$admitted,$origin):void {
                     $admitted();$policy();$path=$this->backupPath($uid,$node,$child);
-                    if($this->audience->snapshot($uid,$path)['recipients']!==[])
+                    if($this->audience->snapshot($uid,$path,$origin)['recipients']!==[])
                         throw new \RuntimeException('The private recovery copy has additional recipients.');
                 });
             };
@@ -108,7 +108,7 @@ final class FormsLinkedFiles implements FormsLinkedFileSink {
     private function assertAudience(string $uid,array $claim):void {
         $expected=$claim['destination']['audience']['digest']??null;
         if(!is_string($expected)||preg_match('/^[a-f0-9]{64}$/D',$expected)!==1
-            ||!hash_equals($expected,$this->audience->snapshot($uid,$claim['last_verified']['path'])['digest']))
+            ||!hash_equals($expected,$this->audience->snapshot($uid,$claim['last_verified']['path'],$claim['origin']??null)['digest']))
             throw new \RuntimeException('The approved linked Files audience or location changed.');
     }
     public function snapshot(array $claim):array {
@@ -168,7 +168,7 @@ final class FormsLinkedFiles implements FormsLinkedFileSink {
             $authorize=function(string $stage='preflight')use($uid,$claim,$job,$source,$node,$child,$filePolicy):void {
                 $this->policy->resourceBoundary($uid,function()use($uid,$claim,$job,$source,$node,$child,$filePolicy):void {
                     $this->admitted($uid,$claim,$job,$source);$filePolicy();$path=$this->backupPath($uid,$node,$child);
-                    if($this->audience->snapshot($uid,$path)['recipients']!==[])throw new \RuntimeException('The private recovery copy has additional recipients.');
+                    if($this->audience->snapshot($uid,$path,$claim['origin']??null)['recipients']!==[])throw new \RuntimeException('The private recovery copy has additional recipients.');
                 });
             };
             return $native->deferredBackupBoundary($claim['origin'],$node,$child,$authorize,$write);

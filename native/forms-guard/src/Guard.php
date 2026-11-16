@@ -369,6 +369,36 @@ final class Guard {
         });
     }
     public function linkedPending(int $limit): array {return Server::get(LinkedMarkers::class)->pending($limit);}
+    /** Deferred Circle audience lookup bound to the original signed linked-export authority, never the worker session. */
+    public function linkedCircleAudience(array $origin,string $circleId,int $shareId,int $fileId):array {
+        $context=Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assert($origin);
+        $uid=$context['uid']??null;$references=$context['references']??[];$formId=$references['form_id']??null;
+        if(!is_string($uid)||$uid===''||($context['tool']??null)!=='forms_link_results_file'
+            ||($references['owner_id']??null)!==$uid||!is_int($formId)||$formId<1||($origin['uid']??null)!==$uid
+            ||($origin['tool']??null)!=='forms_link_results_file'||($origin['references']['owner_id']??null)!==$uid
+            ||($origin['references']['form_id']??null)!==$formId||$shareId<1||$fileId<1
+            ||!preg_match('/^[A-Za-z0-9]{31}$/D',$circleId)||!($this->capabilities()['qualified']??false)
+            ||!Service\CircleRuntime::available($uid)) {
+            throw new \RuntimeException('Original linked Forms Circle authority is unavailable');
+        }
+        return OriginContext::within($uid,$origin,'forms_link_results_file',['id'=>$formId],function()use($uid,$formId,$circleId,$shareId,$fileId):array {
+            $assertCurrent=function()use($uid,$formId,$fileId):void {
+                OriginContext::assertFresh();
+                $forms=(new ScopedServices($uid,true,true))->forms();$form=$forms->getFormIfAllowed($formId,'results');
+                if($form->getOwnerId()!==$uid||!in_array('results',$forms->getPermissions($form),true))
+                    throw new \RuntimeException('Original linked Forms results authority changed');
+                $nodes=Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($uid)->getById($fileId);
+                if(count($nodes)!==1||!$nodes[0] instanceof \OCP\Files\Node||(int)$nodes[0]->getId()!==$fileId
+                    ||$nodes[0]->getOwner()?->getUID()!==$uid)throw new \RuntimeException('Original linked Forms file is unavailable');
+                Service\StorageAdmission::node($nodes[0]);
+                OriginContext::assertFiles('forms_link_results_file',['files'=>[['file_id'=>$fileId]]]);
+            };
+            $assertCurrent();
+            $evidence=Service\CircleRuntime::linkedAudienceEvidence($uid,$circleId,$shareId,$fileId);
+            $assertCurrent();
+            return $evidence;
+        });
+    }
     /** Initialize the approved original actor's first Files root in its isolated CLI process. */
     public function initializeLinkedFiles(array $origin): void {
         if (PHP_SAPI!=='cli' || Server::get(\OCP\IUserSession::class)->getUser()!==null) {
