@@ -34,6 +34,18 @@ final class NativePolicyTest extends TestCase {
         $query=new \OCP\Interaction\RestrictInteractionEvent('synthetic-subject',$this->subject(),[],new \OCP\Interaction\Actions\ShareAction(1),[new \OCP\Interaction\Receivers\UserReceiver('synthetic-recipient',$this->subject())]);
         $handler->handle($query);self::assertSame('synthetic-subject',$query->getUser()->getUID());
     }
+    public function testPinnedNativeCircleReceiverIsAcceptedWithoutUserOrGroupSubstitution():void {
+        $receiver=new \OCP\Interaction\Receivers\CircleReceiver('Abcdef0123456789012345678901234');
+        $m=$this->manager();$groups=$this->createMock(\OCP\IGroupManager::class);$l10n=$this->l10n();
+        $core=new \OC\Core\Listener\RestrictInteractionListener($m,$groups,$l10n);
+        $root=$this->createMock(\OCP\Files\IRootFolder::class);
+        $files=new \OCA\Files\Listener\RestrictInteractionListener($l10n);
+        $sharing=new \OCA\Files_Sharing\Listener\RestrictInteractionListener($root,$m,$l10n);
+        $policy=\OCA\Forms\Mcp\Service\FinalSharePolicy::collect($this->subject(),$receiver,2,$core,[$files,$sharing],static function():void{});
+        self::assertInstanceOf(\OCP\Interaction\Receivers\CircleReceiver::class,$receiver);
+        self::assertSame('Abcdef0123456789012345678901234',$receiver->getID());
+        $policy->close();
+    }
     public function testNativeResourceHandlersUseInjectedUnionWithoutGlobalLookup():void {
         $node=$this->createMock(\OCP\Files\Folder::class);$node->method('getId')->willReturn(2);
         $home=$this->createMock(\OCP\Files\Folder::class);$home->method('getId')->willReturn(1);

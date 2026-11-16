@@ -117,7 +117,8 @@ final class ManagedShares
         if (BulkStore::ready()) {
             // A transfer's sealed checkpoint owns exact newly-created share evidence even
             // after a later native unshare removed its Forms row but failed externally.
-            $rows = Server::get(IDBConnection::class)->executeQuery("SELECT r.bulk_id,r.source_id,m.files_share_id,m.folder_id FROM *PREFIX*forms_mcp_bulk_rows r INNER JOIN *PREFIX*forms_mcp_file_shares m ON m.files_share_id = CONCAT('ocinternal:',r.mapped_id) WHERE r.kind = 'staged_shares' AND m.form_id = ? AND m.native_share_id = ? ORDER BY r.source_id LIMIT 1", [$formId,$nativeId])->fetchAll();
+            $shareId = CoreShareIdentity::sql(Server::get(IDBConnection::class), 'm');
+            $rows = Server::get(IDBConnection::class)->executeQuery("SELECT r.bulk_id,r.source_id,m.files_share_id,m.folder_id FROM *PREFIX*forms_mcp_bulk_rows r INNER JOIN *PREFIX*forms_mcp_file_shares m ON $shareId = r.mapped_id WHERE r.kind = 'staged_shares' AND m.form_id = ? AND m.native_share_id = ? ORDER BY r.source_id LIMIT 1", [$formId,$nativeId])->fetchAll();
             foreach ($rows as $row) {
                 $store=Server::get(BulkStore::class);$job=$store->load($row['bulk_id']);$proof=$store->one($row['bulk_id'],'staged_shares',(int)$row['source_id']);
                 if($job['action']!=='forms_transfer'||$job['phase']!=='complete'||(int)$job['form']['id']!==$formId||$job['input']['owner_id']!==$owner||$proof['files_share_id']!==$row['files_share_id']||(int)$proof['folder_id']!==(int)$row['folder_id']||$proof['native_share_id']!==$nativeId||$proof['approved_tuple']['owner_id']!==$owner){throw new \RuntimeException('Transferred managed share evidence does not match');}
@@ -201,10 +202,9 @@ final class ManagedShares
     /** Mutating cleanup is limited to exact recorded share IDs independently proven absent. */
     public static function isAbsent(string $fullId): bool
     {
-        SharingIdentity::assertType(0);
-        if (!preg_match('/^ocinternal:([1-9][0-9]*)$/D', $fullId, $matches) || ($id = filter_var($matches[1], FILTER_VALIDATE_INT)) === false || $id < 1) {
-            throw new \RuntimeException('Managed share provider identity is unqualified');
-        }
+        $identity = CoreShareIdentity::parse($fullId);
+        SharingIdentity::assertType($identity['provider'] === 'ocCircleShare' ? 7 : 0);
+        $id = $identity['id'];
         return Server::get(IDBConnection::class)->executeQuery('SELECT id FROM *PREFIX*share WHERE id = ?', [$id])->fetchOne() === false;
     }
     public static function existingRows(int $formId, int $nativeId): array

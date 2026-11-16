@@ -47,10 +47,13 @@ final class FormsPublicationTest extends TestCase {
             self::assertTrue(FormsPublication::supported($tool,$native+['file_sinks'=>true]));
         }
     }
-    public function testNativeLinkedHandlersCannotPublishAnUnwiredMcpAutomationPath():void {
+    public function testWiredLinkedHandlersRequireEveryNativeBoundary():void {
         $native=['qualified'=>true,'protocol'=>1,'file_sinks'=>true,'linked_exports'=>true,'actions'=>['forms_link_results_file','forms_unlink_results_file']];
-        self::assertFalse(FormsPublication::supported('forms_link_results_file',$native));
-        self::assertFalse(FormsPublication::supported('forms_unlink_results_file',$native));
+        foreach(['forms_link_results_file','forms_unlink_results_file'] as $tool) {
+            self::assertTrue(FormsPublication::supported($tool,$native));
+            foreach(['qualified','file_sinks','linked_exports'] as $flag)self::assertFalse(FormsPublication::supported($tool,array_replace($native,[$flag=>false])));
+            self::assertFalse(FormsPublication::supported($tool,array_replace($native,['protocol'=>2])));
+        }
     }
     public function testSourceQualificationDoesNotPublishAnUnimplementedEffectAdapter():void {
         $native=['qualified'=>true,'protocol'=>1,'actions'=>['forms_create','forms_update']];

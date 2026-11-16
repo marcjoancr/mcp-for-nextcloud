@@ -7,7 +7,16 @@ final class FinalShareNativeChecks {
     public static function collect(\OC\Share20\Manager $manager,\OCP\IUserManager $users,\OC\Files\Node\Root $root,\OCP\IUser $subject,\OCP\Files\Node $node,
         array $actual,FinalShareBudget $budget,FinalReadConnection $readDb,\Closure $fresh,\Closure $frame):void {
         $fresh();$type=(int)$actual['share_type'];
-        if (!in_array($type,[0,1],true) || (int)$actual['file_source']!==$node->getId()) {throw new \RuntimeException('Final sharing native check identity changed');}
+        if (!in_array($type,[0,1,7],true) || (int)$actual['file_source']!==$node->getId()) {throw new \RuntimeException('Final sharing native check identity changed');}
+        if($type===7){
+            if(!is_string($actual['share_with']??null)||$actual['share_with']===''||!is_string($actual['uid_owner']??null)||$actual['uid_owner']==='')throw new \RuntimeException('Final Circle share identity is malformed');
+            CircleRuntime::assertCircleShareIdentity($subject->getUID(),$actual['share_with'],(int)$actual['id'],$node->getId(),$readDb);
+            $mounts=FinalSharePathMounts::read($root,$subject,$node,$budget,$frame);
+            $copy=clone $manager;(new \ReflectionProperty($copy,'mountManager'))->setValue($copy,$mounts);
+            try{$fresh();(new \ReflectionMethod(\OC\Share20\Manager::class,'pathCreateChecks'))->invoke($copy,$node);$fresh();}
+            finally{$mounts->close();}
+            return;
+        }
         $db=$readDb;$query=$db->getQueryBuilder();
         // Exact DefaultShareProvider::getSharesByPath predicates. Project only getters read by native duplicate checks.
         $query->select('id','share_type','share_with','uid_owner','file_source','item_type')->from('share')

@@ -74,6 +74,7 @@
   "lib/private/Share20/DefaultShareProvider.php": "9810df22fd4780bd96ef6e89c27daf1dca21125c735875726628ee101f5e012c",
   "lib/private/Share20/GroupDeletedListener.php": "827b7baf7e0bd21358ed903ee1f44940246494162d316cdc812e367258d1f50c",
   "lib/private/Share20/Manager.php": "4a13c43b201fc1458657c44e731f1814d937d97e935cc49222860c1e80dfaa44",
+  "lib/public/Interaction/Receivers/CircleReceiver.php": "a2f081a0d2d731443e225b07e1f143699dc606e9c6edf98f1dba929d095299be",
   "lib/private/Share20/ProviderFactory.php": "e64b4715b48e5c7a9c3ddc9e05c7edfa1414fc2173f35f7717ae917b6036bda9",
   "lib/private/Share20/Share.php": "fceef3f3db15f93652bc44ff7e97811adbeee3856c311637736b580233ef7c66",
   "lib/private/Share20/ShareAttributes.php": "05ee7c36cb6c12e72fea09d22bc1e4dac7b74abd49f3ad315620027f8fac288d",

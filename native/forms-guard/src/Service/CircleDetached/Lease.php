@@ -14,6 +14,7 @@ final class Lease {
     private MemberRequest $members;
     private MembershipRequest $memberships;
     private RemoteRequest $remotes;
+    private ?ShareWrapperRequest $shareWrappers=null;
     private string $keyhole;
     private int $objects=0;
     private int $queries=0;
@@ -83,6 +84,7 @@ final class Lease {
     public function members(): MemberRequest {$this->assertActive();return $this->members;}
     public function memberships(): MembershipRequest {$this->assertActive();return $this->memberships;}
     public function remotes(): RemoteRequest {$this->assertActive();return $this->remotes;}
+    public function shareWrappers(): ShareWrapperRequest {$this->assertActive();return $this->shareWrappers??=new ShareWrapperRequest($this);}
     public function db(): \OCP\IDBConnection {$this->assertActive();return $this->connection;}
     public function system(): \OC\SystemConfig {$this->assertActive();return $this->systemConfig;}
     public function logger(): \Psr\Log\LoggerInterface {$this->assertActive();return $this->log;}
@@ -134,6 +136,44 @@ final class Lease {
     public function memberLevel(string $id,string $uid): int {
         $circle=$this->circles->getCircle($id,$this->identity($uid));
         return $circle->getInitiator()->getLevel();
+    }
+
+    /** Native Circle provider read model for one exact type-7 parent and all effective local recipients. */
+    public function audience(string $circleId,int $parentId,int $fileId):array {
+        $this->checkpoint();
+        if($parentId<1||$fileId<1||$circleId===''||strlen($circleId)>31){throw new \RuntimeException('Circle audience parent binding is malformed');}
+        $circle=$this->circles->getCircle($circleId,null);
+        $owner=$circle->getOwner();
+        if($circle->getSingleId()!==$circleId){throw new \RuntimeException('Circle audience identity changed');}
+        $parent=$this->shareWrappers()->getShareById($parentId);
+        $parentRow=['id'=>(int)$parent->getId(),'file_source'=>$parent->getFileSource(),'share_type'=>$parent->getShareType(),
+            'share_with'=>$parent->getSharedWith(),'share_owner'=>$parent->getShareOwner(),'permissions'=>$parent->getPermissions(),'file_target'=>$parent->getFileTarget()];
+        if($parentRow['id']!==$parentId||$parentRow['file_source']!==$fileId||$parentRow['share_type']!==7||$parentRow['share_with']!==$circleId||$parent->getParent()!==0){
+            throw new \RuntimeException('Circle parent share binding changed');
+        }
+        $circleData=['id'=>$circleId,'creation'=>$circle->getCreation(),'source'=>$circle->getSource(),
+            'owner'=>['uid'=>$owner->getUserId(),'member_id'=>$owner->getId(),'single_id'=>$owner->getSingleId(),
+                'level'=>$owner->getLevel(),'status'=>$owner->getStatus(),'instance'=>$owner->getInstance()]];
+        $nativeMembers=$circle->getInheritedMembers();
+        if(count($nativeMembers)>CircleAudienceProjection::MAX_RECIPIENTS){throw new \RuntimeException('Circle audience recipient budget exceeded');}
+        $members=[];
+        foreach($nativeMembers as $member){
+            $this->checkpoint();
+            if(!$member instanceof \OCA\Circles\Model\Member){throw new \RuntimeException('Circle audience native member model changed');}
+            $uid=$member->getUserId();$identityData=CircleExistingIdentity::read($this->connection,$uid);
+            $this->identity($uid);
+            $membership=$this->membership($circleId,$member->getSingleId(),true);
+            $view=$this->shareWrappers()->getShareById($parentId,$this->identity($uid));
+            $share=['id'=>(int)$view->getId(),'file_source'=>$view->getFileSource(),'share_type'=>$view->getShareType(),
+                'share_with'=>$view->getSharedWith(),'parent'=>$view->getParent(),'permissions'=>$view->getPermissions(),
+                'file_target'=>$view->getFileTarget(),'child_id'=>$view->getChildId(),'child_permissions'=>$view->getChildPermissions(),
+                'child_file_target'=>$view->getChildFileTarget()];
+            $members[]=['uid'=>$uid,'member_id'=>$member->getId(),'single_id'=>$member->getSingleId(),
+                'user_type'=>$member->getUserType(),'level'=>$member->getLevel(),'status'=>$member->getStatus(),
+                'instance'=>$member->getInstance(),'identity'=>$identityData,'inheritance_path'=>$membership->getInheritancePath(),'share'=>$share];
+        }
+        $this->checkpoint();
+        return CircleAudienceProjection::build($circleId,$parentId,$fileId,$circleData,$parentRow,$members);
     }
     public function close(): void {$this->active=false;}
     public function __destruct() {$this->close();}

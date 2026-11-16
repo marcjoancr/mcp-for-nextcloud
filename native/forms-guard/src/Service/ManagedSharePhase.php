@@ -218,7 +218,7 @@ final class ManagedSharePhase
             if (!$create) {
                 ManagedShares::assertIdentity($share, $envelope, $expectedRow ?? []);
             }
-        });
+        },$envelope['intent_key']);
     }
     private function execute(array $envelope): void
     {

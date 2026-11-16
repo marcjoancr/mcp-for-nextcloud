@@ -37,15 +37,29 @@ final class EffectEnvelope {
             if(count($rows)>1000){throw new \RuntimeException('Event answers exceed budget');}$values[]=$rows;
         }
         $values[]=$db->executeQuery('SELECT configkey,configvalue FROM *PREFIX*appconfig WHERE appid = ? ORDER BY configkey',['forms'])->fetchAll();
+        $audienceRows=0;
         foreach (Server::get(\OCA\Forms\Db\ShareMapper::class)->findByForm($formId) as $share) {
-            if ($share->getShareType()===7) {throw new \RuntimeException('Deferred Circle event audience is not qualified');}
-            if ($share->getShareType()===1) {
+            if ($share->getShareType()===7) {
+                $actor=$scope->get(\OCP\IUserSession::class)->getUser();
+                if($actor===null){throw new \RuntimeException('Original deferred event actor is unavailable');}
+                $uid=$actor->getUID();CircleRuntime::assertAvailable($uid);
+                $circle=CircleRuntime::linkedAudienceEvidence($uid,(string)$share->getShareWith(),self::positiveShareId($share->getId()),self::positiveShareId($share->getNodeId()));
+                $audienceRows+=$circle['recipient_count'];
+                if($audienceRows>1000){throw new \RuntimeException('Native event audience exceeds budget');}
+                $values[]=$circle;
+            } elseif ($share->getShareType()===1) {
                 $users=$scope->get(\OCP\IGroupManager::class)->get($share->getShareWith())?->getUsers()??[];
-                if(count($users)>1000){throw new \RuntimeException('Native event audience exceeds budget');}
+                $audienceRows+=count($users);
+                if($audienceRows>1000){throw new \RuntimeException('Native event audience exceeds budget');}
                 $ids=array_map(static fn($user)=>$user->getUID(),$users);sort($ids);$values[]=$ids;
             }
         }
         $json=json_encode($values,JSON_THROW_ON_ERROR);if(strlen($json)>1048576){throw new \RuntimeException('Event dependencies exceed budget');}
         return hash_hmac('sha256',$json,Server::get(\OCP\IConfig::class)->getSystemValueString('secret'));
     }
+    private static function positiveShareId(mixed $id):int {
+        if((!is_int($id)&&!is_string($id))||!preg_match('/^[1-9][0-9]*$/D',(string)$id)||($number=filter_var($id,FILTER_VALIDATE_INT))===false||$number<1){throw new \RuntimeException('Native event share identity is malformed');}
+        return $number;
+    }
+
 }

@@ -169,8 +169,10 @@ public function getInstances(\OCA\Circles\Model\Federated\FederatedEvent $event)
     return $instances;
 }
 private array $queue=[];
-private LocalEventState $phase;
+private ?LocalEventState $phase=null;
+private string $phaseKey='';
 private ?array $envelope=null;
+private ?array $proofBinding=null;
 private bool $draining=false;
 private bool $closed=false;
 private \OCA\Circles\Service\ConfigService $configService;
@@ -178,15 +180,24 @@ private \OCA\Circles\Db\RemoteRequest $remoteRequest;
 private \OCA\Circles\Db\MemberRequest $memberRequest;
 private EventService $events;
 /** $fresh creates another owned read lease; neither closure is serializable continuation authority. */
-public function __construct(private Lease $lease,private \Closure $fresh,private \Closure $assertCurrentEffect,private string $intentKey,\OCP\EventDispatcher\IEventDispatcher $dispatcher) {
-    $this->phase=new LocalEventState($intentKey);
+public function __construct(private Lease $lease,private \Closure $fresh,private \Closure $assertCurrentEffect,private ?string $intentKey,\OCP\EventDispatcher\IEventDispatcher $dispatcher,private ?\Closure $oneShotProof=null) {
+    if(($intentKey===null)!==($oneShotProof!==null)){throw new \RuntimeException('Circle one-shot event authority is malformed');}
+    if($intentKey!==null){$this->phaseKey=$intentKey;$this->phase=new LocalEventState($intentKey);}
     $this->configService=$lease->config();$this->remoteRequest=$lease->remotes();$this->memberRequest=$lease->members();
     $this->events=new EventService($this->lease,$dispatcher,new ActivityService());
     $this->assertOneShot();
 }
-private function assertOneShot(): void {
+private function assertOneShot(?array $eventBinding=null): void {
     if($this->closed){throw new \RuntimeException('Circle local transport is closed');}
     $this->lease->checkpoint();($this->assertCurrentEffect)();
+    if($this->intentKey===null){
+        if($this->oneShotProof===null){throw new \RuntimeException('Circle bulk event proof is unavailable');}
+        $proof=($this->oneShotProof)($eventBinding??$this->proofBinding);
+        if(!is_array($proof)||array_keys($proof)!==['operation','type','owner_id','share_owner','recipient','file_id']||!in_array($proof['operation'],['create','delete'],true)||$proof['type']!==7||$proof['owner_id']!==$this->lease->actorUid()||!is_string($proof['share_owner'])||$proof['share_owner']===''||!is_string($proof['recipient'])||$proof['recipient']===''||!is_int($proof['file_id'])||$proof['file_id']<1){throw new \RuntimeException('Circle bulk event proof changed');}
+        if($this->envelope!==null&&$this->envelope!==$proof){throw new \RuntimeException('Circle bulk event authority changed');}$this->envelope=$proof;
+        if($eventBinding!==null){if($this->proofBinding!==null&&$this->proofBinding!==$eventBinding){throw new \RuntimeException('Circle bulk event binding changed');}$this->proofBinding=$eventBinding;}
+        return;
+    }
     if(!preg_match('/^[a-f0-9]{64}$/D',$this->intentKey)){throw new \RuntimeException('Circle phase identity is malformed');}
     $r=$this->lease->db()->executeQuery('SELECT phase FROM *PREFIX*forms_mcp_share_intents WHERE intent_key = ? LIMIT 2',[$this->intentKey]);
     try{$rows=$r->fetchAll();}finally{$r->closeCursor();}
@@ -210,9 +221,13 @@ private function assertLocal(\OCA\Circles\Model\Federated\FederatedEvent $event)
 public function newEvent(\OCA\Circles\Model\Federated\FederatedEvent $event): array {
     try {
         if($event::class!==\OCA\Circles\Model\Federated\FederatedEvent::class){throw new \RuntimeException('Circle event declaration is not qualified');}
+        $this->assertOneShot();
         $admissionBinding=$this->binding($event);
-        $entry=$this->phase->admit($this->intentKey,$admissionBinding,function()use($event,$admissionBinding):array {
-            $this->assertOneShot();$this->allowClass($event->getClass());
+        $this->assertOneShot($admissionBinding);
+        if($this->intentKey===null){$this->phaseKey=hash('sha256',"forms-circle-bulk-event-v1\0".json_encode([$this->envelope,$admissionBinding],JSON_THROW_ON_ERROR));$this->phase=new LocalEventState($this->phaseKey);}
+        $phase=$this->phase??throw new \RuntimeException('Circle one-shot phase is unavailable');
+        $entry=$phase->admit($this->phaseKey,$admissionBinding,function()use($event,$admissionBinding):array {
+            $this->assertOneShot($admissionBinding);$this->allowClass($event->getClass());
             if($this->draining||$this->queue!==[]){throw new \RuntimeException('Nested Circle event queue is unavailable');}
             EventModes::incoming($event->isForceSync(),$event->isAsync(),$event->isDataRequestOnly(),$event->isLimitedToInstanceWithMember());
             $this->assertLocal($event);
@@ -544,10 +559,11 @@ public function getOpenSSLAlgo(\OCA\Circles\Tools\Model\NCSignatory $signatory):
 private function binding(\OCA\Circles\Model\Federated\FederatedEvent $event): array {
     $wrapper=$event->getParams()->gAll()['wrappedShare']??null;
     if(!$wrapper instanceof ShareWrapper){throw new \RuntimeException('Circle event requires an owned native share model');}
-    $expected=($this->envelope['create']??null)===true?\OCA\Circles\FederatedItems\Files\FileShare::class:\OCA\Circles\FederatedItems\Files\FileUnshare::class;
-    if($event->getClass()!==$expected||$event->getCircle()->getSingleId()!==($this->envelope['recipient']??null)||$wrapper->getShareType()!==7||$wrapper->getShareOwner()!==$this->lease->actorUid()||$wrapper->getSharedWith()!==$event->getCircle()->getSingleId()){throw new \RuntimeException('Circle event does not match claimed Files effect');}
+    $create=$this->intentKey!==null?($this->envelope['create']??null)===true:($this->envelope['operation']??null)==='create';
+    $expected=$create?\OCA\Circles\FederatedItems\Files\FileShare::class:\OCA\Circles\FederatedItems\Files\FileUnshare::class;
+    if($event->getClass()!==$expected||$event->getCircle()->getSingleId()!==($this->envelope['recipient']??null)||$wrapper->getShareType()!==7||$wrapper->getShareOwner()!==($this->envelope['share_owner']??$this->lease->actorUid())||$wrapper->getSharedWith()!==$event->getCircle()->getSingleId()||$wrapper->getFileSource()!==($this->envelope['file_id']??$wrapper->getFileSource())){throw new \RuntimeException('Circle event does not match claimed Files effect');}
     return [$event->getClass(),$event->getCircle()->getSingleId(),$event->getCircle()->getCreation(),$event->getCircle()->getSource(),$wrapper->getId(),$wrapper->getFileSource(),$wrapper->getPermissions(),$wrapper->getFileTarget()];
 }
-public function close(): void {$this->closed=true;$this->phase->poison();$this->queue=[];}
+public function close(): void {$this->closed=true;$this->phase?->poison();$this->queue=[];}
 public function __destruct() {$this->close();}
 }

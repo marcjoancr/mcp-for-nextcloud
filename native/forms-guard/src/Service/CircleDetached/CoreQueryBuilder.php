@@ -1173,6 +1173,13 @@ public function getLastInsertId(): int {throw new \RuntimeException('Circle read
 /** Raw results and alternate connections cannot escape the owned bounded reader. */
 public function executeQuery(?\OCP\IDBConnection $connection = null): \OCP\DB\IResult {throw new \RuntimeException('Circle raw query execution is not qualified');}
 public function executeStatement(?\OCP\IDBConnection $connection = null): int {throw new \RuntimeException('Circle read graph cannot persist');}
+/** Execute only after the owned projection/predicate validators, through the lease connection. */
+private function executeOwnedSelect(): \OCP\DB\IResult {
+    $this->__formsCircleLease->checkpoint();
+    if($this->getType()!==\Doctrine\DBAL\Query\QueryBuilder::SELECT){throw new \RuntimeException('Circle owned reader accepts only SELECT');}
+    $sql=$this->getSQL();$params=$this->getParameters();$types=$this->getParameterTypes();
+    return $this->__formsCircleLease->db()->executeQuery($sql,$params,$types);
+}
 public function asItem(string $object,array $params=[]): \OCA\Circles\Tools\Db\IQueryRow {
     $rows=$this->rawPage(2);
     if(count($rows)===0){throw new \OCA\Circles\Tools\Exceptions\RowNotFoundException();}
@@ -1211,7 +1218,7 @@ private function rawInheritedUsers(): array {
         $this->createFunction(self::MEMBER . '.user_type AS user_type'),
     ]);
     $this->setMaxResults(UserProjection::MAX_ROWS + 1);
-    $result = parent::executeQuery();
+    $result = $this->executeOwnedSelect();
     $users = UserProjection::consume(
         static fn(): array|false => $result->fetchAssociative(),
         fn() => $this->__formsCircleLease->assertActive(),
@@ -1243,7 +1250,7 @@ private function rawTeamIds(): array {
     // The extra character detects malformed IDs instead of returning a silently truncated identifier.
     $this->select([$this->createFunction('SUBSTRING(' . self::CIRCLE . '.unique_id,1,32) AS unique_id')]);
     $this->setMaxResults(TeamProjection::MAX_ROWS + 1);
-    $result = parent::executeQuery();
+    $result = $this->executeOwnedSelect();
     $ids = TeamProjection::consume(
         static fn(): array|false => $result->fetchAssociative(),
         fn() => $this->__formsCircleLease->assertActive(),
@@ -1258,7 +1265,7 @@ private function rawPage(int $bound): array {
     if($this->getType()!==\Doctrine\DBAL\Query\QueryBuilder::SELECT){throw new \RuntimeException('Circle graph accepts only SELECT');}
     $limit=$this->getMaxResults();
     $this->setMaxResults($limit===null? $bound:min($limit,$bound));
-    $this->boundProjection();$result=parent::executeQuery();$rows=[];
+    $this->boundProjection();$result=$this->executeOwnedSelect();$rows=[];
     try {while(($row=$result->fetchAssociative())!==false){$rows[]=$row;\OCA\Forms\Mcp\Service\CircleDetached\RawPage::validate($rows);if(count($rows)>100){throw new \RuntimeException('Circle row budget exceeded');}}}
     finally {$result->closeCursor();}
     \OCA\Forms\Mcp\Service\CircleDetached\RawPage::validate($rows);

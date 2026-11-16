@@ -30,6 +30,11 @@ final class SharingIdentity
     }
     public static function assertType(int $type): void
     {
+        if ($type === 7) {
+            $uid=OriginContext::active()?OriginContext::current()['verified']['uid']:(ManagedSharePhase::circleReadActor()??NativeShareRequest::capture()['uid']);
+            CircleRuntime::assertAvailable($uid);
+            return;
+        }
         if (!in_array($type, [0, 1], true)) {
             throw new \RuntimeException('Native Files share provider is not qualified');
         }

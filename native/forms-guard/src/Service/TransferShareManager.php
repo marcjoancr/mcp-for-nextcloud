@@ -23,7 +23,7 @@ final class TransferShareManager extends \OC\Share20\Manager {
  }
  public function validateTransfer(IShare $share):void {$validation=clone $share;$validation->setPermissions(1);$this->generalChecks($validation);}
  public function validateActivation(IShare $share):void {
-  $this->generalChecks($share);if($share->getShareType()===0){parent::userCreateChecks($share);}elseif($share->getShareType()===1){parent::groupCreateChecks($share);}else{throw new \RuntimeException('Unqualified transfer share type');}
+  $this->generalChecks($share);if($share->getShareType()===0){parent::userCreateChecks($share);}elseif($share->getShareType()===1){parent::groupCreateChecks($share);}elseif($share->getShareType()===7){CircleRuntime::assertCircleShareIdentity($share->getSharedBy(),$share->getSharedWith(),(int)$share->getId(),(int)$share->getNodeId());}else{throw new \RuntimeException('Unqualified transfer share type');}
   $timezone=(new \ReflectionProperty(\OC\Share20\Manager::class,'dateTimeZone'))->getValue($this);
   if (!$timezone instanceof ScopedTransferTimeZone) {throw new \RuntimeException('Transfer activation timezone is unqualified');}
   $this->activationExpiry=TransferExpiryInputs::capture($this,$timezone);

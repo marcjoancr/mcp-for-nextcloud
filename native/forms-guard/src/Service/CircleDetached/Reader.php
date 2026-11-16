@@ -17,6 +17,7 @@ final class Reader {
     public function profile(string $id): array {return $this->read(static fn(Lease $lease): array=>$lease->profile($id));}
     public function users(string $id): array {return $this->read(static fn(Lease $lease): array=>$lease->users($id));}
     public function detail(string $id): array {return $this->read(static fn(Lease $lease): array=>$lease->detail($id));}
+    public function audience(string $circleId,int $parentId,int $fileId): array {return $this->read(static fn(Lease $lease): array=>$lease->audience($circleId,$parentId,$fileId));}
     public function memberLevel(string $id,string $uid): int {return $this->read(static fn(Lease $lease): int=>$lease->memberLevel($id,$uid));}
     public function teamIds(string $uid): array {
         return $this->read(static fn(Lease $lease): array => $lease->query()->readUserTeamIds($uid));

@@ -22,7 +22,7 @@ final class FinalSharePolicy {
         $frame();
         // Resolve the pure DTO declaration in collect, never via autoload after the final SQL snapshot.
         if(!class_exists(NodeResource::class))throw new \RuntimeException('Final sharing resource DTO is unavailable');
-        if ($nodeId<1 || $subject->getUID()==='' || !in_array($receiver::class,[\OCP\Interaction\Receivers\UserReceiver::class,\OCP\Interaction\Receivers\GroupReceiver::class],true)) {throw new \RuntimeException('Final sharing policy tuple is invalid');}
+        if ($nodeId<1 || $subject->getUID()==='' || !in_array($receiver::class,[\OCP\Interaction\Receivers\UserReceiver::class,\OCP\Interaction\Receivers\GroupReceiver::class,\OCP\Interaction\Receivers\CircleReceiver::class],true)) {throw new \RuntimeException('Final sharing policy tuple is invalid');}
         if (count($resourceHandlers)!==2 || array_diff(array_map(static fn(object $h):string=>$h::class,$resourceHandlers),[\OCA\Files\Listener\RestrictInteractionListener::class,\OCA\Files_Sharing\Listener\RestrictInteractionListener::class])!==[] || $resourceHandlers[0]::class===$resourceHandlers[1]::class) {throw new \RuntimeException('Final sharing resource listeners are unqualified');}
         // Core's exact handler reads only action/user/receivers. No node lookup is needed for this phase.
         $query=new RestrictInteractionEvent($subject->getUID(),$subject,[],new ShareAction(1),[$receiver]);

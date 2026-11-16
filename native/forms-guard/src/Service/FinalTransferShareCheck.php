@@ -125,8 +125,15 @@ final class FinalTransferShareCheck {
                         $actualChild=$targetById[$mappedId]??null;
                         if ($mappedId<1 || $actualChild===null) {throw new \RuntimeException('Final sharing child mapping disappeared');}
                         FinalShareRows::child($actualChild,$child,$mappedId,$parent,$j);unset($targetById[$mappedId]);
-                        $member=FinalReadCore::fresh($child['share_with'],$this->readDb);$group=(FinalReadCore::fresh($j['uid'],$this->readDb))->groups()->get($r['approved_tuple']['recipient']);
-                        if ($group===null || !$group->inGroup($member->user())) {throw new \RuntimeException('Final sharing recipient group membership changed');}
+                        if($r['approved_tuple']['type']===7){
+                            $circleId=$r['approved_tuple']['recipient'];$singleId=$child['share_with'];
+                            if((int)$child['share_type']!==7||!is_string($singleId))throw new \RuntimeException('Final Circle recipient child identity changed');
+                            $recipientUid=CircleRuntime::recipientUid($j['uid'],$circleId,$singleId,$this->readDb);
+                            CircleRuntime::assertRecipientMember($j['uid'],$circleId,$recipientUid,$singleId,$this->readDb);
+                        }else{
+                            $member=FinalReadCore::fresh($child['share_with'],$this->readDb);$group=(FinalReadCore::fresh($j['uid'],$this->readDb))->groups()->get($r['approved_tuple']['recipient']);
+                            if ($group===null || !$group->inGroup($member->user())) {throw new \RuntimeException('Final sharing recipient group membership changed');}
+                        }
                         ($this->fresh)();
                     }
                     if ($targetById!==[]) {throw new \RuntimeException('Final sharing target child set changed');}

@@ -7,6 +7,7 @@
     "OCA\\Circles\\Db\\MembershipRequest": "lib/Db/MembershipRequest.php",
     "OCA\\Circles\\Db\\MountRequest": "lib/Db/MountRequest.php",
     "OCA\\Circles\\Db\\RemoteRequest": "lib/Db/RemoteRequest.php",
+    "OCA\\Circles\\Db\\ShareWrapperRequest": "lib/Db/ShareWrapperRequest.php",
     "OCA\\Circles\\Events\\Files\\CreatingFileShareEvent": "lib/Events/Files/CreatingFileShareEvent.php",
     "OCA\\Circles\\Events\\Files\\FileShareCreatedEvent": "lib/Events/Files/FileShareCreatedEvent.php",
     "OCA\\Circles\\Events\\Files\\PreparingFileShareEvent": "lib/Events/Files/PreparingFileShareEvent.php",
