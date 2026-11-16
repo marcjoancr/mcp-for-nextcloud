@@ -13,7 +13,10 @@ final class NativeGroupHistory {
     }
     public static function capture(string $gid,array $job):array {
         $db=self::database();$context=OriginContext::current();
-        if (($context['verified']['tool']??null)!=='forms_transfer' || ($job['action']??null)!=='forms_transfer' || ($job['phase']??null)!=='capture' || ($job['sealed']??null)!==false || ($job['uid']??null)!==($context['verified']['uid']??null) || ($job['input']??null)!==($context['input']??null)) {throw new \RuntimeException('Group witness enrollment is not a transfer capture');}
+        $input=$job['input']??null;$origin=$context['origin']??null;
+        if(!is_array($origin)||($job['origin']??null)!==$origin||!is_array($input)){throw new \RuntimeException('Group capture original authority changed');}
+        if(array_key_exists('_mcp_origin',$input)){if($input['_mcp_origin']!==$origin){throw new \RuntimeException('Group capture transport authority changed');}unset($input['_mcp_origin']);}
+        if (($context['verified']['tool']??null)!=='forms_transfer' || ($job['action']??null)!=='forms_transfer' || ($job['phase']??null)!=='capture' || ($job['sealed']??null)!==false || ($job['uid']??null)!==($context['verified']['uid']??null) || $input!==($context['input']??null)) {throw new \RuntimeException('Group witness enrollment is not a transfer capture');}
         OriginContext::assertFresh();$core=new FreshCore($context['verified']['uid']);$groups=$core->groups();
         if (!$groups->groupExists($gid) || $groups->get($gid)===null) {throw new \RuntimeException('Group capture recipient disappeared');}
         $gid=GroupIdentity::existing($db,$gid);

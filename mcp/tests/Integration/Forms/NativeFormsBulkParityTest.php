@@ -8,8 +8,8 @@ final class NativeFormsBulkParityTest extends TestCase {
  public function testHistoricalCommentRecoveryHasBoundedReadableThreadsWithoutReposting():void {$this->probe('bulk-comments-parity-probe.php');}
  public function testTransferStagesExactTargetOwnedSharesBeforeAtomicOwnerSwitch():void {$this->probe('bulk-shares-parity-probe.php');}
  public function testGroupTransferPreservesExactAudience():void {$this->probe('bulk-shares-parity-probe.php','group');}
- public function testOriginalNativeRestrictionStopsTransfer():void {$this->probe('bulk-shares-parity-probe.php','deny_source');}
- public function testTargetNativeRestrictionStopsTransfer():void {$this->probe('bulk-shares-parity-probe.php','deny_target');}
+ public function testUnqualifiedSourceRestrictionStopsTransferBeforeEffects():void {$this->probe('bulk-shares-parity-probe.php','deny_source');}
+ public function testUnqualifiedTargetRestrictionStopsTransferBeforeEffects():void {$this->probe('bulk-shares-parity-probe.php','deny_target');}
  public function testUnknownShareAcknowledgementNeverReplays():void {$this->probe('bulk-shares-parity-probe.php','provider_unknown');}
  public function testOriginalAuthorityRevokedAtProviderBoundaryStopsTransfer():void {$this->probe('bulk-shares-parity-probe.php','postlock_revoked');}
  public function testMovedEmptyManagedFolderInvalidatesPreview():void {$this->probe('bulk-shares-parity-probe.php','preview_move');}
