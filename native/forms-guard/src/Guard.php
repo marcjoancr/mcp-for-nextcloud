@@ -399,6 +399,40 @@ final class Guard {
             return $evidence;
         });
     }
+    /** Fresh selected SharedStorage owner ancestry for linked Forms audience approval. */
+    public function linkedSharedAudience(string $uid,string $path,?array $origin=null):array {
+        if($uid===''||str_contains($uid,'/')||str_contains($uid,"\0")||!($this->capabilities()['qualified']??false))throw new \RuntimeException('Linked Forms shared audience authority is unavailable');
+        $formId=0;
+        if($origin!==null){
+            $verified=Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assert($origin);
+            $references=$verified['references']??[];$formId=$references['form_id']??0;
+            if(($verified['uid']??null)!==$uid||($verified['tool']??null)!=='forms_link_results_file'||($references['owner_id']??null)!==$uid
+                ||!is_int($formId)||$formId<1||($origin['uid']??null)!==$uid||($origin['tool']??null)!=='forms_link_results_file')throw new \RuntimeException('Original linked Forms authority is unavailable');
+        }else{$this->actor($uid);}
+        $work=function()use($uid,$path,$origin,$formId):array {
+            if($origin!==null){
+                OriginContext::assertFresh();$forms=(new ScopedServices($uid,true,true))->forms();$form=$forms->getFormIfAllowed($formId,'results');
+                if($form->getOwnerId()!==$uid||!in_array('results',$forms->getPermissions($form),true))throw new \RuntimeException('Original linked Forms results authority changed');
+            }
+            $path=\OCA\Mcp\Platform\FileAccess\Paths\PathGuard::normalize($path);
+            $home=Server::get(\OCP\Files\IRootFolder::class)->getUserFolder($uid);$relative=ltrim($path,'/');$parentPath=dirname($relative);
+            $parent=$parentPath==='.'?$home:$home->get($parentPath);
+            if(!$parent instanceof \OCP\Files\Folder)throw new \RuntimeException('Linked Forms shared destination parent is unavailable');
+            $targetPath=rtrim($home->getPath(),'/').'/'.$relative;$exists=$home->nodeExists($relative);
+            if($exists){$node=$home->get($relative);if(!$node instanceof \OCP\Files\File)throw new \RuntimeException('Linked Forms shared output is not a file');$create=false;}
+            else{$node=$parent;$create=true;}
+            if($node->getOwner()?->getUID()===$uid)throw new \RuntimeException('Linked Forms target is not a shared destination');
+            if($origin!==null)OriginContext::assertFiles('forms_link_results_file',['files'=>[['file_id'=>(int)$node->getId()]]]);
+            $evidence=\OCA\Forms\Mcp\Service\StorageAdmission::linkedSharedAudience($node,$uid,$targetPath,$create);
+            if($node->getOwner()?->getUID()!==$evidence['owner_uid']||$parent->getOwner()?->getUID()!==$uid&&$parent->getOwner()?->getUID()!==$evidence['owner_uid'])throw new \RuntimeException('Linked Forms shared destination ownership changed');
+            if($exists&&$node->getOwner()?->getUID()!==$evidence['owner_uid'])throw new \RuntimeException('Linked Forms shared output owner changed');
+            if($origin!==null)OriginContext::assertFresh();
+            return $evidence;
+        };
+        if($origin===null)return $work();
+        return OriginContext::within($uid,$origin,'forms_link_results_file',['id'=>$formId],$work);
+    }
+
     /** Initialize the approved original actor's first Files root in its isolated CLI process. */
     public function initializeLinkedFiles(array $origin): void {
         if (PHP_SAPI!=='cli' || Server::get(\OCP\IUserSession::class)->getUser()!==null) {

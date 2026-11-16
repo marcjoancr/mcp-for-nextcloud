@@ -32,6 +32,12 @@ final class StorageAdmission {
         'OCA\FilesLock\Storage\LockWrapper' => '185cc860224f1724691adf56316d4c679060b20472bd0f8f7ae902940487a95d',
         'OCA\Files_Sharing\SharedStorage' => 'daabea358c320e39fae17920cb0f6e673c19c2160482b5440b16c16e2bded17f',
         'OCA\Files_Sharing\SharedMount' => '1408ed20fae4df74907db4a2496c40cf4f9427d1c0b34ea16b6e0f1a046b879d',
+        'OC\Files\Node\LazyFolder' => '6e87c27666bfad3ab06d11e4181100ccc33f3d4a1e398055243f493e94ce6472',
+        'OC\Files\Node\LazyUserFolder' => 'd8f789d2ad73fb5f8ead28d44ea1d13cbf0fa0840822a1df47fa29e69089d024',
+        'OC\Files\Node\File' => '3917379cde9cf1fec2fe672d24efdeb02c61276d1c9b4acaea2c33782dc6171d',
+        'OC\Files\Node\Folder' => '8fb20d65fe53d0c8788225daff6365c49d679d463e0b379d6cc12dbbd65f542d',
+        'OC\Files\Node\Node' => '74e4207bb794d9845f51c1b8ddb35a6f7fd168f50271ed90a96891ce2f53754e',
+        'OC\Files\Node\Root' => '6ef05f209edb13bd7d0e125b3ddff5d37cd02cf4b1afc3b3695ba00ea3691c4f',
         'OC\Files\Mount\MountPoint' => '6affaab2526d599c0cacbfb544cfb54429427af73646ec26561d53dd07eb13f8',
         'OC\Share20\Manager' => '4a13c43b201fc1458657c44e731f1814d937d97e935cc49222860c1e80dfaa44',
         'OC\Share20\ProviderFactory' => 'e64b4715b48e5c7a9c3ddc9e05c7edfa1414fc2173f35f7717ae917b6036bda9',
@@ -248,6 +254,9 @@ final class StorageAdmission {
             throw new \RuntimeException('Forms linked shared mount identity changed');
         }
         $shared = self::sharedStorage($storage);
+        if ((new \ReflectionProperty($shared, 'initialized'))->getValue($shared) !== true) {
+            throw new \RuntimeException('Forms linked shared destination is not already initialized');
+        }
         if ($shared !== self::sharedStorage($nodeStorage)) {
             throw new \RuntimeException('Forms linked shared node mount changed');
         }
@@ -258,6 +267,76 @@ final class StorageAdmission {
         $required = \OCP\Constants::PERMISSION_READ
             | ($create ? \OCP\Constants::PERMISSION_CREATE : \OCP\Constants::PERMISSION_UPDATE);
         self::validateStorage($storage, $uid, $required);
+    }
+
+    /** Resolve only an already initialized direct SharedStorage into its physical owner ancestry. */
+    public static function linkedSharedAudience(Node $actorNode, string $uid, string $targetPath, bool $create): array {
+        $mountPath=$targetPath;
+        self::linkedDestination($actorNode,$uid,$targetPath,$create,'forms_link_results_file');
+        $mounts=Server::get(IMountManager::class);$mount=$mounts->find($mountPath);
+        if($mount===null||$mount::class!=='OCA\Files_Sharing\SharedMount')throw new \RuntimeException('Forms shared audience mount is unavailable');
+        self::source(new \ReflectionClass($mount::class));
+        $storage=$mount->getStorage();$shared=self::sharedStorage($storage);$share=$shared->getShare();
+        if($share::class!=='OC\Share20\Share')throw new \RuntimeException('Forms shared audience share is unqualified');
+        self::source(new \ReflectionClass($share::class));
+        $user=(new \ReflectionProperty($shared,'user'))->getValue($shared);
+        $grouped=(new \ReflectionProperty($shared,'groupedShares'))->getValue($shared);
+        $initialized=(new \ReflectionProperty($shared,'initialized'))->getValue($shared);
+        $ownerFolder=(new \ReflectionProperty($shared,'ownerUserFolder'))->getValue($shared);
+        $sourcePath=(new \ReflectionProperty($shared,'sourcePath'))->getValue($shared);
+        $nonMasked=(new \ReflectionProperty($shared,'nonMaskedStorage'))->getValue($shared);
+        $permissions=$share->getPermissions();$ownerUid=$share->getShareOwner();$sourceId=$share->getNodeId();
+        if($initialized!==true||!is_string($user)||$user!==$uid||!is_array($grouped)||$grouped!==[]
+            ||!is_string($ownerUid)||$ownerUid===''||$ownerUid===$uid||!is_string($sourcePath)||$sourcePath===''||!is_int($sourceId)||$sourceId<1
+            ||!is_int($permissions)||$permissions<0||$share->getShareType()!==\OCP\Share\IShare::TYPE_USER||$share->getSharedWith()!==$uid
+            ||$share->getExpirationDate()!==null||!$nonMasked instanceof IStorage||!is_object($ownerFolder)
+            ||$ownerFolder::class!=='OC\Files\Node\LazyUserFolder')throw new \RuntimeException('Forms shared audience source is unavailable');
+        self::source(new \ReflectionClass($ownerFolder::class));
+        $realHome=(new \ReflectionProperty(\OC\Files\Node\LazyFolder::class,'folder'))->getValue($ownerFolder);
+        if(!$realHome instanceof \OC\Files\Node\Folder||$realHome::class!=='OC\Files\Node\Folder')throw new \RuntimeException('Forms shared audience owner Home is not already materialized');
+        self::source(new \ReflectionClass($realHome::class));
+        $homePath='/'.$ownerUid.'/files';$homeId=(int)$realHome->getId();
+        if($homeId<1||$realHome->getPath()!==$homePath||!str_starts_with($sourcePath,$homePath.'/'))throw new \RuntimeException('Forms shared audience owner Home identity changed');
+        $sourceRelative=ltrim(substr($sourcePath,strlen($homePath)),'/');
+        $ownerMounts=Server::get(IMountManager::class);$sourceMount=$ownerMounts->find($sourcePath);
+        if($sourceMount===null||$sourceMount->getStorage()!==$nonMasked)throw new \RuntimeException('Forms shared audience owner source mount is not already present');
+        $sourceRoot=$realHome->get($sourceRelative);
+        if((int)$sourceRoot->getId()!==$sourceId||$sourceRoot->getPath()!==$sourcePath||$sourceRoot->getOwner()?->getUID()!==$ownerUid
+            ||$sourceRoot->getStorage()!==$nonMasked)throw new \RuntimeException('Forms shared audience source root changed');
+        $mountPoint=rtrim($mount->getMountPoint(),'/');$actorPath=rtrim($actorNode->getPath(),'/');
+        $absoluteTarget=$actorPath;
+        if($mountPoint===''||($absoluteTarget!==$mountPoint&&!str_starts_with($absoluteTarget,$mountPoint.'/'))
+            ||$actorPath!==dirname($targetPath)&&$create||$actorPath!==$targetPath&&!$create)throw new \RuntimeException('Forms shared audience target path changed');
+        $suffix=substr($absoluteTarget,strlen($mountPoint));
+        $physicalPath=rtrim($sourcePath,'/').$suffix;
+        if($ownerMounts->find($physicalPath)!==$sourceMount)throw new \RuntimeException('Forms shared audience target crosses an unqualified owner mount');
+        if($physicalPath===$sourcePath)$physicalNode=$sourceRoot;
+        else {
+            $relative=ltrim(substr($physicalPath,strlen($homePath)),'/');
+            $physicalNode=$realHome->get($relative);
+        }
+        $expectedNodeType=$create?\OCP\Files\Folder::class:\OCP\Files\File::class;
+        if(!$physicalNode instanceof Node||!$physicalNode instanceof $expectedNodeType||(int)$physicalNode->getId()!==(int)$actorNode->getId()
+            ||$physicalNode->getPath()!==$physicalPath||$physicalNode->getOwner()?->getUID()!==$ownerUid||$physicalNode->getStorage()!==$nonMasked)
+            throw new \RuntimeException('Forms shared audience physical target changed');
+        $ids=[];$bindings=[];$node=$physicalNode;
+        for($depth=0;;$depth++){
+            if($depth>=100||$node->getOwner()?->getUID()!==$ownerUid||($node->getPath()!==$homePath&&!str_starts_with($node->getPath(),$homePath.'/')))throw new \RuntimeException('Forms shared audience ancestry is unavailable');
+            $id=(int)$node->getId();if($id<1||isset($ids[$id]))throw new \RuntimeException('Forms shared audience ancestry is ambiguous');
+            $ids[$id]=$id;$bindings[]=['id'=>$id,'path'=>$node->getPath()];
+            if($id===$homeId)break;
+            $node=$node->getParent();
+        }
+        self::linkedDestination($actorNode,$uid,$targetPath,$create,'forms_link_results_file');
+        if(Server::get(IMountManager::class)->find($mountPath)!==$mount||$mount->getStorage()!==$storage)throw new \RuntimeException('Forms shared audience mount changed');
+        $generation=self::existingOwnerGeneration($ownerUid);
+        $incarnation=hash('sha256',json_encode([$generation,$homeId,(string)$nonMasked->getId(),$sourceId],JSON_THROW_ON_ERROR));
+        $destinationPermissions=$actorNode->getPermissions();
+        if(!is_int($destinationPermissions)||$destinationPermissions<0||$destinationPermissions>\OCP\Constants::PERMISSION_ALL)throw new \RuntimeException('Forms shared audience permissions are unavailable');
+        $destinationPermissions &= $permissions;
+        $homePathForActor='/'.$uid.'/files';if(!str_starts_with($targetPath,$homePathForActor.'/'))throw new \RuntimeException('Forms shared audience path is unavailable');
+        $identity=['share_id'=>(int)$share->getId(),'source_id'=>$sourceId,'mount'=>$mountPoint,'storage_id'=>(string)$storage->getId(),'path'=>substr($targetPath,strlen($homePathForActor)),'permissions'=>$permissions];
+        return ['owner_uid'=>$ownerUid,'owner_incarnation_digest'=>$incarnation,'destination_permissions'=>$destinationPermissions,'ids'=>array_values($ids),'bindings'=>$bindings,'share_identity'=>$identity];
     }
 
     public static function path(string $path, bool $descendants = false): void {
@@ -367,6 +446,15 @@ final class StorageAdmission {
             $storage = $storage->getWrapperStorage();
         }
         throw new \RuntimeException('Forms linked destination wrapper limit exceeded');
+    }
+
+    /** Read an existing lifecycle witness; audience preview never enrolls or rotates identities. */
+    private static function existingOwnerGeneration(string $uid):string {
+        if(!NativeHistoryIdentity::ready())throw new \RuntimeException('Forms shared audience owner incarnation is unavailable');
+        $result=Server::get(\OCP\IDBConnection::class)->executeQuery('SELECT uid,generation FROM *PREFIX*forms_mcp_incarnations WHERE uid_hash=? LIMIT 2',[hash('sha256',"forms-user\0".$uid)]);
+        try{$rows=$result->fetchAll();}finally{$result->closeCursor();}
+        if(count($rows)!==1||($rows[0]['uid']??null)!==$uid||!is_string($rows[0]['generation']??null)||!preg_match('/^[a-f0-9]{64}$/D',$rows[0]['generation']))throw new \RuntimeException('Forms shared audience owner incarnation is unavailable');
+        NativeHistoryIdentity::assertCurrent($uid,$rows[0]['generation']);return $rows[0]['generation'];
     }
 
     private static function shared(IStorage $storage, string $uid, int $requiredPermissions): void {
