@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Bounded child I/O and private checkpoints; never expose command arguments/output in exceptions."""
 from pathlib import Path
-import hashlib,json,os,selectors,subprocess,time
+import hashlib,json,os,re,selectors,subprocess,time
 class Refused(RuntimeError):pass
 
 def private_directory(path):
@@ -82,7 +82,16 @@ def container_metadata(ident):
     try:values=[json.loads(x)for x in raw.splitlines()]
     except (ValueError,UnicodeError):raise Refused('Container metadata malformed')from None
     if len(values)!=len(fields):raise Refused('Container metadata incomplete')
-    return dict(zip(['id','name','image','running','status','label','ports','mounts','networks','extra_hosts','pid','started_at','exit_code','stop_signal','restart_policy','tmpfs'],values))
+    metadata=dict(zip(['id','name','image','running','status','label','ports','mounts','networks','extra_hosts','pid','started_at','exit_code','stop_signal','restart_policy','tmpfs'],values))
+    for name,endpoint in metadata['networks'].items():
+        if endpoint.get('NetworkID')=='':
+            # A stopped reconnect stores the network name before assigning a live endpoint.
+            # Resolve that configured name through Docker; never treat it as a live attachment.
+            if metadata['running']or endpoint.get('EndpointID')!=''or re.fullmatch('[A-Za-z0-9][A-Za-z0-9_.-]*',name)is None:raise Refused('Unresolved live network identity')
+            configured=child(['docker','network','inspect','--format','{{.Id}}',name],limit=128).decode().strip()
+            if re.fullmatch('[a-f0-9]{64}',configured)is None:raise Refused('Configured network identity unavailable')
+            endpoint['NetworkID']=configured
+    return metadata
 
 SQL="SELECT json_build_object('superuser',(SELECT rolsuper FROM pg_roles WHERE rolname=current_user),'foreign_client_sessions',(SELECT COUNT(*) FROM pg_stat_activity WHERE backend_type='client backend' AND pid<>pg_backend_pid()),'prepared_transactions',(SELECT COUNT(*) FROM pg_prepared_xacts));"
 def postgres_writers(db_id):

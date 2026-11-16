@@ -233,7 +233,7 @@ class Admin:
   result=decode(child(['docker','start','--attach','--interactive',ident],limit=16384,timeout=130,input_data=request))
   expected={'ok':True,'sequence':1,'stage':phase}
   if phase=='snapshot':
-   if set(result)!=set(expected)|{'data_digest','data_count','data_bytes'} or not re.fullmatch('[a-f0-9]{64}',str(result.get('data_digest',''))) or type(result.get('data_count'))is not int or not 1<=result['data_count']<=20000 or type(result.get('data_bytes'))is not int or not 0<=result['data_bytes']<=1073741824:raise Refused('Finite data proof malformed')
+   if set(result)!=set(expected)|{'data_digest','data_count','data_bytes'} or not re.fullmatch('[a-f0-9]{64}',str(result.get('data_digest',''))) or type(result.get('data_count'))is not int or not 1<=result['data_count']<=32768 or type(result.get('data_bytes'))is not int or not 0<=result['data_bytes']<=2147483648:raise Refused('Finite data proof malformed')
    expected.update({k:result[k]for k in('data_digest','data_count','data_bytes')})
   if result!=expected:raise Refused('Finite helper did not acknowledge phase')
   hm=container_metadata(ident)

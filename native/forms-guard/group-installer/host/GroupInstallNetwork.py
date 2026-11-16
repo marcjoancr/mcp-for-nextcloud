@@ -14,7 +14,7 @@ class LocalEngine(http.client.HTTPConnection):
         data=json.dumps(payload,separators=(',',':')).encode();self.request('POST',path,body=data,headers={'Content-Type':'application/json'})
         r=self.getresponse();body=r.read(65537)
         if len(body)>65536 or r.status not in expected:raise Refused('Engine mutation uncertain')
-        if r.status==204:return None
+        if r.status==204 or r.status==200 and not body.strip():return None
         try:return json.loads(body)
         except (ValueError,UnicodeError):raise Refused('Engine response malformed') from None
 

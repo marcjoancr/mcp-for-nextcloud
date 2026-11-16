@@ -7,6 +7,7 @@ function check(bool$v):void{global$checks;$checks++;if(!$v)throw new RuntimeExce
 function deny(Closure$f,string$m):void{$got=null;try{$f();}catch(RuntimeException$e){$got=$e->getMessage();}check($got===$m);}
 try{
  file_put_contents($d.'/source.php','synthetic');$h=hash('sha256','synthetic');P::pins($d,['source.php'=>$h]);check(true);
+ foreach(['sr@latin.js','PHP Charting Libraries.txt']as$name){file_put_contents($d.'/'.$name,'synthetic');try{P::pins($d,[$name=>$h]);check(true);}finally{unlink($d.'/'.$name);}}
  deny(fn()=>P::pins($d,['source.php'=>str_repeat('0',64)]),'Installer source changed');
  deny(fn()=>P::pins($d,['../source.php'=>$h]),'Installer source inventory malformed');
  mkdir($d.'/sub',0700);symlink($d.'/source.php',$d.'/sub/source.php');deny(fn()=>P::pins($d,['sub/source.php'=>$h]),'Installer symbolic source refused');unlink($d.'/sub/source.php');rmdir($d.'/sub');

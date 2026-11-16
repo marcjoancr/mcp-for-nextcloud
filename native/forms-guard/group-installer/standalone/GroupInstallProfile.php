@@ -19,7 +19,7 @@ final class GroupInstallProfile {
  public static function pins(string$root,array$pins):void{
   if($pins===[]||count($pins)>10000||!is_dir($root)||is_link($root))throw new \RuntimeException('Installer source inventory unavailable');
   foreach($pins as$path=>$hash){
-   if(!is_string($path)||preg_match('#^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$#D',$path)!==1||in_array('..',explode('/',$path),true)||!is_string($hash)||preg_match('/^[a-f0-9]{64}$/D',$hash)!==1)throw new \RuntimeException('Installer source inventory malformed');
+   if(!is_string($path)||preg_match('#^[A-Za-z0-9_.@ -]+(?:/[A-Za-z0-9_.@ -]+)*$#D',$path)!==1||in_array('..',explode('/',$path),true)||!is_string($hash)||preg_match('/^[a-f0-9]{64}$/D',$hash)!==1)throw new \RuntimeException('Installer source inventory malformed');
    $file=$root.'/'.$path;$parts=explode('/',$path);$current=$root;foreach($parts as$part){$current.='/'.$part;if(is_link($current))throw new \RuntimeException('Installer symbolic source refused');}
    if(!is_file($file)||!hash_equals($hash,hash_file('sha256',$file)))throw new \RuntimeException('Installer source changed');
   }
