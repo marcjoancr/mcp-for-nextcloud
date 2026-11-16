@@ -10,7 +10,7 @@ final class GroupInstallProtocol {
  }
  public static function response(string$bytes,int$exit,string$phase):void{
   if(strlen($bytes)>16384||$exit!==0)throw new \RuntimeException('Controller phase failed');$r=json_decode($bytes,true,4,JSON_THROW_ON_ERROR);
-  $base=['ok'=>true,'stage'=>$phase,'error_class'=>null];if($phase==='snapshot'){if(!is_array($r)||array_keys($r)!==['ok','stage','error_class','data_digest','data_count','data_bytes']||!is_string($r['data_digest'])||preg_match('/^[a-f0-9]{64}$/D',$r['data_digest'])!==1||!is_int($r['data_count'])||$r['data_count']<1||$r['data_count']>20000||!is_int($r['data_bytes'])||$r['data_bytes']<0||$r['data_bytes']>1073741824)throw new \RuntimeException('Controller phase failed');$base+=array_intersect_key($r,array_flip(['data_digest','data_count','data_bytes']));}
+  $base=['ok'=>true,'stage'=>$phase,'error_class'=>null];if($phase==='snapshot'){if(!is_array($r)||array_keys($r)!==['ok','stage','error_class','data_digest','data_count','data_bytes']||!is_string($r['data_digest'])||preg_match('/^[a-f0-9]{64}$/D',$r['data_digest'])!==1||!is_int($r['data_count'])||$r['data_count']<1||$r['data_count']>32768||!is_int($r['data_bytes'])||$r['data_bytes']<0||$r['data_bytes']>2147483648)throw new \RuntimeException('Controller phase failed');$base+=array_intersect_key($r,array_flip(['data_digest','data_count','data_bytes']));}
   if($r!==$base)throw new \RuntimeException('Controller phase failed');
  }
 }

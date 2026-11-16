@@ -9,3 +9,5 @@ Pure scripts under tests use synthetic data/processes only. Full command/output 
 This R1 correction adds composed-probe, full active network-map and durable epoch/helper-result recovery controls. The external review package retains REPORT-R1.md and the fix-only patch for the three reviewed findings; the original unexecuted freeze remains separate.
 
 Helper processes inherit only PATH and the three public PHP INI defaults of the pinned image (`PHP_MEMORY_LIMIT=512M`, `PHP_UPLOAD_LIMIT=512M`, `PHP_OPCACHE_MEMORY_CONSUMPTION=128`). Missing or different defaults refuse admission; application credentials and other environment values are not inherited. Configured Docker endpoints are checked separately from active attachments, including stopped containers and newly created helpers; the original observed MAC is verified after the final start. The local data proof covers at most 32,768 entries and 2 GiB within 30 seconds, with complete byte/metadata equality.
+
+Each database checkpoint is capped at 256 MiB before native execution; capacity admission reserves that same bound for all three database outputs. Oversized checkpoints refuse before any native bootstrap.

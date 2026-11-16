@@ -22,7 +22,7 @@
     "core/AppInfo/Application.php": "b02cd05b239e3c12bb3ce325d3d9bd4db15b7b49bd42124b52969ab6e8b40938",
     "core/Listener/RestrictInteractionListener.php": "8380e04081faa32875db1aac4c561294317338609020efd38d449978ba06bab2",
     "core/Sharing/Recipient/GroupShareRecipientType.php": "5cd0fdebd66dcc069e90d78ebaaaa7599718ddadde736bcc007bfa240b5795c0",
-    "custom_apps/mcp/lib/AppInfo/Application.php": "02d82bc1550c562d82c73b04d14d6d58b77fbaf6849de17322375959693165af",
+    "custom_apps/mcp/lib/AppInfo/Application.php": "6459fa821886b5558575ce535afe0594cbec814a1166592159022f05d699a2d7",
     "custom_apps/mcp/lib/Listener/GroupLifecycleListener.php": "07b8543ce71728bc525d6ca4629b302f947433749fd8fffa0d503c8bc7eeeb31",
     "lib/OC.php": "24053d5edb03c34e186ddd9d41ea8cd26b5b91ec59392c3c8f5847616fd90047",
     "lib/private/AllConfig.php": "a1c28c24a9e19d540a371a460f4dcd87afabae1b5242ad6c1520e3fdb8894937",

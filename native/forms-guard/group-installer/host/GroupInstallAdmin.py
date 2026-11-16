@@ -2,7 +2,7 @@
 """Finite PG-only adapter. Never invoked on import; no automatic recovery or DB restore."""
 from pathlib import Path
 import hashlib,io,json,os,re,secrets,tarfile,time
-from GroupInstallHostIO import child,container_metadata,postgres_writers,database_checkpoint,private_directory,private_write
+from GroupInstallHostIO import child,container_metadata,postgres_writers,database_checkpoint,private_directory,private_write,DATABASE_CHECKPOINT_LIMIT
 from GroupInstallTopology import sessions,Refused,release_bindings
 from GroupInstallNetwork import LocalEngine,NetworkInterval,single_network
 from GroupInstallArchive import inventory,changed
@@ -150,7 +150,7 @@ class Admin:
   if self.initial['forms'].get('forms/mcp-guard-installed.json',{}).get('sha256')!=self.plan['prepared_marker']:raise Refused('Required native app980 is not installed')
   actual_config={k.removeprefix('config/'):v['sha256']for k,v in self.initial['config'].items()if v['type']=='file'}
   if actual_config!=self.plan['config_pins']:raise Refused('Complete config profile differs')
-  required=sum(v['size']for files in self.initial.values()for v in files.values())*2+3*536870912+104857600
+  required=sum(v['size']for files in self.initial.values()for v in files.values())*2+3*DATABASE_CHECKPOINT_LIMIT+104857600
   stat=os.statvfs(self.private)
   if stat.f_bavail*stat.f_frsize<required:raise Refused('Private checkpoint capacity insufficient')
   self.journal('preflight',{'source_exact':True,'startup_admitted':True,'native_bootstrap':False})

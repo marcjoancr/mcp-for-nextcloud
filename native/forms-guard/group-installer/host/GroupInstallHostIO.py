@@ -3,6 +3,7 @@
 from pathlib import Path
 import hashlib,json,os,re,selectors,subprocess,time
 class Refused(RuntimeError):pass
+DATABASE_CHECKPOINT_LIMIT=268435456
 
 def private_directory(path):
     path=Path(path)
@@ -104,4 +105,4 @@ def postgres_writers(db_id):
 def database_checkpoint(db_id,path,custom):
     flags='--format=custom'if custom else'--data-only --no-owner --no-privileges'
     fixed='PGPASSWORD="$POSTGRES_PASSWORD" exec pg_dump '+flags+' --username="$POSTGRES_USER" --dbname="$POSTGRES_DB"'
-    return child(['docker','exec',db_id,'sh','-c',fixed],limit=536870912,timeout=120,output_path=path)
+    return child(['docker','exec',db_id,'sh','-c',fixed],limit=DATABASE_CHECKPOINT_LIMIT,timeout=120,output_path=path)

@@ -18,7 +18,7 @@ final class GroupInstallMigration extends \OC\DB\MigrationService {
   $schema=$this->primary->createSchema();if(!$schema->hasTable($prefix.'migrations'))throw new \RuntimeException('Installer migration table unavailable');$table=$schema->getTable($prefix.'migrations');
   if(array_keys($table->getColumns())!==['app','version']||$table->getPrimaryKey()?->getColumns()!==['app','version'])throw new \RuntimeException('Installer migration table unqualified');
   foreach($table->getColumns()as$column)if(!$column->getType() instanceof \Doctrine\DBAL\Types\StringType||$column->getLength()!==255)throw new \RuntimeException('Installer migration table unqualified');
-  $r=$this->primary->executeQuery('SELECT configvalue FROM *PREFIX*appconfig WHERE appid = ? AND configkey = ?',['core','vendor']);try{$vendor=$r->fetchOne();if($r->fetchOne()!==false)throw new \RuntimeException('Installer vendor state duplicated');}finally{$r->closeCursor();}
+  $r=$this->primary->executeQuery('SELECT configvalue FROM *PREFIX*appconfig WHERE appid = ? AND configkey = ?',['core','vendor']);try{$vendor=$r->fetchOne();if($r->fetchOne()!==false)throw new \RuntimeException('Installer vendor state duplicated');}finally{$r->free();}
   if($vendor==='owncloud')throw new \RuntimeException('Installer vendor profile unqualified');
   $known=$this->getMigratedVersions();sort($known,SORT_STRING);sort($expectedVersions,SORT_STRING);if($known!==$expectedVersions)throw new \RuntimeException('Installer migration preimage changed');
   $available=$this->getAvailableVersions();$pending=array_values(array_diff($available,$known));
