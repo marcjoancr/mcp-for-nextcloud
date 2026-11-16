@@ -33,5 +33,35 @@ final class FormsLinkedSharedStorageAdmissionTest extends TestCase {
 		self::assertStringContainsString('self::SHARED_MOUNT_WRAPPERS[$class] <= $rank', $admission);
 		self::assertStringContainsString('self::source(new \\ReflectionClass($class))', $admission);
 		self::assertStringNotContainsString('self::WRAPPERS[$class]', $admission);
+		$start = strpos($source, 'private static function shared(');
+		$end = strpos($source, 'private static function initializeLinkedSharedStorage(', $start);
+		self::assertIsInt($start);
+		self::assertIsInt($end);
+		$shareAdmission = substr($source, $start, $end - $start);
+		self::assertLessThan(strpos($shareAdmission, 'self::initializeLinkedSharedStorage($storage, $fresh, $uid)'),
+			strpos($shareAdmission, '$identity($fresh) !== $identity($share)'));
+		self::assertLessThan(strpos($shareAdmission, '$maskStorage = $storage->getWrapperStorage()'),
+			strpos($shareAdmission, 'self::initializeLinkedSharedStorage($storage, $fresh, $uid)'));
+
+		$start = strpos($source, 'private static function initializeLinkedSharedStorage(');
+		$end = strpos($source, 'private static function configuration()', $start);
+		self::assertIsInt($start);
+		self::assertIsInt($end);
+		$initializer = substr($source, $start, $end - $start);
+		self::assertStringContainsString('new FinalShareHomeRoot($ownerUid, $home)', $initializer);
+		self::assertStringContainsString('$rootProperty->setValue($storage, $boundedRoot)', $initializer);
+		self::assertStringContainsString('$rootProperty->setValue($storage, $root)', $initializer);
+		self::assertStringContainsString('finally {', $initializer);
+		self::assertStringContainsString('$root->get($homePath)', $initializer);
+		self::assertStringNotContainsString('getUserFolder(', $initializer);
+
+		$start = strpos($source, 'public static function linkedSharedAudience(');
+		$end = strpos($source, 'public static function path(', $start);
+		self::assertIsInt($start);
+		self::assertIsInt($end);
+		$audience = substr($source, $start, $end - $start);
+		self::assertStringContainsString("['OC\\Files\\Node\\Folder','OC\\Files\\Node\\LazyUserFolder']", $audience);
+		self::assertStringContainsString('$realHome->get($relative)', $audience);
+		self::assertStringNotContainsString('$node->getParent()', $audience);
 	}
 }

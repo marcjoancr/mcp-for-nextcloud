@@ -259,9 +259,6 @@ final class StorageAdmission {
             throw new \RuntimeException('Forms linked shared mount identity changed');
         }
         $shared = self::sharedStorage($storage);
-        if ((new \ReflectionProperty($shared, 'initialized'))->getValue($shared) !== true) {
-            throw new \RuntimeException('Forms linked shared destination is not already initialized');
-        }
         if ($shared !== self::sharedStorage($nodeStorage)) {
             throw new \RuntimeException('Forms linked shared node mount changed');
         }
@@ -295,9 +292,15 @@ final class StorageAdmission {
             ||!is_string($ownerUid)||$ownerUid===''||$ownerUid===$uid||!is_string($sourcePath)||$sourcePath===''||!is_int($sourceId)||$sourceId<1
             ||!is_int($permissions)||$permissions<0||$share->getShareType()!==\OCP\Share\IShare::TYPE_USER||$share->getSharedWith()!==$uid
             ||$share->getExpirationDate()!==null||!$nonMasked instanceof IStorage||!is_object($ownerFolder)
-            ||$ownerFolder::class!=='OC\Files\Node\LazyUserFolder')throw new \RuntimeException('Forms shared audience source is unavailable');
+            ||!in_array($ownerFolder::class,['OC\Files\Node\Folder','OC\Files\Node\LazyUserFolder'],true))throw new \RuntimeException('Forms shared audience source is unavailable');
         self::source(new \ReflectionClass($ownerFolder::class));
-        $realHome=(new \ReflectionProperty(\OC\Files\Node\LazyFolder::class,'folder'))->getValue($ownerFolder);
+        if($ownerFolder::class==='OC\Files\Node\Folder'){$realHome=$ownerFolder;}
+        else{
+            $folderProperty=new \ReflectionProperty(\OC\Files\Node\LazyFolder::class,'folder');
+            $cachedHome=$folderProperty->getValue($ownerFolder);
+            if($cachedHome!==null){$realHome=$cachedHome;}
+            else{$realHome=$ownerFolder->get('');if($folderProperty->getValue($ownerFolder)!==null)throw new \RuntimeException('Forms shared audience lazy Home was materialized through a fallback');}
+        }
         if(!$realHome instanceof \OC\Files\Node\Folder||$realHome::class!=='OC\Files\Node\Folder')throw new \RuntimeException('Forms shared audience owner Home is not already materialized');
         self::source(new \ReflectionClass($realHome::class));
         $homePath='/'.$ownerUid.'/files';$homeId=(int)$realHome->getId();
@@ -330,7 +333,10 @@ final class StorageAdmission {
             $id=(int)$node->getId();if($id<1||isset($ids[$id]))throw new \RuntimeException('Forms shared audience ancestry is ambiguous');
             $ids[$id]=$id;$bindings[]=['id'=>$id,'path'=>$node->getPath()];
             if($id===$homeId)break;
-            $node=$node->getParent();
+            $parentPath=dirname($node->getPath());
+            if($parentPath===$node->getPath())throw new \RuntimeException('Forms shared audience ancestry is unavailable');
+            $relative=ltrim(substr($parentPath,strlen($homePath)),'/');
+            $node=$relative===''?$realHome:$realHome->get($relative);
         }
         self::linkedDestination($actorNode,$uid,$targetPath,$create,'forms_link_results_file');
         if(Server::get(IMountManager::class)->find($mountPath)!==$mount||$mount->getStorage()!==$storage)throw new \RuntimeException('Forms shared audience mount changed');
@@ -511,6 +517,7 @@ final class StorageAdmission {
         if ($fresh::class !== $share::class || $fresh->getExpirationDate() !== null || $identity($fresh) !== $identity($share)) {
             throw new \RuntimeException('Forms linked shared destination ACL changed');
         }
+        self::initializeLinkedSharedStorage($storage, $fresh, $uid);
         $maskStorage = $storage->getWrapperStorage();
         if ($maskStorage::class !== 'OC\Files\Storage\Wrapper\PermissionsMask') {
             throw new \RuntimeException('Forms shared permission mask is unqualified');
@@ -519,6 +526,57 @@ final class StorageAdmission {
         $mask = (new \ReflectionProperty($maskStorage, 'mask'))->getValue($maskStorage);
         if ($mask !== $fresh->getPermissions()) {
             throw new \RuntimeException('Forms linked shared permission mask changed');
+        }
+    }
+
+    /** Initialize only the selected direct share, with native Home lookup unable to create a missing owner root. */
+    private static function initializeLinkedSharedStorage(\OCA\Files_Sharing\SharedStorage $storage, \OC\Share20\Share $share, string $uid): void {
+        $initialized = new \ReflectionProperty($storage, 'initialized');
+        if ($initialized->getValue($storage) === true) {return;}
+        $ownerUid = $share->getShareOwner();
+        if ($initialized->getValue($storage) !== false || $share->getShareType() !== \OCP\Share\IShare::TYPE_USER
+            || $share->getSharedWith() !== $uid || !is_string($ownerUid) || $ownerUid === $uid || $ownerUid === ''
+            || $share->getNodeId() < 1 || $share->getExpirationDate() !== null) {
+            throw new \RuntimeException('Forms linked shared source identity is unavailable');
+        }
+        self::source(new \ReflectionClass($storage::class));
+        $rootProperty = new \ReflectionProperty($storage, 'rootFolder');
+        $root = $rootProperty->getValue($storage);
+        $serverRoot = Server::get(IRootFolder::class);
+        if ($root !== $serverRoot || $root::class !== \OC\Files\Node\Root::class) {
+            throw new \RuntimeException('Forms linked shared root binding is unqualified');
+        }
+        self::source(new \ReflectionClass($root::class));
+        $homePath = '/' . $ownerUid . '/files';
+        $home = $root->get($homePath);
+        if (!$home instanceof \OC\Files\Node\Folder || $home::class !== \OC\Files\Node\Folder::class
+            || $home->getPath() !== $homePath || $home->getOwner()?->getUID() !== $ownerUid
+            || (int)$home->getId() < 1) {
+            throw new \RuntimeException('Forms linked shared owner Home is unavailable');
+        }
+        self::source(new \ReflectionClass($home::class));
+        $boundedRoot = new FinalShareHomeRoot($ownerUid, $home);
+        $rootProperty->setValue($storage, $boundedRoot);
+        try {
+            $masked = $storage->getWrapperStorage();
+        } finally {
+            $rootProperty->setValue($storage, $root);
+        }
+        if ($masked::class !== 'OC\Files\Storage\Wrapper\PermissionsMask'
+            || $initialized->getValue($storage) !== true
+            || (new \ReflectionProperty($storage, 'ownerUserFolder'))->getValue($storage) !== $home) {
+            throw new \RuntimeException('Forms linked shared initialization did not bind the existing Home');
+        }
+        self::source(new \ReflectionClass($masked::class));
+        $sourcePath = (new \ReflectionProperty($storage, 'sourcePath'))->getValue($storage);
+        $nonMasked = (new \ReflectionProperty($storage, 'nonMaskedStorage'))->getValue($storage);
+        if (!is_string($sourcePath) || !str_starts_with($sourcePath, $homePath . '/')
+            || !$nonMasked instanceof IStorage || $masked->getWrapperStorage() !== $nonMasked) {
+            throw new \RuntimeException('Forms linked shared source storage is unavailable');
+        }
+        $mount = Server::get(IMountManager::class)->find($sourcePath);
+        if ($mount === null || $mount->getStorage() !== $nonMasked) {
+            throw new \RuntimeException('Forms linked shared source mount is unavailable');
         }
     }
 
