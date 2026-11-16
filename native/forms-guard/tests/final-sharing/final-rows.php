@@ -2,6 +2,7 @@
 /* SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors
  * SPDX-License-Identifier: AGPL-3.0-or-later */
 declare(strict_types=1);
+require dirname(__DIR__).'/src/CoreShareIdentity.php';
 require dirname(__DIR__).'/src/FinalShareRows.php';
 use OCA\Forms\Mcp\Service\FinalShareRows as Rows;
 $n=0;
@@ -26,5 +27,9 @@ $form=['id'=>1,'owner_id'=>'original','state'=>0,'locked_by'=>'original','locked
 Rows::form($changed,$form,'target');check(true);
 $bad=$changed;$bad['title']='unapproved';denied(fn()=>Rows::form($bad,$form,'target'),'Final sharing intended owner transition changed');
 denied(fn()=>Rows::form($form,$form,'target'),'Final sharing intended owner transition changed');
-foreach(['ocCircleShare:4','ocinternal:0','ocinternal:04','ocinternal:99999999999999999999999999999'] as $bad)denied(fn()=>Rows::id($bad),'Final sharing provider identity is invalid');
+check(Rows::id('ocCircleShare:4',7)===4);
+denied(fn()=>Rows::id('ocCircleShare:4',1),'Final sharing provider identity is invalid');
+$teamParent=$target;$teamParent['share_type']=7;$teamSource=$child;$teamSource['share_type']=7;$teamCopy=$copied;$teamCopy['share_type']=7;Rows::child($teamCopy,$teamSource,9,$teamParent,$job);check(true);
+$bad=$teamCopy;$bad['share_type']=2;denied(fn()=>Rows::child($bad,$teamSource,9,$teamParent,$job),'Final sharing child identity changed');
+foreach(['ocinternal:0','ocinternal:04','ocinternal:99999999999999999999999999999'] as $bad)denied(fn()=>Rows::id($bad),'Final sharing provider identity is invalid');
 echo json_encode(['ok'=>true,'checks'=>$n],JSON_THROW_ON_ERROR)."\n";

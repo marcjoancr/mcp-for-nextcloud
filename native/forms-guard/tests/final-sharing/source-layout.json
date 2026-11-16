@@ -49,5 +49,6 @@
   "adapters/BulkOperations.php": "native/forms-guard/src/Service/BulkOperations.php",
   "adapters/FormsNativeAuthorization.php": "mcp/lib/Modules/Forms/Access/FormsNativeAuthorization.php",
   "adapters/OriginContext.php": "native/forms-guard/src/Service/OriginContext.php",
-  "adapters/TransferFinalFiles.php": "native/forms-guard/src/Service/TransferFinalFiles.php"
+  "adapters/TransferFinalFiles.php": "native/forms-guard/src/Service/TransferFinalFiles.php",
+  "src/CoreShareIdentity.php": "native/forms-guard/src/Service/CoreShareIdentity.php"
 }

@@ -23,10 +23,14 @@ final class FormsPublicationTest extends TestCase {
         self::assertTrue(FormsPublication::supported('forms_cancel_operation',$native));
     }
 
-    public function testNativeCommentActionsAloneCannotPublishAnUnwiredMcpPath():void {
+    public function testWiredCommentActionsRequireQualifiedNativeComments():void {
         $actions=['forms_list_comments','forms_add_comment','forms_update_comment','forms_delete_comment'];
         $native=['qualified'=>true,'protocol'=>1,'comments'=>true,'actions'=>$actions];
-        foreach($actions as $action)self::assertFalse(FormsPublication::supported($action,$native));
+        foreach($actions as $action) {
+            self::assertTrue(FormsPublication::supported($action,$native));
+            foreach(['qualified','comments'] as $flag)self::assertFalse(FormsPublication::supported($action,array_replace($native,[$flag=>false])));
+            self::assertFalse(FormsPublication::supported($action,array_replace($native,['protocol'=>2])));
+        }
     }
     public function testAnswerWritersRequireReadOnlyNativeValidationBeforeApproval():void {
         $tools=['forms_submit_response','forms_update_response','forms_update_own_response'];
