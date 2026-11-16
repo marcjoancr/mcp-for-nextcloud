@@ -69,8 +69,10 @@ def metadata(ident):
 def inspect(command,**kw):
  assert command[:3]==['docker','network','inspect']
  fmt=command[4];network=command[5]
- if network==N:return b'true'if fmt=='{{json .Internal}}'else json.dumps({key:{}for key in e.shared}).encode()
- assert network==P;return b'true\n'+json.dumps(e.private).encode()+b'\n'
+ if fmt=='{{json .Internal}}':return b'true'
+ assert fmt=='{{json .Containers}}'and network in(N,P)
+ configured=e.shared if network==N else e.private
+ return json.dumps({key:{}for key in configured if metadata(key)['running']}).encode()
 M.container_metadata=metadata;M.child=inspect
 n=NetworkInterval(e,profile,a.snapshot,lambda:{'superuser':True,'foreign_client_sessions':0,'prepared_transactions':0},lambda *args:None)
 original=a.snapshot(None)

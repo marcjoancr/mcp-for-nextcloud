@@ -77,7 +77,7 @@ def child(command,limit=1048576,timeout=120,output_path=None,input_data=None):
 
 def container_metadata(ident):
     # Fixed selected fields only: no Config.Env, full inspect or arbitrary HostConfig serialization.
-    fields=['.Id','.Name','.Image','.State.Running','.State.Status','(index .Config.Labels "forms.guard.test")','.NetworkSettings.Ports','.Mounts','.NetworkSettings.Networks','.HostConfig.ExtraHosts','.State.Pid','.State.StartedAt','.State.ExitCode','.Config.StopSignal','.HostConfig.RestartPolicy.Name','.HostConfig.Tmpfs']
+    fields=['.Id','.Name','.Image','.State.Running','.State.Status','(index .Config.Labels "forms.guard.test")','.NetworkSettings.Ports','.Mounts','.NetworkSettings.Networks','.HostConfig.ExtraHosts','.State.Pid','.State.StartedAt','.State.ExitCode','(index .Config "StopSignal")','.HostConfig.RestartPolicy.Name','(index .HostConfig "Tmpfs")']
     raw=child(['docker','inspect','--format','\n'.join('{{json '+x+'}}'for x in fields),ident],limit=65536)
     try:values=[json.loads(x)for x in raw.splitlines()]
     except (ValueError,UnicodeError):raise Refused('Container metadata malformed')from None

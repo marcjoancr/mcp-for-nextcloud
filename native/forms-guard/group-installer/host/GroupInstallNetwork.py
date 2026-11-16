@@ -20,8 +20,8 @@ class LocalEngine(http.client.HTTPConnection):
 
 class NetworkInterval:
     """Two owned endpoints only. Any ambiguous mutation poisons the object: no automatic retry/release."""
-    def __init__(self,engine,profile,snapshot,writer_probe,journal):
-        self.engine=engine;self.profile=profile;self.snapshot=snapshot;self.writer_probe=writer_probe;self.journal=journal;self.phase='new';self.private=None;self.original=None
+    def __init__(self,engine,profile,snapshot,writer_probe,journal,before_stop=None):
+        self.engine=engine;self.profile=profile;self.snapshot=snapshot;self.writer_probe=writer_probe;self.journal=journal;self.phase='new';self.private=None;self.original=None;self.before_stop=before_stop
     def _owned_identity(self,current,expected,require_stopped=True):
         if (require_stopped and current['app_running'] is not False) or current['app_id']!=self.profile['app_id'] or current['db_id']!=self.profile['db_id'] or current['network']['id']!=self.profile['network_id']:raise Refused('Network interval identity changed')
         maps=current.get('owned_networks')
@@ -41,12 +41,18 @@ class NetworkInterval:
     def isolate(self):
         if self.phase!='new':raise Refused('Network interval replay refused')
         self.phase='hold';before=self._identity(self.profile['network_id']);sessions(self.writer_probe());self.original=before['network'];self.foreign=before['foreign_processes'];self.owned=(self.profile['app_id'],self.profile['db_id'])
+        if self.before_stop is not None:
+            from GroupInstallTopology import release_bindings
+            self._owned_identity(self.before_stop,self.profile['network_id'],require_stopped=False)
+            if self.before_stop['app_running']is not True or self.before_stop['foreign_processes']!=self.foreign:raise Refused('Running endpoint provenance changed')
+            release_bindings(self.before_stop['network'],before['network'],self.owned,self.profile['dns_proofs'],stopped_ids=(self.profile['app_id'],))
+            self.original=self.before_stop['network']
         if set(self.profile['dns_proofs'])!=set(self.owned):raise Refused('Configured dynamic endpoint provenance missing')
         for ident in self.owned:
             endpoint=endpoint_binding(self.original['consumers'][ident])
             if endpoint['Links'] not in (None,[]) or endpoint['IPAMConfig'] is not None:raise Refused('Only original null-IPAM profile qualified')
         self.journal('isolation_intent',{'original':self.original})
-        created=self.engine.mutation('/v1.55/networks/create',{'Name':self.profile['private_name'],'Driver':'bridge','Internal':True,'Attachable':False,'Labels':{'forms.guard.group-installer':self.profile['operation']}},(201,))
+        created=self.engine.mutation('/v1.55/networks/create',{'Name':self.profile['private_name'],'Driver':'bridge','Internal':True,'Attachable':False,'IPAM':{'Driver':'default','Config':[{'Subnet':'10.239.114.0/24'}]},'Labels':{'forms.guard.group-installer':self.profile['operation']}},(201,))
         if not isinstance(created,dict) or not re.fullmatch('[a-f0-9]{64}',created.get('Id','')) or created.get('Warning') not in (None,''):raise Refused('Private network creation uncertain')
         self.private=created['Id'];self.journal('private_network_created',{'id':self.private})
         for ident in self.owned:
@@ -71,6 +77,6 @@ class NetworkInterval:
             config={key:prior.get(key) for key in ('IPAMConfig','Links','MacAddress','Aliases','DriverOpts','GwPriority')}
             self.journal('restore_request',{'container':ident,'endpoint_config':config})
             self.engine.mutation('/v1.55/networks/'+self.profile['network_id']+'/connect',{'Container':ident,'EndpointConfig':config},(200,204))
-        after=self._identity(self.profile['network_id']);release_bindings(self.original,after['network'],self.owned,self.profile['dns_proofs'])
+        after=self._identity(self.profile['network_id']);release_bindings(self.original,after['network'],self.owned,self.profile['dns_proofs'],stopped_ids=(self.profile['app_id'],))
         if after['foreign_processes']!=self.foreign or after['private_consumers']!={}:raise Refused('Release cleanup uncertain')
         self.phase='restored';self.journal('network_released',{'configured_bindings_exact':True,'actual_endpoints':after['network']['consumers'],'observed_mac_explicitly_preserved':True})

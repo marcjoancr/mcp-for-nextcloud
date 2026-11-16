@@ -55,18 +55,22 @@ def dns_dependency(dbhost,db_name,extra_hosts):
     else:raise Refused('Literal database address unqualified')
     return {'host':name,'port':5432,'extra_hosts_absent':True}
 
-def configured_binding(endpoint,dns_proven=False):
+def configured_binding(endpoint,dns_proven=False,stopped=False):
     out=endpoint_binding(endpoint)
     if dns_proven:
         if out['IPAMConfig'] not in (None,{}):raise Refused('Static address profile requires exact restoration')
         # Only generated addressing is ignored. Requested MAC is retained explicitly during reconnect.
         out.pop('IPAddress');out.pop('IPPrefixLen')
+    if stopped:
+        # Docker retains configuration but removes dynamic wire state while stopped.
+        # The observed MAC is requested explicitly, then verified after final start.
+        for key in ('MacAddress','Gateway','IPv6Gateway','GlobalIPv6PrefixLen'):out.pop(key,None)
     return out
 
-def release_bindings(before,after,owned_ids,dns_proofs):
+def release_bindings(before,after,owned_ids,dns_proofs,stopped_ids=()):
     if before['id']!=after['id'] or before['internal']!=after['internal'] or set(before['consumers'])!=set(after['consumers']):raise Refused('Network restoration uncertain')
     for ident,prior in before['consumers'].items():
         now=after['consumers'][ident]
         if ident not in owned_ids:
             if prior!=now:raise Refused('Foreign endpoint changed')
-        elif configured_binding(prior,ident in dns_proofs)!=configured_binding(now,ident in dns_proofs):raise Refused('Configured endpoint restoration uncertain')
+        elif configured_binding(prior,ident in dns_proofs,ident in stopped_ids)!=configured_binding(now,ident in dns_proofs,ident in stopped_ids):raise Refused('Configured endpoint restoration uncertain')

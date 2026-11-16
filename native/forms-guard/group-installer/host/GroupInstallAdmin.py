@@ -3,7 +3,7 @@
 from pathlib import Path
 import hashlib,io,json,os,re,secrets,tarfile,time
 from GroupInstallHostIO import child,container_metadata,postgres_writers,database_checkpoint,private_directory,private_write
-from GroupInstallTopology import sessions,Refused
+from GroupInstallTopology import sessions,Refused,release_bindings
 from GroupInstallNetwork import LocalEngine,NetworkInterval,single_network
 from GroupInstallArchive import inventory,changed
 from GroupInstallDbState import parse,compare,application_versions
@@ -123,17 +123,20 @@ class Admin:
   actual.update(command_exact=command,image_diff=filtered,version_equal=actual['sources']['/usr/src/nextcloud/version.php']==actual['sources']['/var/www/html/version.php'],literal_versions=actual['sources']['/var/www/html/version.php']==self.plan['literal_version_sha256'],stop_signal=meta['stop_signal'],restart_policy=meta['restart_policy'])
   admit(actual,self.plan['startup_pins'])
  def snapshot(self,private_id):
-  metas={ident:container_metadata(ident)for ident in self.plan['consumer_ids']}
+  identities=list(self.plan['consumer_ids'])+([self.helper_id]if self.helper_id is not None else[])
+  metas={ident:container_metadata(ident)for ident in identities}
+  def collect(network):
+   configured={ident:ep for ident,m in metas.items()for ep in m['networks'].values()if ep['NetworkID']==network}
+   active=decode(child(['docker','network','inspect','--format','{{json .Containers}}',network],limit=65536))
+   expected={ident for ident,m in metas.items()if m['running']and ident in configured}
+   if set(active)!=expected:raise Refused('Unknown or missing active network consumer')
+   return configured
   net=decode(child(['docker','network','inspect','--format','{{json .Internal}}',NETWORK],limit=128))
-  endpoints={ident:next((ep for ep in m['networks'].values()if ep['NetworkID']==NETWORK),None)for ident,m in metas.items()};endpoints={k:v for k,v in endpoints.items()if v is not None}
-  actual_ids=decode(child(['docker','network','inspect','--format','{{json .Containers}}',NETWORK],limit=65536))
-  if set(actual_ids)!=set(endpoints):raise Refused('Unknown original network consumer')
+  endpoints=collect(NETWORK)
   private_consumers={};internal=False
   if private_id:
-   raw=child(['docker','network','inspect','--format','{{json .Internal}}\n{{json .Containers}}',private_id],limit=65536).splitlines()
-   if len(raw)!=2:raise Refused('Private network metadata incomplete')
-   internal=decode(raw[0]);private_consumers=decode(raw[1])
-  return {'app_running':metas[APP]['running'],'app_id':APP,'db_id':DB,'owned_networks':{i:metas[i]['networks']for i in(APP,DB)},'network':{'id':NETWORK,'internal':net,'consumers':endpoints},'foreign_processes':{k:v for k,v in metas.items()if k not in (APP,DB)},'private_consumers':private_consumers,'private_network_id':private_id,'private_internal':internal,'helper_present':self.helper_id is not None}
+   internal=decode(child(['docker','network','inspect','--format','{{json .Internal}}',private_id],limit=128));private_consumers=collect(private_id)
+  return {'app_running':metas[APP]['running'],'app_id':APP,'db_id':DB,'owned_networks':{i:metas[i]['networks']for i in(APP,DB)},'network':{'id':NETWORK,'internal':net,'consumers':endpoints},'foreign_processes':{k:metas[k]for k in self.plan['consumer_ids']if k not in(APP,DB)},'private_consumers':private_consumers,'private_network_id':private_id,'private_internal':internal,'helper_present':self.helper_id is not None}
  def preflight(self,action):
   if action!=self.action:raise Refused('Action changed')
   for ident in self.plan['consumer_ids']:
@@ -155,13 +158,16 @@ class Admin:
   if hasattr(self,'interval'):self.interval.assert_isolated(self.snapshot(self.net),require_stopped=False)
   else:
    for ident in(APP,DB):single_network(container_metadata(ident)['networks'],NETWORK)
+   self.running_network=self.snapshot(None)
+   if self.running_network['app_running']is not True:raise Refused('Original running endpoint proof unavailable')
+   self.journal('running_network_before_stop',self.running_network)
   self.journal('stop_intent',{'app':APP});child(['docker','stop','--time','30',APP],limit=1024,timeout=40)
   m=container_metadata(APP)
   if m['running']is not False or m['exit_code']!=0:raise Refused('App graceful shutdown unproved')
   sessions(postgres_writers(DB))
  def isolate(self):
   profile={'app_id':APP,'db_id':DB,'network_id':NETWORK,'private_name':'forms-group-install-'+self.operation,'operation':self.operation,'dns_proofs':[APP,DB]}
-  self.interval=NetworkInterval(LocalEngine(),profile,self.snapshot,lambda:postgres_writers(DB),self.journal);self.net=self.interval.isolate()
+  self.interval=NetworkInterval(LocalEngine(),profile,self.snapshot,lambda:postgres_writers(DB),self.journal,before_stop=self.running_network);self.net=self.interval.isolate()
  def checkpoint(self):
   self.before=self.archives('before')
   if self.before!=self.initial:raise Refused('Source changed while stopping app')
@@ -309,6 +315,9 @@ class Admin:
   for ident in(APP,DB):single_network(container_metadata(ident)['networks'],NETWORK)
   child(['docker','start',APP],limit=1024)
   if container_metadata(APP)['running']is not True:raise Refused('Released app start failed')
+  restored=self.snapshot(None)
+  release_bindings(self.interval.original,restored['network'],(APP,DB),(APP,DB))
+  if restored['foreign_processes']!=self.interval.foreign:raise Refused('Foreign process changed on final start')
   self.journal('released',{'configured_endpoints_restored':True,'all_frozen_interval_invariants':True,'active':self.action!='rollback'})
  def hold(self):
   # Preserve exact topology/process/checkpoint uncertainty. No compensating network release or DB rewind.
