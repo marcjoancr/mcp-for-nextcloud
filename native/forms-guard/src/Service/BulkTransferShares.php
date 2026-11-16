@@ -17,6 +17,10 @@ final class BulkTransferShares {
   return Server::get(\OCA\Forms\Helper\FilePathHelper::class)->getFormUploadedFilesFolderPath($form).'/bulk-'.$j['id'].'/source/'.self::relative($j['form']['owner_id'],$sourcePath);
  }
  /** Exact native recipient acceptance/restriction metadata; never infer new consent. */
+ /** Named private issuer: staging runs inside storage closures, which are not named method frames. */
+ private function circleParentWriteCapability(array $job,array $row,array $mapping):CircleDetached\ShareWriteBoundary {
+  return CircleDetached\ShareWriteBoundary::bulkTransferParent($this->store,$job,$row,$mapping);
+ }
  public static function shareState(string $id):array {
   $identity=CoreShareIdentity::parse($id);SharingIdentity::assertType($identity['provider']==='ocCircleShare'?7:0);$db=Server::get(IDBConnection::class);
   $state=$db->executeQuery('SELECT accepted,expiration,attributes FROM *PREFIX*share WHERE id = ?',[$identity['id']])->fetch();if(!$state){throw new \RuntimeException('Transfer share disappeared');}
@@ -79,7 +83,7 @@ final class BulkTransferShares {
       if(!$create||$share->getSharedBy()!==$j['uid']||$share->getShareOwner()!==$tuple['owner_id']||$share->getSharedWith()!==$tuple['recipient']||$share->getShareType()!==$tuple['type']||(int)$share->getNodeId()!==(int)$folder->getId()||!in_array($share->getPermissions(),[0,1],true)){throw new \RuntimeException('Transfer provider tuple differs from approval');}
      };
      $source=Server::get(IRootFolder::class)->getUserFolder($j['uid'])->getById((int)$r['folder_id'])[0]??null;if(!$source instanceof Folder){throw new \RuntimeException('Transfer source folder unavailable');}
-     $transferCircle=$tuple['type']===7;$writeCapability=$transferCircle?\OCA\Forms\Mcp\Service\CircleDetached\ShareWriteBoundary::bulkTransferParent($this->store,$j,$row,$mapped):null;
+     $transferCircle=$tuple['type']===7;$writeCapability=$transferCircle?$this->circleParentWriteCapability($j,$row,$mapped):null;
      $eventProof=$transferCircle?$this->circleEventProof($j,$r,$row,$mapped,$folder,'create'):null;
      $manager=ScopedShareManager::create($j['uid'],$authorize,null,$eventProof,$writeCapability);
      if(!$transferCircle){$manager=TransferShareManager::scoped($manager,$source,$authorize);ScopedShareManager::quarantineTransfer($manager);}

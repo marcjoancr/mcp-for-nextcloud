@@ -2,7 +2,7 @@
 /* UNAPPLIED R2 proposal. SPDX-License-Identifier: AGPL-3.0-or-later */
 declare(strict_types=1);
 namespace OCA\Forms\Mcp\Service\CircleDetached;
-use OCA\Forms\Mcp\Service\{CircleExistingIdentity,CircleReadConfig,CircleReadData,FreshCore};
+use OCA\Forms\Mcp\Service\{CircleExistingIdentity,CircleReadConfig,CircleReadData,FreshCore,FinalReadConnection,FinalReadCore};
 /** Owned by one stack frame; no static current scope, service clone, enrollment or ambient session. */
 final class Lease {
     private bool $active=true;
@@ -32,7 +32,7 @@ final class Lease {
     ) {
         $this->started=hrtime(true);
         ($this->assertAuthority)();$this->sources->assert($this->uid);
-        $core=new FreshCore($uid);
+        $core=$connection instanceof FinalReadConnection?FinalReadCore::fresh($uid,$connection):new FreshCore($uid);
         if(!$core->apps()->isEnabledForUser('forms',$core->user())||!$core->apps()->isEnabledForUser('circles',$core->user())){throw new \RuntimeException('Circle actor application access is unavailable');}
         $this->identity=CircleExistingIdentity::read($connection,$uid);
         [$this->configData,$this->keyhole]=$this->readConfig();
@@ -47,7 +47,7 @@ final class Lease {
         $this->assertActive();
         if(++$this->queries>128){throw new \RuntimeException('Circle query budget exceeded');}
         ($this->assertAuthority)();$this->sources->assert($this->uid);
-        $core=new FreshCore($this->uid);
+        $core=$this->connection instanceof FinalReadConnection?FinalReadCore::fresh($this->uid,$this->connection):new FreshCore($this->uid);
         if(!$core->apps()->isEnabledForUser('forms',$core->user())||!$core->apps()->isEnabledForUser('circles',$core->user())){throw new \RuntimeException('Circle actor application access changed');}
         if(CircleExistingIdentity::read($this->connection,$this->uid)!==$this->identity||$this->readConfig()!==[$this->configData,$this->keyhole]){throw new \RuntimeException('Circle actor identity or configuration changed');}
     }

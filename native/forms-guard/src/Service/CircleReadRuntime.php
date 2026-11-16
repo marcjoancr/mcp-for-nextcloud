@@ -34,11 +34,11 @@ final class CircleReadRuntime {
             if($generation!==null){if(!\OCA\Forms\Mcp\SourceIdentity::verify()){throw new \RuntimeException('Forms Circle adapter source changed');}NativeHistoryIdentity::assertCurrent($uid,$generation);}
         };
         return ReadFrame::within($assert,static function(\Closure $guard)use($uid,$work,&$generation,$readConnection):mixed {
-            $core=new FreshCore($uid);$core->assertPrincipal(false,false);
+            $primary=Server::get(\OCP\IDBConnection::class);if($readConnection!==null){$readConnection->assertPrimary($primary);$primary=$readConnection;}
+            $core=$readConnection===null?new FreshCore($uid):FinalReadCore::fresh($uid,$readConnection);$core->assertPrincipal(false,false);
             if(!$core->apps()->isEnabledForUser('circles',$core->user())){throw new \RuntimeException('Circle actor application access is unavailable');}
             if(!\OCA\Forms\Mcp\SourceIdentity::verify()){throw new \RuntimeException('Forms Circle adapter source is unqualified');}
             $generation=self::existingGeneration($uid);
-            $primary=Server::get(\OCP\IDBConnection::class);if($readConnection!==null){$readConnection->assertPrimary($primary);$primary=$readConnection;}
             $open=static fn():Lease=>new Lease($uid,$primary,Server::get(\OC\SystemConfig::class),Server::get(\Psr\Log\LoggerInterface::class),Server::get(\OCP\IURLGenerator::class),$guard,self::system(...),new SourceGate());
             $lease=$open();
             try{return $work($lease,$guard,$open);}finally{$lease->close();}
@@ -62,13 +62,13 @@ final class CircleReadRuntime {
             }
         };
         return ReadFrame::within($qualifiedAssert,static function(\Closure $guard)use($uid,$method,$arguments,&$generation,$readConnection):mixed {
-            $core=new FreshCore($uid);$core->assertPrincipal(false,false);
+            $primary=Server::get(\OCP\IDBConnection::class);if($readConnection!==null){$readConnection->assertPrimary($primary);$primary=$readConnection;}
+            $core=$readConnection===null?new FreshCore($uid):FinalReadCore::fresh($uid,$readConnection);$core->assertPrincipal(false,false);
             $enabled=$core->apps()->isEnabledForUser('circles',$core->user());
             if($method==='isCirclesEnabled'){return $enabled;}
             if(!$enabled){return self::absent($method);}
             if(!\OCA\Forms\Mcp\SourceIdentity::verify()){throw new \RuntimeException('Forms Circle adapter source is unqualified');}
             $generation=self::existingGeneration($uid);
-            $primary=Server::get(\OCP\IDBConnection::class);if($readConnection!==null){$readConnection->assertPrimary($primary);$primary=$readConnection;}
             $open=static fn():Lease=>new Lease($uid,$primary,Server::get(\OC\SystemConfig::class),Server::get(\Psr\Log\LoggerInterface::class),Server::get(\OCP\IURLGenerator::class),$guard,self::system(...),new SourceGate());
             $reader=new Reader($open);
             try {

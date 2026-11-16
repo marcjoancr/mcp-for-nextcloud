@@ -25,11 +25,11 @@ final class ShareWriteBoundary {
     ) {}
     /** Called only by the owned transfer staging methods, after BulkOperations persisted an uncertain step claim. */
     public static function bulkTransferParent(\OCA\Forms\Mcp\Service\BulkStore $store,array $job,array $row,array $mapping):self {
-        self::caller(__FUNCTION__,'stage');$record=$row['data'];$tuple=$record['approved_tuple']??[];
+        self::caller(__FUNCTION__,'circleParentWriteCapability');$record=$row['data'];$tuple=$record['approved_tuple']??[];
         return self::claim($store,$job,$row,'managed_shares',(int)$row['id'],(int)$row['id'],0,$tuple['recipient']??null,$mapping,null);
     }
     public static function bulkTransferChild(\OCA\Forms\Mcp\Service\BulkStore $store,array $job,array $row,array $parent,array $mapping):self {
-        self::caller(__FUNCTION__,'stageRecipient');$child=$row['data'];$tuple=$parent['approved_tuple']??[];
+        self::caller(__FUNCTION__,'stageCircleRecipient');$child=$row['data'];$tuple=$parent['approved_tuple']??[];
         return self::claim($store,$job,$row,'share_recipients',(int)$row['id'],(int)$child['parent'],\OCA\Forms\Mcp\Service\CoreShareIdentity::id((string)$mapping['files_share_id'],7),$tuple['recipient']??null,$mapping,$child);
     }
     private static function caller(string $factory,string|array $method):void {
