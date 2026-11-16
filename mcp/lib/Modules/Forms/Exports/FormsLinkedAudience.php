@@ -21,7 +21,7 @@ final class FormsLinkedAudience {
         $path=PathGuard::normalize($path);$home=$this->root->getUserFolder($uid);
         $parent=dirname(ltrim($path,'/'));$node=$parent==='.'?$home:$home->get($parent);
         if(!$node instanceof \OCP\Files\Folder)throw new \RuntimeException('Linked Forms destination parent is unavailable.');
-        $destinationNode=$node;$nodeOwner=$node->getOwner()?->getUID();
+        $nodeOwner=$node->getOwner()?->getUID();
         if(!is_string($nodeOwner)||$nodeOwner==='')throw new \RuntimeException('Linked Forms audience ownership is unavailable.');
         $shared=null;
         if($nodeOwner!==$uid){
@@ -31,13 +31,26 @@ final class FormsLinkedAudience {
             else{throw new \RuntimeException('Native Forms shared audience provider is unavailable.');}
             $shared=$this->sharedEvidence($shared,$uid,$path,$nodeOwner);
         }
+        $homePath=rtrim($home->getPath(),'/');$homeId=(int)$home->getId();
+        if($homeId<1)throw new \RuntimeException('Linked Forms audience ancestry is unavailable.');
+        $parentSegments=PathGuard::segments($path);array_pop($parentSegments);
         $ids=[];$bindings=[];
         for($depth=0;;$depth++) {
-            if($depth>=100||(!$shared&&$node->getOwner()?->getUID()!==$uid)||($shared&&!in_array($node->getOwner()?->getUID(),[$uid,$shared['owner_uid']],true))||($node->getPath()!==rtrim($home->getPath(),'/')&&!str_starts_with($node->getPath(),rtrim($home->getPath(),'/').'/')))throw new \RuntimeException('Linked Forms audience ownership is unavailable.');
+            $expectedPath=$parentSegments===[]?$homePath:$homePath.'/'.implode('/',$parentSegments);
+            if($depth>=100||!($node instanceof \OCP\Files\Folder)
+                ||(!$shared&&$node->getOwner()?->getUID()!==$uid)
+                ||($shared&&!in_array($node->getOwner()?->getUID(),[$uid,$shared['owner_uid']],true))
+                ||$node->getPath()!==$expectedPath)
+                throw new \RuntimeException('Linked Forms audience ownership is unavailable.');
             $id=(int)$node->getId();if($id<1||isset($ids[$id]))throw new \RuntimeException('Linked Forms audience ancestry is unavailable.');
             $ids[$id]=$id;$bindings[]=['id'=>$id,'path'=>$node->getPath()];
-            if($id===(int)$home->getId())break;
-            $node=$node->getParent();
+            if($node===$home||$id===$homeId) {
+                if($node!==$home||$id!==$homeId||$parentSegments!==[])throw new \RuntimeException('Linked Forms audience ancestry is unavailable.');
+                break;
+            }
+            if($parentSegments===[])throw new \RuntimeException('Linked Forms audience ancestry is unavailable.');
+            array_pop($parentSegments);$relative=implode('/',$parentSegments);
+            $node=$relative===''?$home:$home->get($relative);
         }
         if($shared!==null){
             foreach($shared['ids'] as $id)$ids[$id]=$id;
