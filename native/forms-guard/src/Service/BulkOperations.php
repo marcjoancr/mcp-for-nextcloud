@@ -209,11 +209,13 @@ final class BulkOperations {
    return $dto;
   } catch(\Throwable $error) {
    if(!$claimed){@unlink($path);}
+   $childFailure=$claimed&&is_array($envelope)?NativeHomeProcess::takeFailure($envelope):null;
    $journalEvidence=null;
    if($claimed&&is_array($envelope)){try{$journalEvidence=NativeHomeJournal::read($stream,$envelope);}catch(\Throwable){}}
-   try{$this->fence->transaction(function()use($uid,$id,$version,$key,$journalEvidence):void{
+   try{$this->fence->transaction(function()use($uid,$id,$version,$key,$journalEvidence,$childFailure):void{
     $current=$this->store->load($id);$receipt=$this->store->receipt($id,$key);
     if($receipt!==null||!isset($current['native_home_claim'])||($current['native_home_claim']['home_phase']['step_key']??null)!==$key){return;}
+    if(is_array($childFailure)){$current['native_home_failure']=$childFailure;}
     if(is_array($journalEvidence)){$this->store->putMapping($current,'native_home',$version,$journalEvidence);$current['native_home_receipt']=['phase'=>$current['native_home_claim']['home_phase']['phase'],'version'=>$version,
       'state'=>$journalEvidence['state'],'effects'=>$journalEvidence['effects'],'pending'=>count($journalEvidence['pending']),'failed'=>$journalEvidence['failed'],'chain'=>$journalEvidence['chain']];}
     if(($current['version']??null)===$version){$current['state']='uncertain';$current['reason']='native_home_recovery_required';$current['version']=$version+1;$this->store->save($current);}

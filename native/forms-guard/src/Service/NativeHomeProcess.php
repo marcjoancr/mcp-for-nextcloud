@@ -14,6 +14,61 @@ use OCP\Server;
 final class NativeHomeProcess {
     private const OUTPUT_LIMIT = 16384;
     private const TIME_LIMIT = 12.0;
+    private const FAILURE_CLASSES = ['BeforeEffect','RuntimeException','LogicException','InvalidArgumentException',
+        'TypeError','ErrorException','Error','Exception','Throwable'];
+    private static ?array $lastFailure = null;
+
+    /** Child diagnostics contain only bounded, allowlisted metadata, never exception text or arguments. */
+    public static function failureReceipt(?\Throwable $error, ?array $envelope): ?array {
+        $scope = self::failureScope($envelope);
+        if ($error === null || $scope === null) { return null; }
+        $class = (new \ReflectionClass($error))->getShortName();
+        if (!in_array($class, self::FAILURE_CLASSES, true)) { $class = 'Throwable'; }
+        $file = basename($error->getFile());
+        if (!preg_match('/^[A-Za-z0-9_.-]{1,128}$/D', $file)) { $file = 'unknown'; }
+        $line = $error->getLine();
+        if ($line < 0 || $line > 10000000) { $line = 0; }
+        return ['protocol'=>1,'ok'=>false,'scope'=>$scope,
+            'failure'=>['class'=>$class,'file'=>$file,'line'=>$line,'stderr_bytes'=>0]];
+    }
+
+    /** Consume only a child diagnostic already matched to this exact one-shot job claim. */
+    public static function takeFailure(array $envelope): ?array {
+        $failure = self::$lastFailure;
+        self::$lastFailure = null;
+        if (!is_array($failure) || ($failure['scope'] ?? null) !== self::failureScope($envelope)) { return null; }
+        return $failure;
+    }
+
+    /** Validate the closed failure receipt and bind it to the parent-held job nonce. */
+    public static function validateFailureReceipt(mixed $receipt, array $envelope, int $stderrBytes): ?array {
+        if (!is_array($receipt) || array_keys($receipt) !== ['protocol','ok','scope','failure']
+            || ($receipt['protocol'] ?? null) !== 1 || ($receipt['ok'] ?? null) !== false
+            || ($receipt['scope'] ?? null) !== self::failureScope($envelope)
+            || !is_array($receipt['failure'])
+            || array_keys($receipt['failure']) !== ['class','file','line','stderr_bytes']) { return null; }
+        $failure = $receipt['failure'];
+        if (!in_array($failure['class'] ?? null, self::FAILURE_CLASSES, true)
+            || !is_string($failure['file'] ?? null) || !preg_match('/^[A-Za-z0-9_.-]{1,128}$/D', $failure['file'])
+            || !is_int($failure['line'] ?? null) || $failure['line'] < 0 || $failure['line'] > 10000000
+            || !is_int($failure['stderr_bytes'] ?? null) || $failure['stderr_bytes'] !== 0
+            || $stderrBytes < 0 || $stderrBytes > self::OUTPUT_LIMIT) { return null; }
+        $failure['stderr_bytes'] = $stderrBytes;
+        return ['protocol'=>1,'ok'=>false,'scope'=>$receipt['scope'],'failure'=>$failure];
+    }
+
+    private static function failureScope(?array $envelope): ?array {
+        $phase = $envelope['home_phase'] ?? null;
+        $jobId = $envelope['job_id'] ?? null;
+        $nonce = is_array($phase) ? ($phase['nonce'] ?? null) : null;
+        $name = is_array($phase) ? ($phase['phase'] ?? null) : null;
+        if (!is_string($jobId) || !preg_match('/^[a-f0-9]{64}$/D', $jobId)
+            || !is_string($nonce) || !preg_match('/^[a-f0-9]{64}$/D', $nonce)
+            || !in_array($name, ['copy_files','stage_shares','stage_recipients','apply','restore','restore_files'], true)) {
+            return null;
+        }
+        return ['job_id'=>$jobId,'nonce'=>$nonce,'phase'=>$name];
+    }
 
     /** Factory wrapper for the owned isolated Home setup process. */
     public static function wrapperClosure(string $targetUid, NativeHomeJournal $journal, \Closure $authority): \Closure {
@@ -62,6 +117,7 @@ final class NativeHomeProcess {
      * @return array{protocol:int,job_id:string,phase:string,target_uid:string,journal:array}
      */
     public static function run(array $envelope, string $script, string $serverRoot, mixed $journal): array {
+        self::$lastFailure = null;
         if (!is_resource($journal) || !is_file($script) || is_link($script)
             || !str_starts_with($script, rtrim($serverRoot, '/') . '/')
             || !is_dir($serverRoot) || is_link($serverRoot)) {
@@ -130,9 +186,12 @@ final class NativeHomeProcess {
             if ($exit === null) { $exit = $closed; }
         }
 
-        if ($exit !== 0) { throw new \RuntimeException('Native Home helper failed'); }
         try { $receipt = json_decode($stdout, true, 16, JSON_THROW_ON_ERROR); }
         catch (\Throwable $error) { throw new \RuntimeException('Native Home helper receipt is unavailable', 0, $error); }
+        if ($exit !== 0) {
+            self::$lastFailure = self::validateFailureReceipt($receipt, $envelope, $stderrBytes);
+            throw new \RuntimeException('Native Home helper failed');
+        }
         if (!is_array($receipt) || ($receipt['protocol'] ?? null) !== 1 || ($receipt['ok'] ?? null) !== true
             || ($receipt['job_id'] ?? null) !== ($envelope['job_id'] ?? null)
             || ($receipt['phase'] ?? null) !== ($envelope['home_phase']['phase'] ?? null)

@@ -295,10 +295,21 @@ final class ManagedSharePhase
             }
             $known = ManagedShares::rows($form->getId(), (int) $envelope['native_share_id']);
             $existingId = null;
-            foreach ($manager->getSharesBy($form->getOwnerId(), $envelope['type'], $folder, false, -1, 0, false) as $existing) {
-                if ($existing->getSharedWith() !== $envelope['recipient']) {
-                    continue;
+            if($envelope['type']===7){
+                $existingShares=[];
+                foreach(CircleRuntime::managedParents($form->getOwnerId(),$folder,1000) as $parent){
+                    if(($parent['circle_id']??null)!==$envelope['recipient']){continue;}
+                    if(!is_string($parent['id']??null)||!preg_match('/^[1-9][0-9]*$/D',$parent['id'])){throw new \RuntimeException('Managed Circle parent ID is malformed');}
+                    $fullId='ocCircleShare:'.$parent['id'];
+                    $existing=$manager->getShareById($fullId,onlyValid:false);
+                    if(!$existing instanceof \OCP\Share\IShare||$existing->getFullId()!==$fullId||$existing->getShareType()!==7||$existing->getParent()!==0||$existing->getNodeId()!==(int)$folder->getId()||$existing->getSharedWith()!==$envelope['recipient']||$existing->getShareOwner()!==$form->getOwnerId()||$existing->getPermissions()!==$parent['permissions']||$existing->getTarget()!==$parent['file_target']||$parent['file_source']!==(int)$folder->getId()||$parent['owner_uid']!==$form->getOwnerId()||$parent['share_type']!==7){throw new \RuntimeException('Managed Circle parent hydration changed');}
+                    $existingShares[]=$existing;
                 }
+            }else{
+                $existingShares=$manager->getSharesBy($form->getOwnerId(), $envelope['type'], $folder, false, -1, 0, false);
+            }
+            foreach($existingShares as $existing){
+                if($existing->getSharedWith()!==$envelope['recipient']){continue;}
                 foreach ($known as $row) {
                     if ($row['files_share_id'] === $existing->getFullId()) {
                         ManagedShares::assertIdentity($existing, $envelope, $row);

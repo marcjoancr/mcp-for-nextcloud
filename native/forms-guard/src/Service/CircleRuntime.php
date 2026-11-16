@@ -4,6 +4,7 @@
 declare(strict_types=1);
 namespace OCA\Forms\Mcp\Service;
 use OCP\Server;
+use OCP\Files\Folder;
 /** Optional provider qualification is independent of the Forms/user/group baseline. */
 final class CircleRuntime {
     public static function available(string $uid): bool {
@@ -91,6 +92,16 @@ final class CircleRuntime {
             catch(\OCA\Circles\Exceptions\ShareWrapperNotFoundException){return;}
             if((int)$row->getId()!==$shareId||$row->getParent()!==0||$row->getShareType()!==7||$row->getSharedWith()!==$circleId||$row->getFileSource()!==$fileId){throw new \RuntimeException('Native Circle duplicate share identity changed');}
         },$readConnection);
+    }
+    /** Exact bounded managed parent-share projection for one owned Forms upload folder. */
+    public static function managedParents(string $uid,Folder $folder,int $limit=1000):array {
+        $nodeId=(int)$folder->getId();
+        if($uid===''||$nodeId<1||$limit<1||$limit>1000||$folder->getOwner()?->getUID()!==$uid){throw new \RuntimeException('Managed Circle folder authority is unavailable');}
+        return CircleReadRuntime::withProviderLease($uid,static function(\OCA\Forms\Mcp\Service\CircleDetached\Lease $lease)use($uid,$folder,$nodeId,$limit):array {
+            $lease->checkpoint();
+            if((int)$folder->getId()!==$nodeId||$folder->getOwner()?->getUID()!==$uid){throw new \RuntimeException('Managed Circle folder identity changed');}
+            return $lease->shareWrappers()->managedParents($uid,$nodeId,$limit);
+        });
     }
     private static function readCircleAudience(string $uid,string $circleId,int $shareId,int $fileId,bool $deferred,?FinalReadConnection $readConnection=null):array {
         $call=CircleReadRuntime::scoped($uid,$deferred,$readConnection);
