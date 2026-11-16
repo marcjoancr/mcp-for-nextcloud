@@ -24,8 +24,8 @@ final class FinalTransferShareCheck {
     private array $sourceFolders=[];
     public function __construct(private readonly \OCP\IDBConnection $db,private readonly BulkStore $store,
         private readonly array $job,private readonly \Closure $fresh,private readonly \Closure $frame) {
-        ($this->fresh)();$context=OriginContext::current();
-        if (($context['verified']['uid']??null)!==$job['uid'] || ($context['verified']['tool']??null)!=='forms_transfer' || $context['input']!==$job['input']) {throw new \RuntimeException('Final sharing job frame differs');}
+        ($this->fresh)();$context=OriginContext::current();OriginContext::assertJobInput($job);
+        if (($context['verified']['uid']??null)!==$job['uid'] || ($context['verified']['tool']??null)!=='forms_transfer') {throw new \RuntimeException('Final sharing job frame differs');}
         $this->commitment=new FinalShareCommitment();$budget=new FinalShareBudget($frame);
         foreach ($this->read('SELECT folder_id FROM *PREFIX*forms_mcp_folders WHERE form_id = ? ORDER BY folder_id LIMIT 1001',[$job['form']['id']],1000,$budget) as $row) {$this->expectedFolders[(int)$row['folder_id']]=true;}
     }

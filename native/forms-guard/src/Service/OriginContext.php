@@ -13,6 +13,15 @@ final class OriginContext {
     private static ?array $frameBulkControl=null;
     private static bool $bulkControlActive=false;
     private static ?\Closure $fileBoundary=null;
+    /** Bind persisted job input to this verified frame; unwrap only its identical signed transport. */
+    public static function assertJobInput(array $job):void {
+        $context=self::current();$origin=$context['origin'];$input=$job['input']??null;
+        if(!is_array($origin)||($job['origin']??null)!==$origin||!is_array($input)
+            ||($job['uid']??null)!==($context['verified']['uid']??null)
+            ||($job['action']??null)!==($context['verified']['tool']??null))throw new \RuntimeException('Stored Forms job authority changed');
+        if(array_key_exists('_mcp_origin',$input)){if($input['_mcp_origin']!==$origin)throw new \RuntimeException('Stored Forms transport authority changed');unset($input['_mcp_origin']);}
+        if($input!==$context['input'])throw new \RuntimeException('Stored Forms job input changed');
+    }
     public static function withFileBoundary(?callable $callback,callable $work): mixed {
         $old=self::$fileBoundary;self::$fileBoundary=$callback===null?null:\Closure::fromCallable($callback);
         try{return $work();}finally{self::$fileBoundary=$old;}
