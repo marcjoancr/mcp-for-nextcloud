@@ -64,7 +64,28 @@ final class ModelManager extends \OCA\Circles\Model\ModelManager
      */
     public function getRemoteInheritedMembers(\OCA\Circles\Model\Circle $circle, bool $detailed = false): void
     {
-        throw new \RuntimeException("Remote Circle reads are not qualified");
+        $lease = $this->__formsCircleLease;
+        $lease->checkpoint();
+        if ($circle::class !== Circle::class || $detailed || !$circle->isLocal()) {
+            throw new \RuntimeException("Remote Circle reads are not qualified");
+        }
+
+        // Native share event listeners request remote expansion even for ordinary local-user Circles.
+        // The pinned native algorithm only contacts a remote instance for inherited TYPE_CIRCLE members.
+        // For this exact local-user profile, its remote expansion is therefore empty and can be skipped.
+        $members = $circle->getInheritedMembers(false, false);
+        if (count($members) > 100) {
+            throw new \RuntimeException("Remote Circle reads are not qualified");
+        }
+        foreach ($members as $member) {
+            if (!$member instanceof Member
+                || $member::class !== Member::class
+                || $member->getUserType() !== Member::TYPE_USER
+                || !$member->isLocal()) {
+                throw new \RuntimeException("Remote Circle reads are not qualified");
+            }
+        }
+        $lease->checkpoint();
     }
     /**
      * @param IEntity $member
