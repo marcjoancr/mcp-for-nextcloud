@@ -262,8 +262,11 @@ final class StorageAdmission {
         if ($shared !== self::sharedStorage($nodeStorage)) {
             throw new \RuntimeException('Forms linked shared node mount changed');
         }
-        $share = $mount->getShare();
-        if ($shared->getShare()->getFullId() !== $share->getFullId() || $mount->getGroupedShares() !== []) {
+        $storageGroupedShares = (new \ReflectionProperty($shared, 'groupedShares'))->getValue($shared);
+        $mountGroupedShares = $mount->getGroupedShares();
+        if ($shared->getShare() !== $mount->getShare() || !is_array($storageGroupedShares)
+            || count($storageGroupedShares) !== 1 || !array_key_exists(0, $storageGroupedShares)
+            || !is_array($mountGroupedShares) || $mountGroupedShares !== $storageGroupedShares) {
             throw new \RuntimeException('Forms linked shared mount is not a direct share');
         }
         $required = \OCP\Constants::PERMISSION_READ
@@ -278,9 +281,10 @@ final class StorageAdmission {
         $mounts=Server::get(IMountManager::class);$mount=$mounts->find($mountPath);
         if($mount===null||$mount::class!=='OCA\Files_Sharing\SharedMount')throw new \RuntimeException('Forms shared audience mount is unavailable');
         self::source(new \ReflectionClass($mount::class));
-        $storage=$mount->getStorage();$shared=self::sharedStorage($storage);$share=$shared->getShare();
-        if($share::class!=='OC\Share20\Share')throw new \RuntimeException('Forms shared audience share is unqualified');
-        self::source(new \ReflectionClass($share::class));
+        $storage=$mount->getStorage();$shared=self::sharedStorage($storage);$syntheticShare=$shared->getShare();
+        if($syntheticShare::class!=='OC\Share20\Share')throw new \RuntimeException('Forms shared audience share is unqualified');
+        self::source(new \ReflectionClass($syntheticShare::class));
+        $share=self::shared($shared,$uid,\OCP\Constants::PERMISSION_READ|($create?\OCP\Constants::PERMISSION_CREATE:\OCP\Constants::PERMISSION_UPDATE));
         $user=(new \ReflectionProperty($shared,'user'))->getValue($shared);
         $grouped=(new \ReflectionProperty($shared,'groupedShares'))->getValue($shared);
         $initialized=(new \ReflectionProperty($shared,'initialized'))->getValue($shared);
@@ -288,7 +292,7 @@ final class StorageAdmission {
         $sourcePath=(new \ReflectionProperty($shared,'sourcePath'))->getValue($shared);
         $nonMasked=(new \ReflectionProperty($shared,'nonMaskedStorage'))->getValue($shared);
         $permissions=$share->getPermissions();$ownerUid=$share->getShareOwner();$sourceId=$share->getNodeId();
-        if($initialized!==true||!is_string($user)||$user!==$uid||!is_array($grouped)||$grouped!==[]
+        if($initialized!==true||!is_string($user)||$user!==$uid||!is_array($grouped)||count($grouped)!==1||!array_key_exists(0,$grouped)
             ||!is_string($ownerUid)||$ownerUid===''||$ownerUid===$uid||!is_string($sourcePath)||$sourcePath===''||!is_int($sourceId)||$sourceId<1
             ||!is_int($permissions)||$permissions<0||$share->getShareType()!==\OCP\Share\IShare::TYPE_USER||$share->getSharedWith()!==$uid
             ||$share->getExpirationDate()!==null||!$nonMasked instanceof IStorage||!is_object($ownerFolder)
@@ -476,16 +480,19 @@ final class StorageAdmission {
         NativeHistoryIdentity::assertCurrent($uid,$rows[0]['generation']);return $rows[0]['generation'];
     }
 
-    private static function shared(IStorage $storage, string $uid, int $requiredPermissions): void {
+    private static function shared(IStorage $storage, string $uid, int $requiredPermissions): \OC\Share20\Share {
         self::source(new \ReflectionClass($storage::class));
         $share = $storage->getShare();
         $grouped = (new \ReflectionProperty($storage, 'groupedShares'))->getValue($storage);
         $recipient = (new \ReflectionProperty($storage, 'user'))->getValue($storage);
         $permissions = $share->getPermissions();
-        if (!is_array($grouped) || $grouped !== [] || $recipient !== $uid
-            || $share->getShareType() !== \OCP\Share\IShare::TYPE_USER
-            || $share->getSharedWith() !== $uid || !is_int($permissions)
-            || $share->getExpirationDate() !== null
+        $rawId = $share->getId();
+        $component = is_array($grouped) && count($grouped) === 1 && array_key_exists(0, $grouped) ? $grouped[0] : null;
+        if (!is_array($grouped) || count($grouped) !== 1 || !array_key_exists(0, $grouped)
+            || !$component instanceof \OCP\Share\IShare || $recipient !== $uid
+            || $share::class !== 'OC\Share20\Share' || !is_string($rawId)
+            || !preg_match('/^[1-9][0-9]{0,18}$/D', $rawId) || (string)(int)$rawId !== $rawId
+            || $share->getShareType() !== \OCP\Share\IShare::TYPE_USER || !is_int($permissions)
             || ($permissions & $requiredPermissions) !== $requiredPermissions) {
             throw new \RuntimeException('Forms linked shared destination permissions are unavailable');
         }
@@ -504,18 +511,31 @@ final class StorageAdmission {
             throw new \RuntimeException('Forms native share provider is unqualified');
         }
         self::source(new \ReflectionClass($provider::class));
-        $fresh = $manager->getShareById($share->getFullId(), $uid);
-        if ($fresh::class !== 'OC\Share20\Share') {
+        // SharedMount's pinned buildSuperShares() creates an ephemeral Share with an ID
+        // but no provider ID. Resolve its exact numeric row through the qualified native
+        // provider, then require the canonical ocinternal full ID and exact ACL tuple.
+        $fresh = $provider->getShareById($rawId);
+        if (!$fresh instanceof \OCP\Share\IShare || $fresh::class !== 'OC\Share20\Share') {
             throw new \RuntimeException('Forms native share identity is unqualified');
         }
         self::source(new \ReflectionClass($fresh::class));
-        $identity = static fn ($value): array => [
-            $value->getFullId(), $value->getId(), $value->getShareType(), $value->getSharedWith(),
-            $value->getShareOwner(), $value->getSharedBy(), $value->getNodeId(), $value->getNodeType(),
-            $value->getTarget(), $value->getPermissions(),
-        ];
-        if ($fresh::class !== $share::class || $fresh->getExpirationDate() !== null || $identity($fresh) !== $identity($share)) {
+        $canonicalId = 'ocinternal:' . $rawId;
+        if ($fresh->getFullId() !== $canonicalId || $fresh->getId() !== $rawId
+            || $fresh->getShareType() !== \OCP\Share\IShare::TYPE_USER || $fresh->getSharedWith() !== $uid
+            || $fresh->getShareOwner() !== $share->getShareOwner()
+            || $fresh->getNodeId() !== $share->getNodeId()
+            || $fresh->getTarget() !== $share->getTarget() || $fresh->getPermissions() !== $permissions
+            || $fresh->getStatus() !== $share->getStatus()
+            || $fresh->getExpirationDate() !== null) {
             throw new \RuntimeException('Forms linked shared destination ACL changed');
+        }
+        if ($component::class !== 'OC\Share20\Share' || $component->getFullId() !== $canonicalId
+            || $component->getId() !== $rawId || $component->getShareType() !== \OCP\Share\IShare::TYPE_USER
+            || $component->getSharedWith() !== $uid || $component->getShareOwner() !== $fresh->getShareOwner()
+            || $component->getNodeId() !== $fresh->getNodeId() || $component->getTarget() !== $fresh->getTarget()
+            || $component->getPermissions() !== $fresh->getPermissions() || $component->getStatus() !== $fresh->getStatus()
+            || $component->getExpirationDate() !== null) {
+            throw new \RuntimeException('Forms linked shared component identity changed');
         }
         self::initializeLinkedSharedStorage($storage, $fresh, $uid);
         $maskStorage = $storage->getWrapperStorage();
@@ -527,6 +547,7 @@ final class StorageAdmission {
         if ($mask !== $fresh->getPermissions()) {
             throw new \RuntimeException('Forms linked shared permission mask changed');
         }
+        return $fresh;
     }
 
     /** Initialize only the selected direct share, with native Home lookup unable to create a missing owner root. */

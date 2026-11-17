@@ -38,8 +38,19 @@ final class FormsLinkedSharedStorageAdmissionTest extends TestCase {
 		self::assertIsInt($start);
 		self::assertIsInt($end);
 		$shareAdmission = substr($source, $start, $end - $start);
+		self::assertStringContainsString('$provider->getShareById($rawId)', $shareAdmission);
+		self::assertStringContainsString('$fresh->getFullId() !== $canonicalId', $shareAdmission);
+		self::assertStringContainsString('$fresh->getSharedWith() !== $uid', $shareAdmission);
+		self::assertStringContainsString('$fresh->getShareOwner() !== $share->getShareOwner()', $shareAdmission);
+		self::assertStringContainsString('$fresh->getNodeId() !== $share->getNodeId()', $shareAdmission);
+		self::assertStringContainsString('$fresh->getPermissions() !== $permissions', $shareAdmission);
+		self::assertStringContainsString('count($grouped) !== 1', $shareAdmission);
+		self::assertStringContainsString('$component->getFullId() !== $canonicalId', $shareAdmission);
+		self::assertStringContainsString('$component->getSharedWith() !== $uid', $shareAdmission);
+		self::assertStringContainsString('$component->getPermissions() !== $fresh->getPermissions()', $shareAdmission);
+		self::assertStringNotContainsString('$share->getFullId()', $shareAdmission);
 		self::assertLessThan(strpos($shareAdmission, 'self::initializeLinkedSharedStorage($storage, $fresh, $uid)'),
-			strpos($shareAdmission, '$identity($fresh) !== $identity($share)'));
+			strpos($shareAdmission, '$fresh->getFullId() !== $canonicalId'));
 		self::assertLessThan(strpos($shareAdmission, '$maskStorage = $storage->getWrapperStorage()'),
 			strpos($shareAdmission, 'self::initializeLinkedSharedStorage($storage, $fresh, $uid)'));
 
@@ -60,6 +71,11 @@ final class FormsLinkedSharedStorageAdmissionTest extends TestCase {
 		self::assertIsInt($start);
 		self::assertIsInt($end);
 		$audience = substr($source, $start, $end - $start);
+		self::assertStringContainsString('$share=self::shared($shared,$uid,', $audience);
+		self::assertStringContainsString('PERMISSION_READ|($create?\\OCP\\Constants::PERMISSION_CREATE:\\OCP\\Constants::PERMISSION_UPDATE)', $audience);
+		self::assertStringContainsString('count($grouped)!==1', $audience);
+		self::assertStringContainsString('$share->getSharedWith()!==$uid', $audience);
+		self::assertStringNotContainsString('$syntheticShare->getSharedWith()', $audience);
 		self::assertStringContainsString("['OC\\Files\\Node\\Folder','OC\\Files\\Node\\LazyUserFolder']", $audience);
 		self::assertStringContainsString('$realHome->get($relative)', $audience);
 		self::assertStringNotContainsString('$node->getParent()', $audience);
