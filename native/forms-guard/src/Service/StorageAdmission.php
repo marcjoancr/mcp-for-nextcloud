@@ -33,6 +33,7 @@ final class StorageAdmission {
         'OCA\Files_Sharing\SharedStorage' => 'daabea358c320e39fae17920cb0f6e673c19c2160482b5440b16c16e2bded17f',
         'OCA\Files_Sharing\SharedMount' => '1408ed20fae4df74907db4a2496c40cf4f9427d1c0b34ea16b6e0f1a046b879d',
         'OC\Files\Node\LazyFolder' => '6e87c27666bfad3ab06d11e4181100ccc33f3d4a1e398055243f493e94ce6472',
+        'OC\Files\Node\LazyRoot' => '027b3ed3a3611cce899cf93203d0d65b8d5cb0f4930efccf0aee18aa71d3cea7',
         'OC\Files\Node\LazyUserFolder' => 'd8f789d2ad73fb5f8ead28d44ea1d13cbf0fa0840822a1df47fa29e69089d024',
         'OC\Files\Node\File' => '3917379cde9cf1fec2fe672d24efdeb02c61276d1c9b4acaea2c33782dc6171d',
         'OC\Files\Node\Folder' => '8fb20d65fe53d0c8788225daff6365c49d679d463e0b379d6cc12dbbd65f542d',
@@ -564,7 +565,7 @@ final class StorageAdmission {
         $rootProperty = new \ReflectionProperty($storage, 'rootFolder');
         $root = $rootProperty->getValue($storage);
         $serverRoot = Server::get(IRootFolder::class);
-        if ($root !== $serverRoot || $root::class !== \OC\Files\Node\Root::class) {
+        if (!self::qualifiedSharedRootBinding($root, $serverRoot)) {
             throw new \RuntimeException('Forms linked shared root binding is unqualified');
         }
         self::source(new \ReflectionClass($root::class));
@@ -599,6 +600,11 @@ final class StorageAdmission {
         if ($mount === null || $mount->getStorage() !== $nonMasked) {
             throw new \RuntimeException('Forms linked shared source mount is unavailable');
         }
+    }
+
+    private static function qualifiedSharedRootBinding(mixed $root, mixed $serverRoot): bool {
+        return is_object($root) && $root === $serverRoot
+            && in_array($root::class, [\OC\Files\Node\Root::class, \OC\Files\Node\LazyRoot::class], true);
     }
 
     private static function configuration(): void {

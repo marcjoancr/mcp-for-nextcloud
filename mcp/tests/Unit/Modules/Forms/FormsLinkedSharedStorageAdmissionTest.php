@@ -5,10 +5,41 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tests\Unit\Modules\Forms;
 
+use PhpParser\{Node, NodeFinder, ParserFactory, PrettyPrinter};
 use OCA\Forms\Mcp\Service\StorageAdmission;
 use PHPUnit\Framework\TestCase;
 
 final class FormsLinkedSharedStorageAdmissionTest extends TestCase {
+	private function rootBindingPredicate(): \Closure {
+		$guardRoot = dirname(__DIR__, 5) . '/native/forms-guard';
+		$tree = (new ParserFactory())->createForNewestSupportedVersion()->parse(file_get_contents($guardRoot . '/src/Service/StorageAdmission.php'));
+		$method = (new NodeFinder())->findFirst($tree, static fn (Node $node): bool =>
+			$node instanceof Node\Stmt\ClassMethod && $node->name->toString() === 'qualifiedSharedRootBinding');
+		self::assertInstanceOf(Node\Stmt\ClassMethod::class, $method);
+		return eval('return static function(mixed $root,mixed $serverRoot):bool {' . (new PrettyPrinter\Standard())->prettyPrint($method->stmts) . '};');
+	}
+
+	public function testOnlySameServerNativeRootOrPinnedLazyRootIsAccepted(): void {
+		$guardRoot = dirname(__DIR__, 5) . '/native/forms-guard';
+		require_once $guardRoot . '/src/Service/StorageAdmission.php';
+		$source = file_get_contents($guardRoot . '/src/Service/StorageAdmission.php');
+		self::assertStringContainsString("'OC\\Files\\Node\\LazyRoot' => '027b3ed3a3611cce899cf93203d0d65b8d5cb0f4930efccf0aee18aa71d3cea7'", $source);
+
+		$declarations = [];
+		if (!class_exists(\OC\Files\Node\Root::class, false)) { $declarations[] = 'class Root {}'; }
+		if (!class_exists(\OC\Files\Node\LazyRoot::class, false)) { $declarations[] = 'class LazyRoot {}'; }
+		if ($declarations !== []) { eval('namespace OC\\Files\\Node; ' . implode(' ', $declarations)); }
+		$nativeRoot = (new \ReflectionClass(\OC\Files\Node\Root::class))->newInstanceWithoutConstructor();
+		$otherNativeRoot = (new \ReflectionClass(\OC\Files\Node\Root::class))->newInstanceWithoutConstructor();
+		$lazyRoot = (new \ReflectionClass(\OC\Files\Node\LazyRoot::class))->newInstanceWithoutConstructor();
+		$predicate = $this->rootBindingPredicate();
+
+		self::assertTrue($predicate($nativeRoot, $nativeRoot));
+		self::assertTrue($predicate($lazyRoot, $lazyRoot));
+		self::assertFalse($predicate(new \stdClass(), new \stdClass()));
+		self::assertFalse($predicate($nativeRoot, $otherNativeRoot));
+	}
+
 	public function testOnlyMeasuredPinnedNativeWrappersCanPrecedeSharedStorage(): void {
 		$guardRoot = dirname(__DIR__, 5) . '/native/forms-guard';
 		require_once $guardRoot . '/src/Service/StorageAdmission.php';
