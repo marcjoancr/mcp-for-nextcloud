@@ -317,6 +317,21 @@
             "resolved_class": null,
             "container_class": "OC\\Server"
           }
+        },
+        {
+          "priority": -9223372036854775808,
+          "position": 0,
+          "kind": "callable",
+          "class": "OCA\\Mcp\\Access\\Visibility\\VisibilityGuard",
+          "method": "{closure}",
+          "class_sha256": "ed2bf0c144e7918137b8eaa91010fe6e2acc26a18dfca29a20d6a838144c1c83",
+          "method_start": 91,
+          "method_end": 91,
+          "source_sha256": "ed2bf0c144e7918137b8eaa91010fe6e2acc26a18dfca29a20d6a838144c1c83",
+          "capture_shape": {
+            "bound_class": "OCA\\Mcp\\Access\\ResourceScope\\FilesAccessGuard"
+          },
+          "bound_class_sha256": "9572f4e15e429444333bc3fa172315617abe22e1269eb9360c6f4064d831ae7d"
         }
       ],
       "OCP\\Files\\Events\\Node\\NodeWrittenEvent": [
@@ -415,6 +430,21 @@
             "resolved_class": null,
             "container_class": "OC\\Server"
           }
+        },
+        {
+          "priority": -9223372036854775808,
+          "position": 0,
+          "kind": "callable",
+          "class": "OCA\\Mcp\\Access\\Visibility\\VisibilityGuard",
+          "method": "{closure}",
+          "class_sha256": "ed2bf0c144e7918137b8eaa91010fe6e2acc26a18dfca29a20d6a838144c1c83",
+          "method_start": 91,
+          "method_end": 91,
+          "source_sha256": "ed2bf0c144e7918137b8eaa91010fe6e2acc26a18dfca29a20d6a838144c1c83",
+          "capture_shape": {
+            "bound_class": "OCA\\Mcp\\Access\\ResourceScope\\FilesAccessGuard"
+          },
+          "bound_class_sha256": "9572f4e15e429444333bc3fa172315617abe22e1269eb9360c6f4064d831ae7d"
         }
       ],
       "OCP\\Files\\Events\\Node\\NodeDeletedEvent": [
@@ -496,6 +526,35 @@
           "capture_shape": {
             "resolved_class": null,
             "container_class": "OC\\Server"
+          }
+        },
+        {
+          "priority": -9223372036854775808,
+          "position": 0,
+          "kind": "callable",
+          "class": "OCA\\Mcp\\Access\\Visibility\\VisibilityGuard",
+          "method": "{closure}",
+          "class_sha256": "ed2bf0c144e7918137b8eaa91010fe6e2acc26a18dfca29a20d6a838144c1c83",
+          "method_start": 91,
+          "method_end": 91,
+          "source_sha256": "ed2bf0c144e7918137b8eaa91010fe6e2acc26a18dfca29a20d6a838144c1c83",
+          "capture_shape": {
+            "bound_class": "OCA\\Mcp\\Access\\ResourceScope\\FilesAccessGuard"
+          },
+          "bound_class_sha256": "9572f4e15e429444333bc3fa172315617abe22e1269eb9360c6f4064d831ae7d"
+        },
+        {
+          "priority": -9223372036854775808,
+          "position": 1,
+          "kind": "callable",
+          "class": "OCA\\Mcp\\Access\\ResourceScope\\FilesScope",
+          "method": "{closure}",
+          "class_sha256": "13dc244c6876e9622f8f59a5703c159818db5b28fa01727bc68907e29c47a278",
+          "method_start": 50,
+          "method_end": 50,
+          "source_sha256": "13dc244c6876e9622f8f59a5703c159818db5b28fa01727bc68907e29c47a278",
+          "capture_shape": {
+            "bound_class": "OCA\\Mcp\\Access\\ResourceScope\\FilesScope"
           }
         }
       ],
@@ -746,6 +805,9 @@
     "lib/private/Files/Config/MountProviderCollection.php": "a682566b7056b2b3690919800a276ea7e3be43c0d0b83d24d008e959dbb59338",
     "lib/private/legacy/OC_Hook.php": "8dd8225102a5c932dcdedce7cca5ecac48708fdc08144311119d99159e7ad7a8",
     "lib/private/Files/Mount/Manager.php": "343747b1628ba8ab2a94e8471a7fb6c798df822b2470b256a9aba6fe99918342",
-    "lib/private/App/AppManager.php": "5e2382c24ad5dbbdd6ad79e5bc890426e3e9493b1c9b4e5b525f0743fbb0db99"
+    "lib/private/App/AppManager.php": "5e2382c24ad5dbbdd6ad79e5bc890426e3e9493b1c9b4e5b525f0743fbb0db99",
+    "custom_apps/mcp/lib/Access/Visibility/VisibilityGuard.php": "ed2bf0c144e7918137b8eaa91010fe6e2acc26a18dfca29a20d6a838144c1c83",
+    "custom_apps/mcp/lib/Access/ResourceScope/FilesAccessGuard.php": "9572f4e15e429444333bc3fa172315617abe22e1269eb9360c6f4064d831ae7d",
+    "custom_apps/mcp/lib/Access/ResourceScope/FilesScope.php": "13dc244c6876e9622f8f59a5703c159818db5b28fa01727bc68907e29c47a278"
   }
 }

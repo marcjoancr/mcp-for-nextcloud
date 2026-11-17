@@ -39,13 +39,19 @@ final class NativeHomeProfile {
             self::definition(\OC::$server,$class);
             if(str_starts_with($class,'OCA\\')){$namespace=strtolower(substr($class,0,strpos($class,'\\',4)));$containers=self::property(\OC::$server,'appContainers');$container=$containers[$namespace]??null;if(!$container instanceof \OC\AppFramework\DependencyInjection\DIContainer||$container::class!==\OC\AppFramework\DependencyInjection\DIContainer::class)throw new \RuntimeException('Native Home app container changed');self::definition($container,$class);}
             $reflection=new \ReflectionMethod($class,$method);
-        }elseif($listener instanceof \Closure){
-            $reflection=new \ReflectionFunction($listener);if($method!=='{closure}'||$reflection->getClosureScopeClass()?->getName()!==$class||($reflection->getClosureThis()===null?null:$reflection->getClosureThis()::class)!==$class)throw new \RuntimeException('Native Home callback binding changed');
-            $actual=$reflection->getStaticVariables();$shape=$expected['capture_shape'];unset($shape['bound_class']);
+        }elseif(in_array($expected['kind'],['callable','closure'],true)&&$listener instanceof \Closure){
+            $reflection=new \ReflectionFunction($listener);$shape=$expected['capture_shape'];$boundClass=$shape['bound_class']??$class;unset($shape['bound_class']);
+            if($method!=='{closure}'||$reflection->getClosureScopeClass()?->getName()!==$class
+                ||($reflection->getClosureThis()===null?null:$reflection->getClosureThis()::class)!==$boundClass)throw new \RuntimeException('Native Home callback binding changed');
+            if($boundClass!==$class){$boundHash=$expected['bound_class_sha256']??null;if(!is_string($boundHash)||!preg_match('/^[a-f0-9]{64}$/D',$boundHash))throw new \RuntimeException('Native Home callback bound class is unpinned');self::classSource($boundClass,$boundHash);}
+            $actual=$reflection->getStaticVariables();
             if(array_keys($actual)!==array_keys($shape))throw new \RuntimeException('Native Home closure selectors changed');
             foreach($actual as$key=>$value){$want=$shape[$key];if(($want['type']??null)==='bool'){if(!is_bool($value))throw new \RuntimeException('Native Home closure value changed');}else{if(is_object($value)||is_array($value)||is_resource($value)||get_debug_type($value)!==($want['type']??null)||hash('sha256',json_encode($value,JSON_THROW_ON_ERROR))!==($want['sha256']??null))throw new \RuntimeException('Native Home closure value changed');}}
         }else throw new \RuntimeException('Native Home callback shape changed');
         self::source($reflection,$expected['source_sha256'],$expected['method_start'],$expected['method_end']);
+    }
+    private static function eventSlotMatches(mixed $expected,mixed $priority,mixed $position):bool {
+        return is_array($expected)&&($expected['priority']??null)===$priority&&($expected['position']??null)===$position;
     }
     private static function providerOrderMatches(array $expectedRows,array $actualClasses,array $allowedOrders,?array $selectedOrder=null):bool {
         if(!array_is_list($expectedRows)||!array_is_list($actualClasses)||!array_is_list($allowedOrders)
@@ -91,7 +97,7 @@ final class NativeHomeProfile {
         $expected=self::expected();$registry=$expected['registrations'];
         $dispatcher=\OCP\Server::get(\OCP\EventDispatcher\IEventDispatcher::class);if($dispatcher::class!==\OC\EventDispatcher\EventDispatcher::class)throw new \RuntimeException('Native Home event dispatcher changed');
         $native=self::property($dispatcher,'dispatcher');if($native::class!==\Symfony\Component\EventDispatcher\EventDispatcher::class)throw new \RuntimeException('Native Home event registry changed');$raw=self::property($native,'listeners');
-        foreach($registry['events']as$event=>$rows){$groups=$raw[$event]??[];if(!is_array($groups)||count($groups)>64)throw new \RuntimeException('Native Home event registry changed');krsort($groups,SORT_NUMERIC);$position=0;foreach($groups as$priority=>$listeners){if(!is_int($priority)||!is_array($listeners)||!array_is_list($listeners)||count($listeners)>64)throw new \RuntimeException('Native Home event registry changed');foreach($listeners as$index=>$listener){$want=$rows[$position++]??null;if(!is_array($want)||$want['priority']!==$priority||$want['position']!==$index)throw new \RuntimeException('Native Home event order changed');self::callback($listener,$want);}}if($position!==count($rows))throw new \RuntimeException('Native Home event inventory changed');}
+        foreach($registry['events']as$event=>$rows){$groups=$raw[$event]??[];if(!is_array($groups)||count($groups)>64)throw new \RuntimeException('Native Home event registry changed');krsort($groups,SORT_NUMERIC);$position=0;foreach($groups as$priority=>$listeners){if(!is_int($priority)||!is_array($listeners)||!array_is_list($listeners)||count($listeners)>64)throw new \RuntimeException('Native Home event registry changed');foreach($listeners as$index=>$listener){$want=$rows[$position++]??null;if(!self::eventSlotMatches($want,$priority,$index))throw new \RuntimeException('Native Home event order changed');self::callback($listener,$want);}}if($position!==count($rows))throw new \RuntimeException('Native Home event inventory changed');}
         $hooks=(new \ReflectionProperty('OC_Hook','registered'))->getValue();foreach($registry['hooks']as$key=>$rows){[$scope,$hook]=explode('/',$key,2);$actual=$hooks[$scope][$hook]??[];if($rows!==[]||$actual!==[])throw new \RuntimeException('Native Home legacy hook inventory changed');}
         $manager=\OCP\Server::get(\OCP\Files\Mount\IMountManager::class);if($manager::class!==\OC\Files\Mount\Manager::class)throw new \RuntimeException('Native Home mount manager changed');$setup=$manager->getSetupManager();if($setup::class!==\OC\Files\SetupManager::class||self::property($setup,'setupBuiltinWrappersDone')!==true)throw new \RuntimeException('Native Home builtin registry is unavailable');
         $collection=self::property($setup,'mountProviderCollection');if($collection::class!==\OC\Files\Config\MountProviderCollection::class)throw new \RuntimeException('Native Home providers changed');
