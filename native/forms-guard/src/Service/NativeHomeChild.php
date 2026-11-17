@@ -61,7 +61,7 @@ final class NativeHomeChild {
         $action = $job['action'];
         $uid = $job['uid'];
         return OriginContext::within($uid, self::dispatchControl($input), 'lookup', [], static function () use ($input, $job, $claim, $uid, $action, $stream): array {
-            return OriginContext::withBulkControl('forms_continue_operation', $input['origin'] ?? [], static function () use ($input, $job, $claim, $uid, $action, $stream): array {
+            $prepared = OriginContext::withBulkControl('forms_continue_operation', $input['origin'] ?? [], static function () use ($input, $job, $claim, $uid, $action, $stream): array {
                 return OriginContext::within($uid, $input['origin'], $action, $job['input'], static function () use ($input, $job, $claim, $uid, $stream): array {
                     $expected = OriginContext::nativeHomeEnvelope($job, $claim);
                     if (!hash_equals(json_encode($expected, JSON_THROW_ON_ERROR), json_encode($input, JSON_THROW_ON_ERROR))) {
@@ -70,6 +70,7 @@ final class NativeHomeChild {
                     return self::initialize($expected, $stream, $job, (string)($claim['home_phase']['step_key'] ?? ''));
                 });
             });
+            return self::dispatchPreparedStep($prepared);
         });
     }
 
@@ -155,6 +156,19 @@ final class NativeHomeChild {
         $journalSummary = $journal->seal('committed');
         self::$receipt = NativeHomeJournal::read($stream, $envelope);
         NativeHomeStorage::guardedInitialization(false);
+        return ['envelope' => $envelope, 'step_key' => $stepKey, 'journal' => $journalSummary];
+    }
+
+    /** Run the public bulk entrypoint only after the setup control frame has unwound. */
+    private static function dispatchPreparedStep(array $prepared): array {
+        $envelope = $prepared['envelope'] ?? null;
+        $stepKey = $prepared['step_key'] ?? null;
+        $journalSummary = $prepared['journal'] ?? null;
+        if (!is_array($envelope) || !is_string($stepKey) || !is_array($journalSummary)
+            || ($envelope['home_phase']['step_key'] ?? null) !== $stepKey) {
+            throw new \RuntimeException('Native Home prepared step is unavailable');
+        }
+        $fence = Server::get(FormsRevisionFence::class);
         self::armBulkStep($envelope, $stepKey);
         try {
             $dto = Server::get(\OCA\Forms\Mcp\Guard::class)->bulkStep(

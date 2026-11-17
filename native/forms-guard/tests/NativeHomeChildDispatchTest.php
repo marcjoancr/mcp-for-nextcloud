@@ -57,6 +57,40 @@ final class NativeHomeChildDispatchTest extends TestCase {
         }
     }
 
+    public function testSetupControlFrameUnwindsBeforePublicBulkStepOpensItsOwnFrame(): void {
+        $childSource = file_get_contents(__DIR__ . '/../src/Service/NativeHomeChild.php');
+        $guardSource = file_get_contents(__DIR__ . '/../src/Guard.php');
+        self::assertIsString($childSource);
+        self::assertIsString($guardSource);
+
+        $runStart = strpos($childSource, 'public static function run(');
+        $initializeStart = strpos($childSource, 'private static function initialize(');
+        $dispatchStart = strpos($childSource, 'private static function dispatchPreparedStep(');
+        $installStart = strpos($childSource, 'public static function installStorageGuard(');
+        self::assertIsInt($runStart);
+        self::assertIsInt($initializeStart);
+        self::assertIsInt($dispatchStart);
+        self::assertIsInt($installStart);
+
+        $run = substr($childSource, $runStart, $initializeStart - $runStart);
+        $initialize = substr($childSource, $initializeStart, $dispatchStart - $initializeStart);
+        $dispatch = substr($childSource, $dispatchStart, $installStart - $dispatchStart);
+        $guardStart = strpos($guardSource, 'public function bulkStep(');
+        $guardEnd = strpos($guardSource, 'public function bulkStatus(', $guardStart);
+        self::assertIsInt($guardStart);
+        self::assertIsInt($guardEnd);
+        $guardStep = substr($guardSource, $guardStart, $guardEnd - $guardStart);
+
+        self::assertSame(1, substr_count($run, 'OriginContext::withBulkControl('));
+        self::assertLessThan(strpos($run, 'return self::dispatchPreparedStep($prepared);'), strpos($run, '$prepared = OriginContext::withBulkControl('));
+        self::assertStringNotContainsString('bulkStep(', $initialize);
+        self::assertStringNotContainsString('armBulkStep(', $initialize);
+        self::assertStringNotContainsString('OriginContext::withBulkControl(', $dispatch);
+        self::assertSame(1, substr_count($dispatch, '->bulkStep('));
+        self::assertLessThan(strpos($dispatch, '->bulkStep('), strpos($dispatch, 'self::armBulkStep('));
+        self::assertSame(1, substr_count($guardStep, 'OriginContext::withBulkControl('));
+    }
+
     public function testEntrypointInstallsTheOwnedGuardAtInnermostPriorityBeforeMounts(): void {
         $factory = new NativeHomeGuardFactoryFixture();
         $journal = (new ReflectionClass(\OCA\Forms\Mcp\Service\NativeHomeJournal::class))->newInstanceWithoutConstructor();
