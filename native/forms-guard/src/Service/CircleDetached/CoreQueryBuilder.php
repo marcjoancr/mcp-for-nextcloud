@@ -1312,12 +1312,19 @@ private function projectionField(string $alias,string $field,string $output): vo
 private function boundProjection(): void {
     if(count($this->getQueryPart('select'))!==count($this->ownedProjection)){throw new \RuntimeException('Circle projection was replaced outside the native factory');}
     $large=array_values(array_filter($this->ownedProjection,static fn(array $p):bool=>in_array($p[1],self::UNBOUNDED_TEXT,true)));
-    $sum=$large===[]?'0':implode('+',array_map(static fn(array $p):string=>'OCTET_LENGTH(COALESCE('.$p[0].",''))",$large));
+    $sum=$large===[]?'0':implode('+',array_map(fn(array $p):string=>'OCTET_LENGTH(COALESCE('.$this->budgetColumn($p[0],$p[1]).",''))",$large));
     $select=[];
     foreach($this->ownedProjection as[$column,$field,$output]){
-        $expression=in_array($field,self::UNBOUNDED_TEXT,true)?"CASE WHEN ($sum)>1000000 THEN '__forms_circle_row_budget_exceeded__' ELSE $column END":$column;
+        $budgetColumn=$this->budgetColumn($column,$field);
+        $expression=in_array($field,self::UNBOUNDED_TEXT,true)?"CASE WHEN ($sum)>1000000 THEN '__forms_circle_row_budget_exceeded__' ELSE $budgetColumn END":$column;
         $select[]=$this->createFunction($expression.' AS '.$output);
     }
     $this->select($select);
+}
+private function budgetColumn(string $column,string $field): string {
+    if($field==='attributes'&&$this->__formsCircleLease->db()->getDatabaseProvider(true)==='postgres'){
+        return 'CAST('.$column.' AS TEXT)';
+    }
+    return $column;
 }
 }
