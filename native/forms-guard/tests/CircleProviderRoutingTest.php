@@ -24,6 +24,23 @@ final class CircleProviderRoutingTest extends TestCase {
         self::assertStringContainsString('$l10nFactory->get(\'circles\')',$runtime);
         self::assertStringNotContainsString('Server::get(\\OCP\\IL10N::class)',$runtime);
     }
+    public function testCircleProviderProbeUsesFreshActorNativeReadWithBoundedHydration():void {
+        $request=file_get_contents(dirname(__DIR__).'/src/Service/CircleDetached/CircleRequest.php');
+        $circle=file_get_contents(dirname(__DIR__).'/src/Service/CircleDetached/ScopedCircleService.php');
+        $builder=file_get_contents(dirname(__DIR__).'/src/Service/CircleDetached/CoreQueryBuilder.php');
+        $raw=file_get_contents(dirname(__DIR__).'/src/Service/CircleDetached/RawPage.php');
+        self::assertStringContainsString('public function probeCircle(string $singleId, ?\\OCA\\Circles\\IFederatedUser $initiator, \\OCA\\Circles\\Model\\Probes\\CircleProbe $circleProbe, \\OCA\\Circles\\Model\\Probes\\DataProbe $dataProbe): \\OCA\\Circles\\Model\\Circle',$request);
+        self::assertStringContainsString('$this->lease->identity($this->lease->actorUid())',$request);
+        self::assertStringContainsString('$initiator::class !== FederatedUser::class',$request);
+        self::assertStringContainsString('$dataProbe->getAsOptions()',$request);
+        self::assertStringContainsString('$ownerDataProbe->getAsOptions()',$request);
+        self::assertStringContainsString('parent::probeCircle($singleId, $initiator, $circleProbe, $dataProbe)',$request);
+        self::assertStringContainsString('$this->lease->circles()->probeCircle($circleId,$this->actor->getCurrentUser(),$circleProbe,$dataProbe)',$circle);
+        self::assertStringContainsString('$rows=$this->rawPage(2)',$builder);
+        self::assertStringContainsString('$this->boundProjection();$result=$this->executeOwnedSelect()',$builder);
+        self::assertStringContainsString('>1000000 THEN',$builder);
+        self::assertStringContainsString('Circle SQL row byte budget exceeded',$raw);
+    }
     public function testManagedTypeSevenCallsiteUsesBoundedNativeParentProjection():void {
         $phase=file_get_contents(dirname(__DIR__).'/src/Service/ManagedSharePhase.php');
         $runtime=file_get_contents(dirname(__DIR__).'/src/Service/CircleRuntime.php');

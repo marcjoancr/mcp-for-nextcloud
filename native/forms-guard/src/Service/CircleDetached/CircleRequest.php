@@ -79,6 +79,44 @@ public function getSingleCircle(\OCA\Circles\IFederatedUser $initiator): \OCA\Ci
         throw new \OCA\Circles\Exceptions\SingleCircleNotFoundException();
     }
 }
+/** Native ShareByCircleProvider pre-write lookup over its exact current actor and query shapes. */
+public function probeCircle(string $singleId, ?\OCA\Circles\IFederatedUser $initiator, \OCA\Circles\Model\Probes\CircleProbe $circleProbe, \OCA\Circles\Model\Probes\DataProbe $dataProbe): \OCA\Circles\Model\Circle {
+    $this->lease->checkpoint();
+    if (!preg_match('/^[A-Za-z0-9]{31}$/D', $singleId)
+        || !($initiator instanceof FederatedUser)
+        || $initiator::class !== FederatedUser::class) {
+        throw new \RuntimeException('Native Circle provider probe identity is unavailable');
+    }
+    $actor = $this->lease->identity($this->lease->actorUid());
+    if ($initiator->getUserId() !== $actor->getUserId()
+        || $initiator->getSingleId() !== $actor->getSingleId()
+        || $initiator->getUserType() !== \OCA\Circles\Model\Member::TYPE_USER
+        || $initiator->getInstance() !== $actor->getInstance()) {
+        throw new \RuntimeException('Native Circle provider probe actor changed');
+    }
+
+    // ShareByCircleProvider uses only these default read shapes in create() and formatShare().
+    $defaultCircleProbe = new \OCA\Circles\Model\Probes\CircleProbe();
+    $defaultDataProbe = new \OCA\Circles\Model\Probes\DataProbe();
+    $ownerDataProbe = new \OCA\Circles\Model\Probes\DataProbe();
+    $ownerDataProbe->add(\OCA\Circles\Model\Probes\DataProbe::OWNER)
+        ->add(\OCA\Circles\Model\Probes\DataProbe::INITIATOR, [\OCA\Circles\Model\Probes\DataProbe::BASED_ON]);
+    if ($circleProbe::class !== \OCA\Circles\Model\Probes\CircleProbe::class
+        || $circleProbe->getAsOptions() !== $defaultCircleProbe->getAsOptions()
+        || $dataProbe::class !== \OCA\Circles\Model\Probes\DataProbe::class
+        || !in_array($dataProbe->getAsOptions(), [$defaultDataProbe->getAsOptions(), $ownerDataProbe->getAsOptions()], true)) {
+        throw new \RuntimeException('Native Circle provider probe shape is unavailable');
+    }
+
+    // The pinned native private builder supplies membership/visibility predicates; asItem caps rows at two
+    // and the owned projection enforces the per-row byte limit before model hydration.
+    $circle = parent::probeCircle($singleId, $initiator, $circleProbe, $dataProbe);
+    $this->lease->checkpoint();
+    if ($circle->getSingleId() !== $singleId) {
+        throw new \RuntimeException('Native Circle provider probe result changed');
+    }
+    return $circle;
+}
 /**
  * @param Circle $circle
  *
@@ -130,25 +168,6 @@ public function updateConfig(\OCA\Circles\Model\Circle $circle)
  * @param Circle $circle
  */
 public function updateSettings(\OCA\Circles\Model\Circle $circle)
-{
-    throw new \RuntimeException("Circle read request cannot mutate");
-}
-/**
- * get data about single Circle.
- *
- * - CircleProbe is used to confirm the visibility of the targeted circle,
- * - DataProbe is used to define the complexity of the data to be returned for each entry of the list
- *
- * @param string $singleId
- * @param IFederatedUser|null $initiator
- * @param CircleProbe $circleProbe
- * @param DataProbe $dataProbe
- *
- * @return Circle
- * @throws CircleNotFoundException
- * @throws RequestBuilderException
- */
-public function probeCircle(string $singleId, ?\OCA\Circles\IFederatedUser $initiator, \OCA\Circles\Model\Probes\CircleProbe $circleProbe, \OCA\Circles\Model\Probes\DataProbe $dataProbe): \OCA\Circles\Model\Circle
 {
     throw new \RuntimeException("Circle read request cannot mutate");
 }
