@@ -167,7 +167,7 @@ final class Lease {
         }
         $circleData=['id'=>$circleId,'creation'=>$circle->getCreation(),'source'=>$circle->getSource(),
             'owner'=>['uid'=>$owner->getUserId(),'member_id'=>$owner->getId(),'single_id'=>$owner->getSingleId(),
-                'level'=>$owner->getLevel(),'status'=>$owner->getStatus(),'instance'=>self::canonicalOwnerInstance($this->config,$owner->getInstance())]];
+                'level'=>$owner->getLevel(),'status'=>$owner->getStatus(),'instance'=>self::canonicalLocalInstance($this->config,$owner->getInstance())]];
         $nativeMembers=$circle->getInheritedMembers();
         if(count($nativeMembers)>CircleAudienceProjection::MAX_RECIPIENTS){throw new \RuntimeException('Circle audience recipient budget exceeded');}
         $members=[];
@@ -184,7 +184,7 @@ final class Lease {
                 'child_file_target'=>$view->getChildFileTarget()];
             $members[]=['uid'=>$uid,'member_id'=>$member->getId(),'single_id'=>$member->getSingleId(),
                 'user_type'=>$member->getUserType(),'level'=>$member->getLevel(),'status'=>$member->getStatus(),
-                'instance'=>$member->getInstance(),'identity'=>$identityData,'inheritance_path'=>$membership->getInheritancePath(),'share'=>$share];
+                'instance'=>self::canonicalLocalInstance($this->config,$member->getInstance()),'identity'=>$identityData,'inheritance_path'=>$membership->getInheritancePath(),'share'=>$share];
         }
         $this->checkpoint();
         return CircleAudienceProjection::build($circleId,$parentId,$fileId,$circleData,$parentRow,$members);
@@ -193,7 +193,7 @@ final class Lease {
     public function __destruct() {$this->close();}
     private function __clone() {}
     public function __serialize(): array {throw new \LogicException('Circle leases cannot be persisted');}
-    private static function canonicalOwnerInstance(Config $config,string $instance):string {
+    private static function canonicalLocalInstance(Config $config,string $instance):string {
         return $config->isLocalInstance($instance)?'':$instance;
     }
 }

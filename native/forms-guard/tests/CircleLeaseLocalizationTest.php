@@ -120,7 +120,7 @@ namespace {
             $lease->circleLocalization();
         }
 
-        public function testAudienceOwnerInstanceCanonicalizesOnlyLocalInstances(): void {
+        public function testAudienceOwnerAndMemberInstancesCanonicalizeOnlyLocalInstances(): void {
             $lease = $this->lease();
             $config = new \OCA\Forms\Mcp\Service\CircleDetached\Config($lease, [
                 'local_instance' => 'loopback.example',
@@ -128,8 +128,10 @@ namespace {
                 'internal_instance' => 'internal.example',
                 'trusted_domains' => [],
             ], '');
-            $canonicalize = new \ReflectionMethod(\OCA\Forms\Mcp\Service\CircleDetached\Lease::class, 'canonicalOwnerInstance');
+            $canonicalize = new \ReflectionMethod(\OCA\Forms\Mcp\Service\CircleDetached\Lease::class, 'canonicalLocalInstance');
             self::assertSame('', $canonicalize->invoke(null, $config, 'loopback.example'));
+            self::assertSame('', $canonicalize->invoke(null, $config, 'front.example'));
+            self::assertSame('', $canonicalize->invoke(null, $config, 'internal.example'));
             self::assertSame('', $canonicalize->invoke(null, $config, ''));
             self::assertSame('remote.example', $canonicalize->invoke(null, $config, 'remote.example'));
         }
