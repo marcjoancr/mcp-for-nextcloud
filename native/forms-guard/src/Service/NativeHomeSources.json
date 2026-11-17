@@ -578,6 +578,22 @@
         }
       ]
     },
+    "provider_orders": {
+      "providers": [
+        [
+          "OC\\Files\\Mount\\CacheMountProvider",
+          "OCA\\Files_Sharing\\MountProvider",
+          "OCA\\Files_Sharing\\External\\MountProvider",
+          "OCA\\Files_External\\Config\\ConfigAdapter"
+        ],
+        [
+          "OC\\Files\\Mount\\CacheMountProvider",
+          "OCA\\Files_External\\Config\\ConfigAdapter",
+          "OCA\\Files_Sharing\\MountProvider",
+          "OCA\\Files_Sharing\\External\\MountProvider"
+        ]
+      ]
+    },
     "storage_wrappers": [
       {
         "name": "mount_options",
@@ -714,6 +730,8 @@
     ]
   },
   "sources": {
+    "apps/files_external/lib/AppInfo/Application.php": "3903bc358392bce11338355b77ee1f8fa01eef3d8b7794be26af0af9ab017cbb",
+    "apps/files_sharing/lib/AppInfo/Application.php": "70a3ec6a2680db8d729aa44ed8528b52c26cd167086f5b7728882a3720ece040",
     "3rdparty/symfony/event-dispatcher/EventDispatcher.php": "212bc21d00210a52c56901aec7dd6ec4b9544bde241890e93470211a18aa2e45",
     "3rdparty/pimple/pimple/src/Pimple/Container.php": "83f96c41f64cff2b3cb707b4f79052a1f65f6b28d8c82107e69a2d8d4ddc39ac",
     "lib/private/AppFramework/DependencyInjection/DIContainer.php": "7f4bf50c2f01c085a9822e7ccc4de5917f891b932d2a22f2ea1634e92c6628c7",

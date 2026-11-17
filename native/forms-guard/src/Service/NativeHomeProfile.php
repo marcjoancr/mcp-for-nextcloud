@@ -5,6 +5,7 @@ namespace OCA\Forms\Mcp\Service;
 /** Exact stock callback selectors and code. Captured request values never become a source pin. */
 final class NativeHomeProfile {
     private static ?array $owned=null;
+    private static ?array $providerOrder=null;
     private static bool $failed=false;
     private static function property(object $object,string $name):mixed{$class=new \ReflectionClass($object);do{if($class->hasProperty($name))return$class->getProperty($name)->getValue($object);$class=$class->getParentClass();}while($class!==false);throw new \RuntimeException('Native Home registry field changed');}
     public static function registerOwnedWrapper(string $name,\Closure $wrapper):void {
@@ -46,6 +47,23 @@ final class NativeHomeProfile {
         }else throw new \RuntimeException('Native Home callback shape changed');
         self::source($reflection,$expected['source_sha256'],$expected['method_start'],$expected['method_end']);
     }
+    private static function providerOrderMatches(array $expectedRows,array $actualClasses,array $allowedOrders,?array $selectedOrder=null):bool {
+        if(!array_is_list($expectedRows)||!array_is_list($actualClasses)||!array_is_list($allowedOrders)
+            ||count($expectedRows)>64||count($actualClasses)>64||count($allowedOrders)<1||count($allowedOrders)>4)return false;
+        $expectedClasses=array_column($expectedRows,'class');
+        if(count($expectedClasses)!==count($expectedRows)||count($expectedClasses)!==count($actualClasses)
+            ||array_filter($expectedClasses,static fn(mixed $class):bool=>!is_string($class))!==[])return false;
+        if(count(array_unique($expectedClasses))!==count($expectedClasses))return false;
+        $canonical=$expectedClasses;sort($canonical,SORT_STRING);
+        foreach($allowedOrders as$order){
+            if(!is_array($order)||!array_is_list($order)||count($order)!==count($expectedClasses)
+                ||array_filter($order,static fn(mixed $class):bool=>!is_string($class))!==[])return false;
+            $sorted=$order;sort($sorted,SORT_STRING);
+            if($sorted!==$canonical)return false;
+        }
+        return in_array($actualClasses,$allowedOrders,true)
+            &&($selectedOrder===null||in_array($selectedOrder,$allowedOrders,true)&&$actualClasses===$selectedOrder);
+    }
     /** Pinned registration-only Core method; existing mounts must still be empty. */
     public static function prepareBuiltinWrappers():void {
         if(self::$failed)throw new \RuntimeException('Native Home profile is latched');
@@ -77,7 +95,16 @@ final class NativeHomeProfile {
         $hooks=(new \ReflectionProperty('OC_Hook','registered'))->getValue();foreach($registry['hooks']as$key=>$rows){[$scope,$hook]=explode('/',$key,2);$actual=$hooks[$scope][$hook]??[];if($rows!==[]||$actual!==[])throw new \RuntimeException('Native Home legacy hook inventory changed');}
         $manager=\OCP\Server::get(\OCP\Files\Mount\IMountManager::class);if($manager::class!==\OC\Files\Mount\Manager::class)throw new \RuntimeException('Native Home mount manager changed');$setup=$manager->getSetupManager();if($setup::class!==\OC\Files\SetupManager::class||self::property($setup,'setupBuiltinWrappersDone')!==true)throw new \RuntimeException('Native Home builtin registry is unavailable');
         $collection=self::property($setup,'mountProviderCollection');if($collection::class!==\OC\Files\Config\MountProviderCollection::class)throw new \RuntimeException('Native Home providers changed');
-        foreach($registry['providers']as$field=>$rows){$actual=array_values(self::property($collection,$field));if(count($actual)!==count($rows))throw new \RuntimeException('Native Home provider inventory changed');foreach($rows as$i=>$row){if(!is_object($actual[$i])||$actual[$i]::class!==$row['class'])throw new \RuntimeException('Native Home provider selector changed');self::classSource($row['class'],$row['class_sha256']);}}
+        foreach($registry['providers']as$field=>$rows){
+            $actual=array_values(self::property($collection,$field));$classes=[];
+            foreach($actual as$provider){if(!is_object($provider))throw new \RuntimeException('Native Home provider selector changed');$classes[]=$provider::class;}
+            $orders=$registry['provider_orders'][$field]??[array_column($rows,'class')];
+            // Only the two observed stock orders are accepted; pin the first observed order for this child lifetime.
+            $selected=$field==='providers'?self::$providerOrder:null;
+            if(!self::providerOrderMatches($rows,$classes,$orders,$selected))throw new \RuntimeException('Native Home provider selector changed');
+            if($field==='providers'&&self::$providerOrder===null)self::$providerOrder=$classes;
+            foreach($rows as$row){self::classSource($row['class'],$row['class_sha256']);}
+        }
         $factory=self::property($setup,'storageFactory');if($factory::class!==\OC\Files\Storage\StorageFactory::class)throw new \RuntimeException('Native Home storage factory changed');$wrappers=self::property($factory,'storageWrappers');if(!is_array($wrappers)||count($wrappers)>16)throw new \RuntimeException('Native Home storage wrapper inventory changed');
         if(self::$owned!==null){$own=$wrappers[self::$owned['name']]??null;if(!is_array($own)||($own['wrapper']??null)!==self::$owned['wrapper']||($own['priority']??null)!==PHP_INT_MIN)throw new \RuntimeException('Native Home storage guard changed');unset($wrappers[self::$owned['name']]);}
         $builtinNames=array_column($registry['storage_wrappers'],'name');
