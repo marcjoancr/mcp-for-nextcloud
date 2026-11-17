@@ -120,6 +120,30 @@ final class NativeHomePathTest extends TestCase {
         self::assertFalse(NativeHomePath::scanWithinBound(false, 101));
     }
 
+    public function testCommittedHomeReceiptMustMatchJobIncarnationAndJournalBeforeSkippingInitialization(): void {
+        $chain = str_repeat('a', 64);
+        $job = ['id'=>str_repeat('b', 64), 'uid'=>'actor', 'action'=>'forms_transfer', 'version'=>12,
+            'state'=>'pending', 'native_manifest'=>str_repeat('c', 64), 'native_home_receipt'=>[
+                'job_id'=>str_repeat('b', 64), 'uid'=>'actor', 'action'=>'forms_transfer', 'target_uid'=>'recipient',
+                'native_manifest'=>str_repeat('c', 64), 'binding'=>str_repeat('d', 64), 'phase'=>'copy_files',
+                'version'=>8, 'state'=>'committed', 'effects'=>4, 'pending'=>0, 'failed'=>false,
+                'sealed'=>true, 'chain'=>$chain,
+            ]];
+        $journal = ['state'=>'committed', 'effects'=>4, 'pending'=>[], 'failed'=>false, 'sealed'=>true, 'chain'=>$chain];
+
+        self::assertTrue(NativeHomePath::committedInitializationMatches($job, $journal, 'recipient', str_repeat('c', 64), str_repeat('d', 64)));
+        self::assertFalse(NativeHomePath::committedInitializationMatches($job, $journal, 'other', str_repeat('c', 64), str_repeat('d', 64)));
+        self::assertFalse(NativeHomePath::committedInitializationMatches($job, $journal, 'recipient', str_repeat('e', 64), str_repeat('d', 64)));
+        self::assertFalse(NativeHomePath::committedInitializationMatches($job, [...$journal, 'pending'=>[['seq'=>1]]], 'recipient', str_repeat('c', 64), str_repeat('d', 64)));
+        self::assertFalse(NativeHomePath::committedInitializationMatches($job, [...$journal, 'chain'=>str_repeat('f', 64)], 'recipient', str_repeat('c', 64), str_repeat('d', 64)));
+        $stale = $job;
+        $stale['version'] = 8;
+        self::assertFalse(NativeHomePath::committedInitializationMatches($stale, $journal, 'recipient', str_repeat('c', 64), str_repeat('d', 64)));
+        $uncertain = $job;
+        $uncertain['state'] = 'uncertain';
+        self::assertFalse(NativeHomePath::committedInitializationMatches($uncertain, $journal, 'recipient', str_repeat('c', 64), str_repeat('d', 64)));
+    }
+
     public function testUnknownOrUnsafeUserIdentityRefusesInsteadOfGuessingAHomePath(): void {
         foreach (['', '../recipient', 'recipient/other', "recipient\0x", "recipient\n"] as $uid) {
             try {

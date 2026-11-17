@@ -185,6 +185,18 @@ final class BulkOperations {
   $mounts=$manager->getAll();if(!is_array($mounts)){throw new BeforeEffect('Native Home mount metadata is unavailable');}
   $home=NativeHomePath::selectedHomeMount($target,$mounts);$targetUser=(new FreshCore($target))->user();$setup=$manager->getSetupManager();
   if($setup::class!=='OC\\Files\\SetupManager'){throw new BeforeEffect('Native Home setup metadata is unavailable');}
+  if(isset($job['native_home_receipt'])){
+   $receipt=$job['native_home_receipt'];$receiptVersion=is_array($receipt)?($receipt['version']??null):null;
+   if(!is_int($receiptVersion)||$receiptVersion<1||!$this->sourceMatches($job)){throw new BeforeEffect('Native Home receipt is unavailable');}
+   $journal=$this->store->one($id,'native_home',$receiptVersion);$manifest=BulkEpoch::runtime();
+   if(!NativeHomePath::committedInitializationMatches($job,$journal,$target,$manifest,self::nativeHomeBinding($job,$target))){
+    throw new BeforeEffect('Native Home receipt does not match its journal');
+   }
+   $this->assertNativeHomeTargetCurrent($job,$target);
+   StorageAdmission::assertExistingHome($target);
+   $this->admit($uid,$job['action'],$job['input'],$authorize);
+   return null;
+  }
   if($home!==null&&$setup->isSetupComplete($targetUser)){return null;}
 
   $journalFile=NativeHomeProcess::createJournalFile();$path=$journalFile['path'];$stream=$journalFile['stream'];
@@ -233,8 +245,10 @@ final class BulkOperations {
     }
     BulkDeadline::check();
     $this->store->putMapping($current,'native_home',$version,$journal);
-    $current['native_home_receipt']=['phase'=>$phase,'version'=>$version,'state'=>$journal['state'],'effects'=>$journal['effects'],
-     'pending'=>count($journal['pending']),'failed'=>$journal['failed'],'sealed'=>$journal['sealed'],'chain'=>$journal['chain']];
+    $current['native_home_receipt']=['job_id'=>$id,'uid'=>$uid,'action'=>$current['action'],'target_uid'=>$target,
+     'native_manifest'=>$current['native_manifest'],'binding'=>self::nativeHomeBinding($current,$target),'phase'=>$phase,'version'=>$version,
+     'state'=>$journal['state'],'effects'=>$journal['effects'],'pending'=>count($journal['pending']),'failed'=>$journal['failed'],
+     'sealed'=>$journal['sealed'],'chain'=>$journal['chain']];
     unset($current['native_home_claim'],$current['native_home_journal']);
     $current['version']++;$this->store->save($current);$dto=$this->dto($current);$this->store->record($id,$key,$dto);
     BulkDeadline::check();return$dto;
@@ -263,6 +277,25 @@ final class BulkOperations {
  }
  private static function nativeHomeFailureReceipt(?array $childFailure,\Throwable $parentFailure,array $envelope):?array {
   return $childFailure??NativeHomeProcess::failureReceipt($parentFailure,$envelope);
+ }
+ private static function nativeHomeBinding(array $job,string $target):string {
+  return BulkStore::digest([$job['id']??null,$job['uid']??null,$job['action']??null,$job['origin']??null,$job['input']??null,
+   $job['form']['id']??null,$job['native_manifest']??null,$target,$job['target_principal']??null,$job['target_actor']??null,
+   $job['target_native_actor']??null,$job['actor']??null]);
+ }
+ private function assertNativeHomeTargetCurrent(array $job,string $target):void {
+  if($job['action']==='forms_transfer'){
+   $actor=$job['target_actor']??null;$native=$job['target_native_actor']??null;
+   if(!is_string($actor)||!is_string($native)){throw new BeforeEffect('Native Home target identity is unavailable');}
+   Server::get(\OCA\Mcp\Mcp\Operations\ActorIdentity::class)->assertCurrent($target,$actor);
+   NativeHistoryIdentity::assertCurrent($target,$native);
+   (new FreshCore($target))->assertPrincipal(false,false);
+   if(!hash_equals((string)($job['target_principal']??''),\OCA\Forms\Mcp\Comments\CommentsRuntime::principal($target))){
+    throw new BeforeEffect('Native Home target principal changed');
+   }
+  }elseif($job['action']!=='forms_restore'||$target!==$job['uid']){
+   throw new BeforeEffect('Native Home target is unavailable');
+  }
  }
  private function fileStep(array $j,string $uid,string $key,callable $authorize,?callable $files):array {
   if(!$this->sourceMatches($j)){return $this->fence->transaction(function()use(&$j,$key):array{$j['state']=($j['done']>0||($j['source_effects']??false)||(array_sum($j['retained_files']??[])+($j['retained_shares']??0)+($j['retained_folders']??0))>0)?'partial':'failed_before_effect';$j['reason']='source_changed';$j['version']++;$this->store->save($j);$dto=$this->dto($j);$this->store->record($j['id'],$key,$dto);return $dto;});}

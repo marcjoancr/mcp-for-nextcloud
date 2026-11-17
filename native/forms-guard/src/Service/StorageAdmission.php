@@ -205,6 +205,21 @@ final class StorageAdmission {
         );
     }
 
+    /** Verify a previously initialized default Local Home without resolving or creating a user folder. */
+    public static function assertExistingHome(string $uid): void {
+        self::userPath($uid, '', false, true);
+        $home = self::prospectiveHomePath($uid);
+        $files = $home . '/files';
+        foreach ([$home, $files] as $path) {
+            $stat = @lstat($path);
+            $real = @realpath($path);
+            if (!is_array($stat) || is_link($path) || ($stat['mode'] & 0170000) !== 0040000
+                || !is_string($real) || $real !== $path) {
+                throw new \RuntimeException('Forms initialized Home metadata is unavailable');
+            }
+        }
+    }
+
     /** Resolving mounts does not create the appdata directory. */
     public static function recovery(): void {
         $instance = Server::get(IConfig::class)->getSystemValueString('instanceid');

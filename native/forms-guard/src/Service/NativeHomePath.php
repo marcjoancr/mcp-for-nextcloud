@@ -101,6 +101,40 @@ final class NativeHomePath {
         return $entries >= 0 && ($recursive ? $entries === 0 : $entries <= 100);
     }
 
+    /** A durable child setup is reusable only while its encrypted job and journal still agree. */
+    public static function committedInitializationMatches(array $job, array $journal, string $target, string $nativeManifest, string $binding): bool {
+        $receipt = $job['native_home_receipt'] ?? null;
+        $phases = ($job['action'] ?? null) === 'forms_transfer'
+            ? ['copy_files', 'stage_shares', 'stage_recipients', 'apply']
+            : ['restore_files'];
+        if (!is_array($receipt) || ($job['state'] ?? null) !== 'pending' || isset($job['native_home_claim'])
+            || isset($job['native_home_journal']) || isset($job['claim'])
+            || !is_string($job['id'] ?? null) || !preg_match('/^[a-f0-9]{64}$/D', $job['id'])
+            || !is_string($job['uid'] ?? null) || !in_array($job['action'] ?? null, ['forms_transfer', 'forms_restore'], true)
+            || !is_int($job['version'] ?? null) || $job['version'] < 2
+            || !is_string($nativeManifest) || !preg_match('/^[a-f0-9]{64}$/D', $nativeManifest)
+            || !is_string($job['native_manifest'] ?? null) || !hash_equals($nativeManifest, $job['native_manifest'])
+            || !is_string($binding) || !preg_match('/^[a-f0-9]{64}$/D', $binding)
+            || !in_array($receipt['phase'] ?? null, $phases, true)
+            || !is_int($receipt['version'] ?? null) || $receipt['version'] < 1 || $receipt['version'] >= $job['version']
+            || ($receipt['job_id'] ?? null) !== $job['id'] || ($receipt['uid'] ?? null) !== $job['uid']
+            || ($receipt['action'] ?? null) !== $job['action'] || ($receipt['target_uid'] ?? null) !== $target
+            || ($receipt['native_manifest'] ?? null) !== $nativeManifest || !is_string($receipt['binding'] ?? null)
+            || !hash_equals($binding, $receipt['binding'])
+            || ($receipt['state'] ?? null) !== 'committed' || ($receipt['pending'] ?? null) !== 0
+            || ($receipt['failed'] ?? null) !== false || ($receipt['sealed'] ?? null) !== true
+            || !is_int($receipt['effects'] ?? null) || $receipt['effects'] < 0 || $receipt['effects'] > 128
+            || !is_string($receipt['chain'] ?? null) || !preg_match('/^[a-f0-9]{64}$/D', $receipt['chain'])) {
+            return false;
+        }
+        return ($journal['state'] ?? null) === 'committed'
+            && ($journal['sealed'] ?? null) === true
+            && ($journal['pending'] ?? null) === []
+            && ($journal['failed'] ?? null) === false
+            && ($journal['effects'] ?? null) === $receipt['effects']
+            && ($journal['chain'] ?? null) === $receipt['chain'];
+    }
+
     private static function absolutePath(string $path): bool {
         return $path !== '' && $path[0] === '/' && !str_contains($path, "\0")
             && !str_contains($path, '\\') && !str_contains($path, '//')
