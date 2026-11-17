@@ -38,7 +38,8 @@ final class FormsLinkedSharedStorageAdmissionTest extends TestCase {
 		self::assertIsInt($start);
 		self::assertIsInt($end);
 		$shareAdmission = substr($source, $start, $end - $start);
-		self::assertStringContainsString('$provider->getShareById($rawId)', $shareAdmission);
+		self::assertStringContainsString('$manager->getShareById($canonicalId, $uid)', $shareAdmission);
+		self::assertStringNotContainsString('$provider->getShareById(', $shareAdmission);
 		self::assertStringContainsString('$fresh->getFullId() !== $canonicalId', $shareAdmission);
 		self::assertStringContainsString('$fresh->getSharedWith() !== $uid', $shareAdmission);
 		self::assertStringContainsString('$fresh->getShareOwner() !== $share->getShareOwner()', $shareAdmission);

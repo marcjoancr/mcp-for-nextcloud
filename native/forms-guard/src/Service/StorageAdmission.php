@@ -512,14 +512,14 @@ final class StorageAdmission {
         }
         self::source(new \ReflectionClass($provider::class));
         // SharedMount's pinned buildSuperShares() creates an ephemeral Share with an ID
-        // but no provider ID. Resolve its exact numeric row through the qualified native
-        // provider, then require the canonical ocinternal full ID and exact ACL tuple.
-        $fresh = $provider->getShareById($rawId);
+        // but no provider ID. The pinned Manager resolves the canonical ID through this
+        // provider while preserving its recipient and current-validity checks.
+        $canonicalId = 'ocinternal:' . $rawId;
+        $fresh = $manager->getShareById($canonicalId, $uid);
         if (!$fresh instanceof \OCP\Share\IShare || $fresh::class !== 'OC\Share20\Share') {
             throw new \RuntimeException('Forms native share identity is unqualified');
         }
         self::source(new \ReflectionClass($fresh::class));
-        $canonicalId = 'ocinternal:' . $rawId;
         if ($fresh->getFullId() !== $canonicalId || $fresh->getId() !== $rawId
             || $fresh->getShareType() !== \OCP\Share\IShare::TYPE_USER || $fresh->getSharedWith() !== $uid
             || $fresh->getShareOwner() !== $share->getShareOwner()
