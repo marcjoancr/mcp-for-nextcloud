@@ -18,6 +18,12 @@ final class CircleProviderRoutingTest extends TestCase {
         foreach(['$this->writeRequest->save($share)','$this->writeRequest->update($shareWrapper)','$this->writeRequest->updateChildPermissions($shareWrapper)','$this->writeRequest->delete(self::positiveId($shareWrapper->getId()))'] as $sink){self::assertStringContainsString($sink,$writes);}
         self::assertStringContainsString("return 'ocCircleShare'",$provider);self::assertStringContainsString('CircleReadRuntime::withProviderLease',$runtime);self::assertStringContainsString('new \\OCA\\Circles\\ShareByCircleProvider',$runtime);self::assertStringContainsString('WriteShareWrapperRequest',$runtime);self::assertStringContainsString('ScopedFederatedUserService',$runtime);
     }
+    public function testNativeProviderGetsAppBoundLocalizationService():void {
+        $runtime=file_get_contents(dirname(__DIR__).'/src/Service/CircleRuntime.php');
+        self::assertStringContainsString('Server::get(\\OCP\\L10N\\IFactory::class)',$runtime);
+        self::assertStringContainsString('$l10nFactory->get(\'circles\')',$runtime);
+        self::assertStringNotContainsString('Server::get(\\OCP\\IL10N::class)',$runtime);
+    }
     public function testManagedTypeSevenCallsiteUsesBoundedNativeParentProjection():void {
         $phase=file_get_contents(dirname(__DIR__).'/src/Service/ManagedSharePhase.php');
         $runtime=file_get_contents(dirname(__DIR__).'/src/Service/CircleRuntime.php');

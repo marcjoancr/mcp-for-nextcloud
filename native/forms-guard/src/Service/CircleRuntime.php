@@ -49,7 +49,11 @@ final class CircleRuntime {
                 if($event){if($intentKey===null&&$oneShotProof===null){throw new \RuntimeException('Native Circle event is outside an approved one-shot operation');}$transport=new \OCA\Forms\Mcp\Service\CircleDetached\LocalTransport($lease,$open,static fn():null=>$assert(),$intentKey,Server::get(\OCP\EventDispatcher\IEventDispatcher::class),$oneShotProof);$federatedTransport=\OCA\Forms\Mcp\Service\CircleDetached\CircleProviderTransport::wrap($transport);}
                 else{$federatedTransport=new \ReflectionClass(\OCA\Circles\Service\FederatedEventService::class);$federatedTransport=$federatedTransport->newInstanceWithoutConstructor();}
                 $eventService=(new \ReflectionClass(\OCA\Circles\Service\EventService::class))->newInstanceWithoutConstructor();
-                $native=new \OCA\Circles\ShareByCircleProvider(Server::get(\OCP\IUserManager::class),Server::get(\OCP\Files\IRootFolder::class),Server::get(\OCP\IL10N::class),Server::get(\Psr\Log\LoggerInterface::class),Server::get(\OCP\IURLGenerator::class),$wrapper,Server::get(\OCA\Circles\Service\ShareTokenService::class),$actor,$federatedTransport,$circle,$eventService);
+                $l10nFactory=Server::get(\OCP\L10N\IFactory::class);
+                if($l10nFactory::class!==\OC\L10N\Factory::class){throw new \RuntimeException('Native Circle localization factory is unqualified');}
+                $l10n=$l10nFactory->get('circles');
+                if(!$l10n instanceof \OCP\IL10N){throw new \RuntimeException('Native Circle localization service is unavailable');}
+                $native=new \OCA\Circles\ShareByCircleProvider(Server::get(\OCP\IUserManager::class),Server::get(\OCP\Files\IRootFolder::class),$l10n,Server::get(\Psr\Log\LoggerInterface::class),Server::get(\OCP\IURLGenerator::class),$wrapper,Server::get(\OCA\Circles\Service\ShareTokenService::class),$actor,$federatedTransport,$circle,$eventService);
                 if($share!==null){$wrapper->current($share,$recipient);}
                 try{return$work($native,$wrapper);}finally{$transport?->close();}
             });
