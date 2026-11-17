@@ -162,6 +162,17 @@ try {
             static fn() => $sharedFolder->newFile($name, $bytes),
         );
         $first = $write('linked-destination.txt', 'recoverable shared output');
+        $linkedReceipt = ['file_id' => (int)$first->getId(), 'path' => ltrim($root->getRelativePath($first->getPath()), '/'),
+            'etag' => (string)$first->getEtag(), 'size' => (int)$first->getSize(), 'sha256' => hash('sha256', $first->getContent())];
+        $markers = Server::get(\OCA\Forms\Mcp\Service\LinkedMarkers::class);
+        $verifyLinked = new ReflectionMethod($markers, 'verifyFile');
+        $originalOriginAccepted = false;
+        try {$verifyLinked->invoke($markers, $uid, $origin, $linkedReceipt); $originalOriginAccepted = true;} catch (Throwable) {}
+        $wrongOriginRejected = false;
+        $wrongOrigin = $origin; $wrongOrigin['references']['form_id'] = $id + 1;
+        try {$verifyLinked->invoke($markers, $uid, $wrongOrigin, $linkedReceipt);} catch (Throwable) {$wrongOriginRejected = true;}
+        $genericSharedNodeRejected = false;
+        try {StorageAdmission::node($first);} catch (RuntimeException) {$genericSharedNodeRejected = true;}
         $revocationRejected = false;
         $revoked = false;
         try {
@@ -174,6 +185,8 @@ try {
                 },
                 static fn() => $sharedFolder->newFile('denied-after-acl.txt', 'must not be written'));
         } catch (Throwable) {$revocationRejected = $revoked;}
+        $revokedLinkedOriginRejected = false;
+        try {$verifyLinked->invoke($markers, $uid, $origin, $linkedReceipt);} catch (Throwable) {$revokedLinkedOriginRejected = true;}
         $preflightRejected = false;
         try {StorageAdmission::linkedDestination($sharedFolder, $uid, $sharedFolder->getPath() . '/denied-after-acl.txt', true, 'forms_link_results_file');}
         catch (RuntimeException) {$preflightRejected = true;}
@@ -187,7 +200,10 @@ try {
         );
         $unscopedRejected = false;
         try {StorageAdmission::storage($sharedFolder->getStorage());} catch (RuntimeException) {$unscopedRejected = true;}
-        $result = ['positive_sink' => $first instanceof \OCP\Files\File, 'acl_revocation_rejected' => $revocationRejected,
+        $result = ['positive_sink' => $first instanceof \OCP\Files\File, 'original_origin_linked_file_accepted' => $originalOriginAccepted,
+            'wrong_origin_tuple_rejected' => $wrongOriginRejected,
+            'revoked_origin_linked_file_rejected' => $revokedLinkedOriginRejected, 'generic_shared_node_rejected' => $genericSharedNodeRejected,
+            'acl_revocation_rejected' => $revocationRejected,
             'acl_preflight_rejected' => $preflightRejected, 'old_output_preserved' => $preserved, 'restored_sink' => $restored instanceof \OCP\Files\File,
             'unscoped_storage_still_rejected' => $unscopedRejected];
         commitSharedAcl($sourceOwner, $share->getFullId(), null);

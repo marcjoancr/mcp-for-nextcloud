@@ -333,7 +333,19 @@ final class LinkedMarkers {
         return hash('sha256','forms-linked-schema-v1:'.json_encode($canonical(array_intersect_key($metadata,array_flip(['form','questions','timeZone']))),JSON_THROW_ON_ERROR));
     }
 
-    private function verifyFile(string $uid,array $receipt,?int $expectedId=null): array {
+    private function admitLinkedDestination(string $uid,array $origin,File $file): void {
+        $formId=$origin['references']['form_id']??null;
+        if (($origin['tool']??null)!=='forms_link_results_file' || ($origin['uid']??null)!==$uid
+            || ($origin['references']['owner_id']??null)!==$uid || !is_int($formId) || $formId<1) {
+            throw new \RuntimeException('Original linked Forms approval changed');
+        }
+        OriginContext::within($uid,$origin,'forms_link_results_file',['id'=>$formId],function()use($uid,$file):void {
+            OriginContext::assertFiles('forms_link_results_file',['files'=>[['file_id'=>(int)$file->getId()]]]);
+            StorageAdmission::linkedDestination($file,$uid,$file->getPath(),false,'forms_link_results_file');
+        });
+    }
+
+    private function verifyFile(string $uid,array $origin,array $receipt,?int $expectedId=null): array {
         self::bounded($receipt);
         $id=$receipt['file_id']??$receipt['fileId']??null; $path=$receipt['path']??null;
         $size=$receipt['size']??$receipt['bytes']??null;
@@ -345,7 +357,7 @@ final class LinkedMarkers {
         if (!$file instanceof File || (int)$file->getId()!==$id || (string)$file->getEtag()!==$receipt['etag'] || (int)$file->getSize()!==$size || !$file->isReadable()) {
             throw new \RuntimeException('Linked Forms verified file changed');
         }
-        StorageAdmission::node($file); StorageAdmission::path($file->getPath());
+        $this->admitLinkedDestination($uid,$origin,$file);
         $stream=$file->fopen('rb');
         if (!is_resource($stream)) {throw new \RuntimeException('Linked Forms file cannot be verified');}
         try {$hash=hash_init('sha256'); $read=hash_update_stream($hash,$stream,26214401); $sha=hash_final($hash);} finally {fclose($stream);}
@@ -376,7 +388,7 @@ final class LinkedMarkers {
             throw new BeforeEffect('Linked Forms source approval changed');
         }
         if (($approval['destination']['overwrite']??false)===true) {$this->assertUnmanaged((int)($approval['destination']['file_id']??0));}
-        $receipt=$write(); $verified=$this->verifyFile($uid,$receipt);$this->assertUnmanaged($verified['file_id']);
+        $receipt=$write(); $verified=$this->verifyFile($uid,$origin,$receipt);$this->assertUnmanaged($verified['file_id']);
         OriginContext::assertFresh();
         $after=Server::get(Guard::class)->deferredRead($origin,'forms_results_metadata',['id'=>$form->getId()]);
         $fresh=Server::get(FormMapper::class)->findById($form->getId());
@@ -427,7 +439,7 @@ final class LinkedMarkers {
         $root=Server::get(IRootFolder::class)->getUserFolder($row['private']['original_owner_uid']);
         $node=$root->get($row['private']['last_verified']['path']);
         if (!$node instanceof File) {throw new \RuntimeException('Linked Forms original output is unavailable');}
-        StorageAdmission::node($node);
+        $this->admitLinkedDestination($row['private']['original_owner_uid'],$origin,$node);
         $this->assertWriting($origin,$node);
     }
 
@@ -461,7 +473,7 @@ final class LinkedMarkers {
                 if ($this->db->executeQuery('SELECT operation_key FROM *PREFIX*forms_mcp_operations WHERE operation_key = ?',[$key])->fetchOne()!==false) {
                     throw new BeforeEffect('Linked Forms cycle already has a durable receipt');
                 }
-                $this->verifyFile($private['original_owner_uid'],$private['last_verified'],$row['file_id']);
+                $this->verifyFile($private['original_owner_uid'],$private['origin'],$private['last_verified'],$row['file_id']);
                 $private['write_key']=$key; $private['write_revision']=$revision;
                 return $this->save($row,['state'=>'writing','lease_until'=>time()+60],$private);
             });
@@ -469,7 +481,7 @@ final class LinkedMarkers {
             try {
                 return $this->fence->transaction(function()use($row,$write,$revision,$key): array {
                     $current=$this->reference($this->writing['claim'],true,true); $this->source($current,$revision);
-                    $receipt=$write(); $verified=$this->verifyFile($current['private']['original_owner_uid'],$receipt,$current['file_id']);
+                    $receipt=$write(); $verified=$this->verifyFile($current['private']['original_owner_uid'],$current['private']['origin'],$receipt,$current['file_id']);
                     $this->source($current,$revision);
                     $current=$this->reference($this->writing['claim'],true,true); $private=$current['private'];
                     $generation=$private['active_cycle']['generation'];
