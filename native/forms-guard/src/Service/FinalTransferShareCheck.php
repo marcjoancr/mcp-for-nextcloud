@@ -117,6 +117,7 @@ final class FinalTransferShareCheck {
                     $children=$this->read('SELECT '.FinalShareRows::COLUMNS.' FROM *PREFIX*share WHERE parent = ? ORDER BY id LIMIT 1001',[(int)$parent['id']],1000,$budget);
                     $sourceChildren=$this->read('SELECT '.FinalShareRows::COLUMNS.' FROM *PREFIX*share WHERE parent = ? ORDER BY id LIMIT 1001',[(int)$source['id']],1000,$budget);
                     $sealed=[];$targetById=[];foreach($children as $targetChild){$key=(int)$targetChild['id'];if(isset($targetById[$key]))throw new \RuntimeException('Final sharing child identity duplicated');$targetById[$key]=$targetChild;}
+                    $actorGroup=null;$checkedGroupMembers=[];
                     foreach ($childSource[(int)$source['id']]??[] as $childRecord) {
                         $child=$childRecord['data'];$selected=[];
                         foreach (explode(',',FinalShareRows::COLUMNS) as $column) {$selected[$column]=$child[$column]??null;}
@@ -131,8 +132,11 @@ final class FinalTransferShareCheck {
                             $recipientUid=CircleRuntime::recipientUid($j['uid'],$circleId,$singleId,$this->readDb);
                             CircleRuntime::assertRecipientMember($j['uid'],$circleId,$recipientUid,$singleId,$this->readDb);
                         }else{
-                            $member=FinalReadCore::fresh($child['share_with'],$this->readDb);$group=(FinalReadCore::fresh($j['uid'],$this->readDb))->groups()->get($r['approved_tuple']['recipient']);
+                            $memberUid=$child['share_with'];$member=FinalReadCore::fresh($memberUid,$this->readDb);$memberKey='uid:'.$memberUid;
+                            if(isset($checkedGroupMembers[$memberKey])){$group=(FinalReadCore::fresh($j['uid'],$this->readDb))->groups()->get($r['approved_tuple']['recipient']);}
+                            else{$actorGroup??=(FinalReadCore::fresh($j['uid'],$this->readDb))->groups()->get($r['approved_tuple']['recipient']);$group=$actorGroup;}
                             if ($group===null || !$group->inGroup($member->user())) {throw new \RuntimeException('Final sharing recipient group membership changed');}
+                            $checkedGroupMembers[$memberKey]=true;
                         }
                         ($this->fresh)();
                     }
