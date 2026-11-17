@@ -191,7 +191,6 @@ try {
             'acl_preflight_rejected' => $preflightRejected, 'old_output_preserved' => $preserved, 'restored_sink' => $restored instanceof \OCP\Files\File,
             'unscoped_storage_still_rejected' => $unscopedRejected];
         commitSharedAcl($sourceOwner, $share->getFullId(), null);
-        Server::get(\OCP\IUserManager::class)->deleteUser($sourceUser);
     } elseif ($request['case'] === 'positive') {
         StorageAdmission::node($file);
         $deleted = $execute('forms_delete_form', ['id' => $id]);
