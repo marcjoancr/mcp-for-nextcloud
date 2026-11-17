@@ -25,6 +25,7 @@ final class NativeHomeProcessTest extends TestCase {
 
     protected function tearDown(): void {
         @unlink($this->script);
+        @unlink($this->root . '/fallback-worker.php');
         @unlink($this->root . '/failure-worker.php');
         @unlink($this->root . '/worker.php');
         @unlink($this->root . '/Service/NativeHomeProcess.php');
@@ -76,7 +77,7 @@ final class NativeHomeProcessTest extends TestCase {
             $diagnostic = NativeHomeProcess::takeFailure($envelope);
             self::assertSame(['protocol'=>1,'ok'=>false,
                 'scope'=>['job_id'=>str_repeat('3',64),'nonce'=>str_repeat('4',64),'phase'=>'copy_files'],
-                'failure'=>['class'=>'ErrorException','file'=>'credential.php','line'=>321,'stderr_bytes'=>0]], $diagnostic);
+                'failure'=>['class'=>'ErrorException','file'=>'credential.php','line'=>321,'stderr_bytes'=>0,'causes'=>[]]], $diagnostic);
             $encoded = json_encode($diagnostic, JSON_THROW_ON_ERROR);
             self::assertStringNotContainsString('DIAGNOSTIC_SECRET', $encoded);
             self::assertStringNotContainsString('/root/private', $encoded);
@@ -97,6 +98,35 @@ final class NativeHomeProcessTest extends TestCase {
             fclose($journal);
             @unlink($journalPath);
         }
+    }
+
+    public function testFailureReceiptCarriesOnlyThreeClosedSanitizedCauses(): void {
+        $envelope = ['job_id'=>str_repeat('7',64), 'home_phase'=>['nonce'=>str_repeat('8',64),'phase'=>'copy_files']];
+        $fourth = new ErrorException('SECRET_FOUR /root/private/fourth.php', 0, E_USER_WARNING, '/root/private/fourth.php', 44);
+        $third = new ErrorException('SECRET_THREE /root/private/third.php', 0, E_USER_WARNING, '/root/private/third.php', 33, $fourth);
+        $second = new ErrorException('SECRET_TWO /home/private/second.php', 0, E_USER_WARNING, '/home/private/second.php', 22, $third);
+        $first = new ErrorException('SECRET_ONE /tmp/private/first.php', 0, E_USER_WARNING, '/tmp/private/first.php', 11, $second);
+        $outer = new ErrorException('SECRET_OUTER /var/private/outer.php', 0, E_USER_WARNING, '/var/private/outer.php', 10, $first);
+
+        $receipt = NativeHomeProcess::failureReceipt($outer, $envelope);
+        self::assertNotNull($receipt);
+        self::assertSame([
+            ['class'=>'ErrorException','file'=>'first.php','line'=>11],
+            ['class'=>'ErrorException','file'=>'second.php','line'=>22],
+            ['class'=>'ErrorException','file'=>'third.php','line'=>33],
+        ], $receipt['failure']['causes']);
+        $encoded = json_encode($receipt, JSON_THROW_ON_ERROR);
+        foreach (['SECRET_', '/root/private', '/home/private', '/tmp/private', '/var/private'] as $sensitive) {
+            self::assertStringNotContainsString($sensitive, $encoded);
+        }
+        self::assertNotNull(NativeHomeProcess::validateFailureReceipt($receipt, $envelope, 0));
+
+        $malformed = $receipt;
+        $malformed['failure']['causes'][0]['message'] = 'SECRET_IN_CAUSE';
+        self::assertNull(NativeHomeProcess::validateFailureReceipt($malformed, $envelope, 0));
+        $tooMany = $receipt;
+        $tooMany['failure']['causes'][] = ['class'=>'ErrorException','file'=>'fourth.php','line'=>44];
+        self::assertNull(NativeHomeProcess::validateFailureReceipt($tooMany, $envelope, 0));
     }
 
     public function testWorkerReportsSanitizedCoreBootstrapFailure(): void {
@@ -123,6 +153,7 @@ final class NativeHomeProcessTest extends TestCase {
             self::assertSame('ErrorException', $diagnostic['failure']['class']);
             self::assertSame('Core.php', $diagnostic['failure']['file']);
             self::assertSame(777, $diagnostic['failure']['line']);
+            self::assertSame([], $diagnostic['failure']['causes']);
             $encoded = json_encode($diagnostic, JSON_THROW_ON_ERROR);
             self::assertStringNotContainsString('BOOT_SECRET', $encoded);
             self::assertStringNotContainsString('/root/private', $encoded);
@@ -131,5 +162,30 @@ final class NativeHomeProcessTest extends TestCase {
             fclose($journal);
             @unlink($journalPath);
         }
+    }
+
+    public function testWorkerFallbackUsesClosedEmptyCauseList(): void {
+        $worker = $this->root . '/fallback-worker.php';
+        copy(__DIR__ . '/../src/native-home-worker.php', $worker);
+        file_put_contents($this->root . '/lib/base.php', "<?php throw new RuntimeException('FALLBACK_SECRET /root/private/config.php');\n");
+        $envelope = ['protocol'=>1,'job_id'=>str_repeat('9',64),'target_uid'=>'recipient','files_path'=>'/recipient/files',
+            'home_phase'=>['nonce'=>str_repeat('a',64),'phase'=>'copy_files','target_uid'=>'recipient']];
+        $pipes = [];
+        $process = proc_open([PHP_BINARY, $worker, $this->root], [0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']], $pipes);
+        self::assertIsResource($process);
+        fwrite($pipes[0], json_encode($envelope, JSON_THROW_ON_ERROR));
+        fclose($pipes[0]);
+        $stdout = stream_get_contents($pipes[1]);
+        stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exit = proc_close($process);
+
+        self::assertNotSame(0, $exit);
+        $receipt = json_decode($stdout, true, 16, JSON_THROW_ON_ERROR);
+        self::assertSame([], $receipt['failure']['causes']);
+        $encoded = json_encode($receipt, JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('FALLBACK_SECRET', $encoded);
+        self::assertStringNotContainsString('/root/private', $encoded);
     }
 }

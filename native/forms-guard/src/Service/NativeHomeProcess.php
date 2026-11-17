@@ -14,6 +14,7 @@ use OCP\Server;
 final class NativeHomeProcess {
     private const OUTPUT_LIMIT = 16384;
     private const TIME_LIMIT = 12.0;
+    private const FAILURE_CAUSE_LIMIT = 3;
     private const FAILURE_CLASSES = ['BeforeEffect','RuntimeException','LogicException','InvalidArgumentException',
         'TypeError','ErrorException','Error','Exception','Throwable'];
     private static ?array $lastFailure = null;
@@ -22,14 +23,28 @@ final class NativeHomeProcess {
     public static function failureReceipt(?\Throwable $error, ?array $envelope): ?array {
         $scope = self::failureScope($envelope);
         if ($error === null || $scope === null) { return null; }
+        $failure = self::failureLocation($error);
+        $causes = [];
+        for ($cause = $error->getPrevious(), $index = 0;
+            $cause !== null && $index < self::FAILURE_CAUSE_LIMIT;
+            $cause = $cause->getPrevious(), $index++) {
+            $causes[] = self::failureLocation($cause);
+        }
+        $failure['stderr_bytes'] = 0;
+        $failure['causes'] = $causes;
+        return ['protocol'=>1,'ok'=>false,'scope'=>$scope,
+            'failure'=>$failure];
+    }
+
+    /** @return array{class:string,file:string,line:int} */
+    private static function failureLocation(\Throwable $error): array {
         $class = (new \ReflectionClass($error))->getShortName();
         if (!in_array($class, self::FAILURE_CLASSES, true)) { $class = 'Throwable'; }
         $file = basename($error->getFile());
         if (!preg_match('/^[A-Za-z0-9_.-]{1,128}$/D', $file)) { $file = 'unknown'; }
         $line = $error->getLine();
         if ($line < 0 || $line > 10000000) { $line = 0; }
-        return ['protocol'=>1,'ok'=>false,'scope'=>$scope,
-            'failure'=>['class'=>$class,'file'=>$file,'line'=>$line,'stderr_bytes'=>0]];
+        return ['class'=>$class,'file'=>$file,'line'=>$line];
     }
 
     /** Consume only a child diagnostic already matched to this exact one-shot job claim. */
@@ -46,13 +61,21 @@ final class NativeHomeProcess {
             || ($receipt['protocol'] ?? null) !== 1 || ($receipt['ok'] ?? null) !== false
             || ($receipt['scope'] ?? null) !== self::failureScope($envelope)
             || !is_array($receipt['failure'])
-            || array_keys($receipt['failure']) !== ['class','file','line','stderr_bytes']) { return null; }
+            || array_keys($receipt['failure']) !== ['class','file','line','stderr_bytes','causes']) { return null; }
         $failure = $receipt['failure'];
         if (!in_array($failure['class'] ?? null, self::FAILURE_CLASSES, true)
             || !is_string($failure['file'] ?? null) || !preg_match('/^[A-Za-z0-9_.-]{1,128}$/D', $failure['file'])
             || !is_int($failure['line'] ?? null) || $failure['line'] < 0 || $failure['line'] > 10000000
             || !is_int($failure['stderr_bytes'] ?? null) || $failure['stderr_bytes'] !== 0
+            || !is_array($failure['causes']) || !array_is_list($failure['causes'])
+            || count($failure['causes']) > self::FAILURE_CAUSE_LIMIT
             || $stderrBytes < 0 || $stderrBytes > self::OUTPUT_LIMIT) { return null; }
+        foreach ($failure['causes'] as $cause) {
+            if (!is_array($cause) || array_keys($cause) !== ['class','file','line']
+                || !in_array($cause['class'] ?? null, self::FAILURE_CLASSES, true)
+                || !is_string($cause['file'] ?? null) || !preg_match('/^[A-Za-z0-9_.-]{1,128}$/D', $cause['file'])
+                || !is_int($cause['line'] ?? null) || $cause['line'] < 0 || $cause['line'] > 10000000) { return null; }
+        }
         $failure['stderr_bytes'] = $stderrBytes;
         return ['protocol'=>1,'ok'=>false,'scope'=>$receipt['scope'],'failure'=>$failure];
     }

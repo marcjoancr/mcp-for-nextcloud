@@ -46,6 +46,6 @@ try {
     }
     while (ob_get_level() > 0) { ob_end_clean(); }
     echo json_encode($diagnostic ?? ['protocol'=>1,'ok'=>false,'scope'=>null,
-        'failure'=>['class'=>'Throwable','file'=>'native-home-worker.php','line'=>0,'stderr_bytes'=>0]], JSON_THROW_ON_ERROR);
+        'failure'=>['class'=>'Throwable','file'=>'native-home-worker.php','line'=>0,'stderr_bytes'=>0,'causes'=>[]]], JSON_THROW_ON_ERROR);
     exit(1);
 }
