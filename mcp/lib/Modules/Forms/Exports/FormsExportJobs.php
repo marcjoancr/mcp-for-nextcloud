@@ -305,6 +305,19 @@ final class FormsExportJobs {
         if($current!==$claimed||$current['state']!=='delivering')throw new ToolFailure('The Forms delivery claim changed before the destination write.');
         $this->source($current['payload'],$native);
     }
+    /** Private, bounded diagnostics for a delivery that reached its existing uncertainty boundary. */
+    private static function deliveryFailureDiagnostic(\Throwable $error):array {
+        $frames=[];
+        for($current=$error;$current!==null&&count($frames)<3;$current=$current->getPrevious()) {
+            $class=basename(str_replace('\\','/',$current::class));
+            $file=basename(str_replace('\\','/',$current->getFile()));
+            if(preg_match('/^[A-Za-z][A-Za-z0-9_]{0,79}$/D',$class)!==1)$class='Throwable';
+            if(preg_match('/^[A-Za-z0-9_.-]{1,100}$/D',$file)!==1)$file='unknown.php';
+            $line=$current->getLine();
+            $frames[]=['class'=>$class,'file'=>$file,'line'=>$line>0&&$line<1000000?$line:0];
+        }
+        return $frames;
+    }
     /** A Files/download delivery can never be automatically replayed after its claim. */
     public function deliver(string $uid,string $id,callable $native,callable $write,?string $operationKey=null,?int $approvedVersion=null):array {
         $old=$this->job($uid,$id);$this->approved($old,$operationKey,$approvedVersion);
@@ -321,7 +334,11 @@ final class FormsExportJobs {
             if(!$this->store->compareAndSwap($next,$done))throw new ToolFailure('Forms delivery acknowledgement was lost.');
             return $this->present($done)+['file'=>$receipt];
         } catch(\Throwable $e) {
-            $uncertain=$next;$uncertain['version']++;$uncertain['state']=$writeStarted?'delivery_uncertain':'paused';$uncertain=$this->accepted($next,$uncertain,$writeStarted?'partial':'failed_before_effect');$this->store->compareAndSwap($next,$uncertain);throw $e;
+            $uncertain=$next;$uncertain['version']++;$uncertain['state']=$writeStarted?'delivery_uncertain':'paused';
+            $uncertain=$this->accepted($next,$uncertain,$writeStarted?'partial':'failed_before_effect');
+            $uncertain['payload']['last_step']??=[];
+            $uncertain['payload']['last_step']['delivery_failure_diagnostic']=self::deliveryFailureDiagnostic($e);
+            $this->store->compareAndSwap($next,$uncertain);throw $e;
         }
     }
 }

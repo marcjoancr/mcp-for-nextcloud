@@ -112,6 +112,23 @@ final class FormsExportJobsTest extends TestCase {
             self::assertSame('failed_before_effect',$this->jobs[$id]['payload']['last_step']['outcome']['state']);
         }
     }
+    public function testDeliveryFailureStoresOnlyThreeBoundedPrivateThrowableFrames():void {
+        $this->source=array_slice($this->source,0,1);$id=$this->start()['references']['job_id'];
+        $this->engine->step('alice',$id,$this->native(...));$version=$this->jobs[$id]['version'];
+        $deepest=new \LogicException('SECRET fourth nested SQL and argument values');
+        $previous=new \InvalidArgumentException('SECRET third nested SQL and argument values',0,$deepest);
+        $middle=new \DomainException('SECRET second nested SQL and argument values',0,$previous);
+        $failure=new \RuntimeException('SECRET current message and argument values',0,$middle);
+        try {$this->engine->deliver('alice',$id,$this->native(...),static function()use($failure):array {throw $failure;},'private-diagnostic',$version);}
+        catch(\RuntimeException) {}
+        $job=$this->jobs[$id];self::assertSame('delivery_uncertain',$job['state']);
+        $frames=$job['payload']['last_step']['delivery_failure_diagnostic']??null;self::assertIsArray($frames);self::assertCount(3,$frames);
+        self::assertSame(['RuntimeException','DomainException','InvalidArgumentException'],array_column($frames,'class'));
+        foreach($frames as $frame)self::assertSame('FormsExportJobsTest.php',$frame['file']??null);
+        foreach($frames as $frame){self::assertSame(['class','file','line'],array_keys($frame));self::assertIsInt($frame['line']);self::assertGreaterThan(0,$frame['line']);}
+        $json=json_encode($frames,JSON_THROW_ON_ERROR);self::assertStringNotContainsString('SECRET',$json);self::assertStringNotContainsString('argument',$json);self::assertStringNotContainsString('SQL',$json);
+        self::assertArrayNotHasKey('delivery_failure_diagnostic',$this->engine->status('alice',$id));
+    }
     public function testResultRevisionSurvivesUnrelatedWritersButRejectsSameFormDataChange():void {
         $this->exportRevision='9';$id=$this->start()['references']['job_id'];
         self::assertSame('9',$this->jobs[$id]['payload']['source_revision']);

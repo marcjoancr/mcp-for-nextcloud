@@ -22,8 +22,8 @@ final class FormsLinkedSweep {
             $seen[$id]=true;
         }
         foreach($ids as $id) {
-            $remaining=(int)(($deadline-$this->now())/1000000);if($remaining<1000)break;
-            try {$this->runner->run($id,min(20000,$remaining));}catch(\Throwable){/* Durable native state controls subsequent attempts. */}
+            $remaining=(int)(($deadline-$this->now())/1000000);if($remaining<20000)break;
+            try {$this->runner->run($id,20000);}catch(\Throwable){/* Durable native state controls subsequent attempts. */}
         }
     }
 }

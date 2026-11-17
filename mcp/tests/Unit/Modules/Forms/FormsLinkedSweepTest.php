@@ -12,15 +12,16 @@ use OCA\Mcp\Modules\Forms\Exports\FormsLinkedSweep;
 use OCA\Mcp\Platform\Process\NativeMutationProcess;
 use PHPUnit\Framework\TestCase;
 final class FormsLinkedSweepTest extends TestCase {
-    public function testSweepRunsFairOpaquePageWithinItsTotalAndPerChildBudget():void {
-        $clock=0;$calls=[];$ids=[str_repeat('a',64),str_repeat('b',64),str_repeat('c',64)];
+    public function testSweepDefersChildWithoutFullBudgetAndRechecksItNextFairPage():void {
+        $clock=0;$calls=[];$ids=[str_repeat('a',64),str_repeat('b',64),str_repeat('c',64)];$pages=[$ids,[$ids[2],$ids[0],$ids[1]]];
         $process=$this->createMock(NativeMutationProcess::class);
         $process->method('run')->willReturnCallback(static function(array $argv,string $cwd,array $payload,int $budget)use(&$clock,&$calls):array {
-            $calls[]=[$payload['association_id'],$budget];$clock+=20000000000;return ['status'=>'completed'];
+            $calls[]=[$payload['association_id'],$budget];$clock+=$budget*1000000;return ['status'=>'completed'];
         });
         $runner=new FormsLinkedExportRunner($process,static fn():array=>['command'=>['/usr/bin/php','/srv/occ'],'cwd'=>'/srv']);
-        $sweep=new FormsLinkedSweep($runner,static function(int $limit)use($ids):array {self::assertSame(3,$limit);return $ids;},static function()use(&$clock):int {return $clock;});
-        $sweep->run();self::assertSame([[$ids[0],20000],[$ids[1],20000],[$ids[2],15000]],$calls);
+        $sweep=new FormsLinkedSweep($runner,static function(int $limit)use(&$pages):array {self::assertSame(3,$limit);return array_shift($pages)??[];},static function()use(&$clock):int {return $clock;});
+        $sweep->run();self::assertSame([[$ids[0],20000],[$ids[1],20000]],$calls);
+        $sweep->run();self::assertSame([[$ids[0],20000],[$ids[1],20000],[$ids[2],20000],[$ids[0],20000]],$calls);
     }
     public function testUnknownAttemptIsNotRepeatedWithinOneSweep():void {
         $process=$this->createMock(NativeMutationProcess::class);$process->expects(self::once())->method('run')->willReturn(['status'=>'unknown']);
