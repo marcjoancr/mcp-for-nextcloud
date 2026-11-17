@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 use OCA\Forms\Mcp\Service\NativeHomeJournal;
 use OCA\Forms\Mcp\Service\NativeHomeProcess;
+use OCA\Forms\Mcp\Service\BulkOperations;
 use PHPUnit\Framework\TestCase;
 
 final class NativeHomeProcessTest extends TestCase {
@@ -20,7 +21,7 @@ final class NativeHomeProcessTest extends TestCase {
         file_put_contents($this->root . '/lib/base.php', "<?php\n");
         $journalSource = var_export(__DIR__ . '/../src/Service/NativeHomeJournal.php', true);
         $this->script = $this->root . '/worker.php';
-        file_put_contents($this->script, "<?php\ndeclare(strict_types=1);\nrequire_once {$journalSource};\n$" . "input=json_decode(stream_get_contents(STDIN),true,16,JSON_THROW_ON_ERROR);\n$" . "stream=fopen('php://fd/3','r+');\n$" . "journal=\\OCA\\Forms\\Mcp\\Service\\NativeHomeJournal::open($" . "stream,$" . "input);\n$" . "token=$" . "journal->intent('mkdir','files');\n$" . "journal->complete($" . "token,str_repeat('a',64));\n$" . "journal->seal('committed');\necho json_encode(['protocol'=>1,'ok'=>true,'job_id'=>$" . "input['job_id'],'phase'=>$" . "input['home_phase']['phase'],'target_uid'=>$" . "input['target_uid'],'dto'=>['state'=>'pending']]);\n");
+        file_put_contents($this->script, "<?php\ndeclare(strict_types=1);\nrequire_once {$journalSource};\n$" . "input=json_decode(stream_get_contents(STDIN),true,16,JSON_THROW_ON_ERROR);\n$" . "stream=fopen('php://fd/3','r+');\n$" . "journal=\\OCA\\Forms\\Mcp\\Service\\NativeHomeJournal::open($" . "stream,$" . "input);\n$" . "token=$" . "journal->intent('mkdir','files');\n$" . "journal->complete($" . "token,str_repeat('a',64));\n$" . "summary=$" . "journal->seal('committed');\necho json_encode(['protocol'=>1,'ok'=>true,'job_id'=>$" . "input['job_id'],'phase'=>$" . "input['home_phase']['phase'],'target_uid'=>$" . "input['target_uid'],'initialized'=>true,'journal'=>$" . "summary]);\n");
     }
 
     protected function tearDown(): void {
@@ -44,6 +45,8 @@ final class NativeHomeProcessTest extends TestCase {
 
         try {
             $result = NativeHomeProcess::run($envelope, $this->script, $this->root, $journal);
+            self::assertTrue($result['initialized']);
+            self::assertArrayNotHasKey('dto', $result);
             self::assertSame('committed', $result['journal']['state']);
             self::assertCount(1, $result['journal']['completed']);
             self::assertSame('mkdir', $result['journal']['completed'][0]['operation']);
@@ -127,6 +130,34 @@ final class NativeHomeProcessTest extends TestCase {
         $tooMany = $receipt;
         $tooMany['failure']['causes'][] = ['class'=>'ErrorException','file'=>'fourth.php','line'=>44];
         self::assertNull(NativeHomeProcess::validateFailureReceipt($tooMany, $envelope, 0));
+    }
+
+    public function testParentFailureIsPersistedAsTheSameClosedBoundedReceipt(): void {
+        require_once __DIR__ . '/../src/Service/BulkOperations.php';
+        $envelope = ['protocol'=>1,'job_id'=>str_repeat('b',64),'target_uid'=>'recipient','files_path'=>'/recipient/files',
+            'home_phase'=>['nonce'=>str_repeat('c',64),'phase'=>'copy_files','target_uid'=>'recipient']];
+        $parentFailure = new RuntimeException('PARENT_SECRET /root/private/config.php');
+        $method = new ReflectionMethod(BulkOperations::class, 'nativeHomeFailureReceipt');
+        $method->setAccessible(true);
+
+        $fallback = $method->invoke(null, null, $parentFailure, $envelope);
+        self::assertSame(1, $fallback['protocol']);
+        self::assertFalse($fallback['ok']);
+        self::assertSame(['job_id'=>str_repeat('b',64),'nonce'=>str_repeat('c',64),'phase'=>'copy_files'], $fallback['scope']);
+        self::assertSame('RuntimeException', $fallback['failure']['class']);
+        self::assertSame('NativeHomeProcessTest.php', $fallback['failure']['file']);
+        self::assertIsInt($fallback['failure']['line']);
+        self::assertSame(0, $fallback['failure']['stderr_bytes']);
+        self::assertSame([], $fallback['failure']['causes']);
+        $encoded = json_encode($fallback, JSON_THROW_ON_ERROR);
+        self::assertStringNotContainsString('PARENT_SECRET', $encoded);
+        self::assertStringNotContainsString('/root/private', $encoded);
+
+        $childFailure = ['protocol'=>1,'ok'=>false,'scope'=>$fallback['scope'],'failure'=>['class'=>'Error',
+            'file'=>'worker.php','line'=>99,'stderr_bytes'=>0,'causes'=>[]]];
+        self::assertSame($childFailure, $method->invoke(null, $childFailure, $parentFailure, $envelope));
+        unset($envelope['home_phase']['nonce']);
+        self::assertNull($method->invoke(null, null, $parentFailure, $envelope));
     }
 
     public function testWorkerReportsSanitizedCoreBootstrapFailure(): void {

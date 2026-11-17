@@ -137,7 +137,7 @@ final class NativeHomeProcess {
 
     /**
      * @param resource $journal Empty, owner-only, single-link stream inherited as FD 3.
-     * @return array{protocol:int,job_id:string,phase:string,target_uid:string,journal:array}
+     * @return array{protocol:int,job_id:string,phase:string,target_uid:string,initialized:bool,journal:array}
      */
     public static function run(array $envelope, string $script, string $serverRoot, mixed $journal): array {
         self::$lastFailure = null;
@@ -215,18 +215,25 @@ final class NativeHomeProcess {
             self::$lastFailure = self::validateFailureReceipt($receipt, $envelope, $stderrBytes);
             throw new \RuntimeException('Native Home helper failed');
         }
-        if (!is_array($receipt) || ($receipt['protocol'] ?? null) !== 1 || ($receipt['ok'] ?? null) !== true
+        if (!is_array($receipt) || array_keys($receipt) !== ['protocol','ok','job_id','phase','target_uid','initialized','journal']
+            || ($receipt['protocol'] ?? null) !== 1 || ($receipt['ok'] ?? null) !== true
             || ($receipt['job_id'] ?? null) !== ($envelope['job_id'] ?? null)
             || ($receipt['phase'] ?? null) !== ($envelope['home_phase']['phase'] ?? null)
             || ($receipt['target_uid'] ?? null) !== ($envelope['target_uid'] ?? null)
-            || !is_array($receipt['dto'] ?? null)) {
+            || ($receipt['initialized'] ?? null) !== true || !is_array($receipt['journal'] ?? null)
+            || array_keys($receipt['journal']) !== ['state','effects','chain','bytes']) {
             throw new \RuntimeException('Native Home helper receipt binding differs');
         }
         $journalReceipt = NativeHomeJournal::read($journal, $envelope);
         if (($journalReceipt['state'] ?? null) !== 'committed' || !$journalReceipt['sealed'] || $journalReceipt['pending'] !== [] || $journalReceipt['failed']) {
             throw new \RuntimeException('Native Home journal requires recovery');
         }
+        foreach (['state','effects','chain','bytes'] as $field) {
+            if (($receipt['journal'][$field] ?? null) !== ($journalReceipt[$field] ?? null)) {
+                throw new \RuntimeException('Native Home helper journal receipt differs');
+            }
+        }
         return ['protocol' => 1, 'job_id' => $envelope['job_id'], 'phase' => $envelope['home_phase']['phase'],
-            'target_uid' => $envelope['target_uid'], 'journal' => $journalReceipt, 'dto' => $receipt['dto']];
+            'target_uid' => $envelope['target_uid'], 'initialized'=>true, 'journal' => $journalReceipt];
     }
 }

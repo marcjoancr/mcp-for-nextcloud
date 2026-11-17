@@ -70,7 +70,7 @@ final class NativeHomeChild {
                     return self::initialize($expected, $stream, $job, (string)($claim['home_phase']['step_key'] ?? ''));
                 });
             });
-            return self::dispatchPreparedStep($prepared);
+            return $prepared;
         });
     }
 
@@ -156,47 +156,8 @@ final class NativeHomeChild {
         $journalSummary = $journal->seal('committed');
         self::$receipt = NativeHomeJournal::read($stream, $envelope);
         NativeHomeStorage::guardedInitialization(false);
-        return ['envelope' => $envelope, 'step_key' => $stepKey, 'journal' => $journalSummary];
-    }
-
-    /** Run the public bulk entrypoint only after the setup control frame has unwound. */
-    private static function dispatchPreparedStep(array $prepared): array {
-        $envelope = $prepared['envelope'] ?? null;
-        $stepKey = $prepared['step_key'] ?? null;
-        $journalSummary = $prepared['journal'] ?? null;
-        if (!is_array($envelope) || !is_string($stepKey) || !is_array($journalSummary)
-            || ($envelope['home_phase']['step_key'] ?? null) !== $stepKey) {
-            throw new \RuntimeException('Native Home prepared step is unavailable');
-        }
-        $fence = Server::get(FormsRevisionFence::class);
-        self::armBulkStep($envelope, $stepKey);
-        try {
-            $dto = Server::get(\OCA\Forms\Mcp\Guard::class)->bulkStep(
-                $envelope['uid'], $envelope['job_id'], self::dispatchControl($envelope), $envelope['home_phase']['version'], $stepKey,
-                static fn(string $tool, array $manifest) => Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)
-                    ->assertFiles(self::dispatchControl($envelope), $tool, $manifest),
-            );
-        } finally { self::$activeStep = null; }
-        if (!is_array($dto)) { throw new \RuntimeException('Native Home step receipt is unavailable'); }
-        NativeHomeProfile::assertCurrent();
-        NativeHomeStorage::assertAllHealthy();
-        $fence->transaction(static function () use ($envelope, $stepKey, $dto): void {
-            $store = Server::get(BulkStore::class);
-            $current = $store->load($envelope['job_id']);
-            if (($current['native_home_claim']['home_phase']['step_key'] ?? null) !== $stepKey
-                || (int)($current['version'] ?? 0) !== (int)($dto['version'] ?? -1)) {
-                throw new \RuntimeException('Native Home step claim changed');
-            }
-            $store->putMapping($current, 'native_home', $envelope['home_phase']['version'], self::$receipt);
-            $current['native_home_receipt'] = ['phase'=>$envelope['home_phase']['phase'],'version'=>$envelope['home_phase']['version'],
-                'effects'=>self::$receipt['effects'],'chain'=>self::$receipt['chain']];
-            if (in_array($dto['state'] ?? null, ['pending', 'completed', 'partial', 'cancelled', 'failed_before_effect'], true)) {
-                unset($current['native_home_claim'], $current['native_home_journal']);
-            }
-            $store->save($current);
-        });
-        return ['protocol' => 1, 'ok' => true, 'job_id' => $envelope['job_id'], 'phase' => $envelope['home_phase']['phase'],
-            'target_uid' => $envelope['target_uid'], 'journal' => $journalSummary, 'dto' => $dto];
+        return ['protocol'=>1,'ok'=>true,'job_id'=>$envelope['job_id'],'phase'=>$envelope['home_phase']['phase'],
+            'target_uid'=>$envelope['target_uid'],'initialized'=>true,'journal'=>$journalSummary];
     }
 
     /** Install the guard as the last (innermost) storage wrapper before any mount exists. */

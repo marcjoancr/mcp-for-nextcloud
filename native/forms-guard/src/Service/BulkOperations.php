@@ -168,7 +168,7 @@ final class BulkOperations {
   });
   });
  }
- /** A fresh child owns target setup and the complete ordinary Forms step that uses it. */
+ /** A fresh child owns only target Home initialization; the next continuation runs the ordinary file step. */
  private function nativeHomeStep(string $uid,string $id,int $version,string $key,callable $authorize):?array {
   $job=$this->store->load($id);$this->actor($uid,$job);
   if($job['state']!=='pending'||$job['version']!==$version||($job['action']!=='forms_restore'&&!$job['sealed'])){return null;}
@@ -192,10 +192,13 @@ final class BulkOperations {
    'target_uid'=>$target,'step_key'=>$key,'version'=>$version]];
   $claimed=false;$envelope=null;
   try {
-   $job=$this->fence->transaction(function()use($uid,$id,$version,$key,$authorize,$homeClaim,$path):array{
+   $job=$this->fence->transaction(function()use($uid,$id,$version,$key,$authorize,$homeClaim,$path,$job,$target):array{
     OriginContext::assertFresh();$current=$this->store->load($id);$this->actor($uid,$current);
+    $currentTarget=match($current['action']){'forms_transfer'=>$current['input']['owner_id']??null,'forms_restore'=>$current['uid'],default=>null};
     if($current['state']!=='pending'||$current['version']!==$version||$current['phase']!==$homeClaim['home_phase']['phase']
-      ||isset($current['native_home_claim'])||($current['action']!=='forms_restore'&&!$current['sealed'])){throw new BeforeEffect('Native Home claim changed');}
+      ||($current['action']??null)!==($job['action']??null)||($current['uid']??null)!==$uid
+      ||($current['input']??null)!==($job['input']??null)||($current['form']['id']??null)!==($job['form']['id']??null)
+      ||$currentTarget!==$target||isset($current['native_home_claim'])||($current['action']!=='forms_restore'&&!$current['sealed'])){throw new BeforeEffect('Native Home claim changed');}
     $this->admit($uid,$current['action'],$current['input'],$authorize);
     $current['native_home_claim']=$homeClaim;$current['native_home_journal']=basename($path);$this->store->save($current);return$current;
    });
@@ -203,13 +206,45 @@ final class BulkOperations {
    $envelope=OriginContext::nativeHomeEnvelope($job,$homeClaim);
    $root=\OC::$SERVERROOT;$script=dirname(__DIR__).'/native-home-worker.php';
    $receipt=NativeHomeProcess::run($envelope,$script,$root,$stream);
-   $dto=$receipt['dto']??null;
-   if(!is_array($dto)||($dto['bulk_id']??null)!==$id||($dto['version']??null)!==$version+1){throw new \RuntimeException('Native Home bulk step receipt differs');}
-   if(in_array($dto['state']??null,['pending','completed','partial','cancelled','failed_before_effect'],true)){@unlink($path);}
+   $journal=$receipt['journal']??null;
+   if(($receipt['initialized']??null)!==true||($receipt['job_id']??null)!==$id||($receipt['phase']??null)!==$phase
+    ||($receipt['target_uid']??null)!==$target||!is_array($journal)||($journal['state']??null)!=='committed'
+    ||($journal['sealed']??false)!==true||($journal['pending']??null)!==[]||($journal['failed']??true)!==false
+    ||!is_int($journal['effects']??null)||$journal['effects']<0||$journal['effects']>128
+    ||!is_string($journal['chain']??null)||!preg_match('/^[a-f0-9]{64}$/D',$journal['chain'])){
+    throw new \RuntimeException('Native Home initialization receipt differs');
+   }
+   $dto=$this->fence->transaction(function()use($uid,$id,$version,$key,$authorize,$job,$homeClaim,$path,$target,$phase,$journal):array{
+    OriginContext::assertFresh();$current=$this->store->load($id);$this->actor($uid,$current);
+    if($current['state']!=='pending'||$current['version']!==$version||$current['phase']!==$phase
+      ||($current['native_home_claim']??null)!==$homeClaim||($current['native_home_journal']??null)!==basename($path)
+      ||($current['action']??null)!==($job['action']??null)||($current['uid']??null)!==$uid
+      ||($current['input']??null)!==($job['input']??null)||($current['form']['id']??null)!==($job['form']['id']??null)){
+     throw new \RuntimeException('Native Home initialization claim changed');
+    }
+    $currentTarget=match($current['action']){'forms_transfer'=>$current['input']['owner_id']??null,'forms_restore'=>$current['uid'],default=>null};
+    if(!is_string($currentTarget)||$currentTarget!==$target){throw new \RuntimeException('Native Home target changed');}
+    $this->admit($uid,$current['action'],$current['input'],$authorize);
+    if($current['action']==='forms_transfer'){
+     $targetActor=$current['target_actor']??null;$targetNative=$current['target_native_actor']??null;
+     if(!is_string($targetActor)||!is_string($targetNative))throw new \RuntimeException('Native Home target identity is unavailable');
+     Server::get(\OCA\Mcp\Mcp\Operations\ActorIdentity::class)->assertCurrent($target,$targetActor);
+     NativeHistoryIdentity::assertCurrent($target,$targetNative);
+    }
+    BulkDeadline::check();
+    $this->store->putMapping($current,'native_home',$version,$journal);
+    $current['native_home_receipt']=['phase'=>$phase,'version'=>$version,'state'=>$journal['state'],'effects'=>$journal['effects'],
+     'pending'=>count($journal['pending']),'failed'=>$journal['failed'],'sealed'=>$journal['sealed'],'chain'=>$journal['chain']];
+    unset($current['native_home_claim'],$current['native_home_journal']);
+    $current['version']++;$this->store->save($current);$dto=$this->dto($current);$this->store->record($id,$key,$dto);
+    BulkDeadline::check();return$dto;
+   });
+   @unlink($path);
    return $dto;
   } catch(\Throwable $error) {
    if(!$claimed){@unlink($path);}
    $childFailure=$claimed&&is_array($envelope)?NativeHomeProcess::takeFailure($envelope):null;
+   if($claimed&&is_array($envelope)){$childFailure=self::nativeHomeFailureReceipt($childFailure,$error,$envelope);}
    $journalEvidence=null;
    if($claimed&&is_array($envelope)){try{$journalEvidence=NativeHomeJournal::read($stream,$envelope);}catch(\Throwable){}}
    try{$this->fence->transaction(function()use($uid,$id,$version,$key,$journalEvidence,$childFailure):void{
@@ -221,10 +256,13 @@ final class BulkOperations {
     if(($current['version']??null)===$version){$current['state']='uncertain';$current['reason']='native_home_recovery_required';$current['version']=$version+1;$this->store->save($current);}
    });}catch(\Throwable){}
    $current=$this->store->load($id);$receipt=$this->store->receipt($id,$key);
-   if($receipt!==null){return BulkStepEvidence::resolve($receipt,$current,static fn(string $operation)=>Server::get(ManagedSharePhase::class)->phase($operation));}
+   if($receipt!==null){@unlink($path);return BulkStepEvidence::resolve($receipt,$current,static fn(string $operation)=>Server::get(ManagedSharePhase::class)->phase($operation));}
    if(($current['state']??null)==='uncertain'&&($current['version']??null)===$version+1){return $this->dto($current);}
    throw new BeforeEffect('Native Home initialization failed; recovery evidence was retained',0,$error);
   } finally {if(is_resource($stream)){fclose($stream);}}
+ }
+ private static function nativeHomeFailureReceipt(?array $childFailure,\Throwable $parentFailure,array $envelope):?array {
+  return $childFailure??NativeHomeProcess::failureReceipt($parentFailure,$envelope);
  }
  private function fileStep(array $j,string $uid,string $key,callable $authorize,?callable $files):array {
   if(!$this->sourceMatches($j)){return $this->fence->transaction(function()use(&$j,$key):array{$j['state']=($j['done']>0||($j['source_effects']??false)||(array_sum($j['retained_files']??[])+($j['retained_shares']??0)+($j['retained_folders']??0))>0)?'partial':'failed_before_effect';$j['reason']='source_changed';$j['version']++;$this->store->save($j);$dto=$this->dto($j);$this->store->record($j['id'],$key,$dto);return $dto;});}

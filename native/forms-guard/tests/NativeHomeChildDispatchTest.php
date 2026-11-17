@@ -57,37 +57,48 @@ final class NativeHomeChildDispatchTest extends TestCase {
         }
     }
 
-    public function testSetupControlFrameUnwindsBeforePublicBulkStepOpensItsOwnFrame(): void {
+    public function testChildReturnsInitializationReceiptWithoutDispatchingThePublicBulkStep(): void {
         $childSource = file_get_contents(__DIR__ . '/../src/Service/NativeHomeChild.php');
         $guardSource = file_get_contents(__DIR__ . '/../src/Guard.php');
+        $operationsSource = file_get_contents(__DIR__ . '/../src/Service/BulkOperations.php');
         self::assertIsString($childSource);
         self::assertIsString($guardSource);
+        self::assertIsString($operationsSource);
 
         $runStart = strpos($childSource, 'public static function run(');
         $initializeStart = strpos($childSource, 'private static function initialize(');
-        $dispatchStart = strpos($childSource, 'private static function dispatchPreparedStep(');
         $installStart = strpos($childSource, 'public static function installStorageGuard(');
         self::assertIsInt($runStart);
         self::assertIsInt($initializeStart);
-        self::assertIsInt($dispatchStart);
         self::assertIsInt($installStart);
 
         $run = substr($childSource, $runStart, $initializeStart - $runStart);
-        $initialize = substr($childSource, $initializeStart, $dispatchStart - $initializeStart);
-        $dispatch = substr($childSource, $dispatchStart, $installStart - $dispatchStart);
+        $initialize = substr($childSource, $initializeStart, $installStart - $initializeStart);
         $guardStart = strpos($guardSource, 'public function bulkStep(');
         $guardEnd = strpos($guardSource, 'public function bulkStatus(', $guardStart);
         self::assertIsInt($guardStart);
         self::assertIsInt($guardEnd);
         $guardStep = substr($guardSource, $guardStart, $guardEnd - $guardStart);
+        $homeStepStart = strpos($operationsSource, 'private function nativeHomeStep(');
+        $fileStepStart = strpos($operationsSource, 'private function fileStep(');
+        self::assertIsInt($homeStepStart);
+        self::assertIsInt($fileStepStart);
+        $homeStep = substr($operationsSource, $homeStepStart, $fileStepStart - $homeStepStart);
 
         self::assertSame(1, substr_count($run, 'OriginContext::withBulkControl('));
-        self::assertLessThan(strpos($run, 'return self::dispatchPreparedStep($prepared);'), strpos($run, '$prepared = OriginContext::withBulkControl('));
+        self::assertStringContainsString('return $prepared;', $run);
         self::assertStringNotContainsString('bulkStep(', $initialize);
         self::assertStringNotContainsString('armBulkStep(', $initialize);
-        self::assertStringNotContainsString('OriginContext::withBulkControl(', $dispatch);
-        self::assertSame(1, substr_count($dispatch, '->bulkStep('));
-        self::assertLessThan(strpos($dispatch, '->bulkStep('), strpos($dispatch, 'self::armBulkStep('));
+        self::assertStringNotContainsString('->bulkStep(', $childSource);
+        self::assertStringContainsString("'initialized'=>true", $initialize);
+        self::assertStringContainsString('$this->store->putMapping($current,\'native_home\',$version,$journal)', $homeStep);
+        self::assertStringContainsString('unset($current[\'native_home_claim\'],$current[\'native_home_journal\'])', $homeStep);
+        self::assertStringContainsString('$current[\'version\']++', $homeStep);
+        self::assertStringContainsString('$this->store->record($id,$key,$dto)', $homeStep);
+        self::assertStringContainsString('$current[\'input\']??null)!==($job[\'input\']??null)', $homeStep);
+        self::assertStringContainsString('$currentTarget!==$target', $homeStep);
+        self::assertStringContainsString('OriginContext::assertFresh()', $homeStep);
+        self::assertStringNotContainsString('fileStep(', $homeStep);
         self::assertSame(1, substr_count($guardStep, 'OriginContext::withBulkControl('));
     }
 
