@@ -25,8 +25,15 @@ namespace OC\L10N {
     }
 }
 
+namespace OCA\Circles\Service {
+    if (!class_exists(ConfigService::class, false)) {
+        class ConfigService {}
+    }
+}
+
 namespace {
     require_once dirname(__DIR__) . '/src/Service/CircleDetached/Lease.php';
+    require_once dirname(__DIR__) . '/src/Service/CircleDetached/Config.php';
 
     if (!class_exists(\OC::class, false)) {
         class OC {
@@ -111,6 +118,20 @@ namespace {
 
             $this->expectException(\RuntimeException::class);
             $lease->circleLocalization();
+        }
+
+        public function testAudienceOwnerInstanceCanonicalizesOnlyLocalInstances(): void {
+            $lease = $this->lease();
+            $config = new \OCA\Forms\Mcp\Service\CircleDetached\Config($lease, [
+                'local_instance' => 'loopback.example',
+                'frontal_instance' => 'front.example',
+                'internal_instance' => 'internal.example',
+                'trusted_domains' => [],
+            ], '');
+            $canonicalize = new \ReflectionMethod(\OCA\Forms\Mcp\Service\CircleDetached\Lease::class, 'canonicalOwnerInstance');
+            self::assertSame('', $canonicalize->invoke(null, $config, 'loopback.example'));
+            self::assertSame('', $canonicalize->invoke(null, $config, ''));
+            self::assertSame('remote.example', $canonicalize->invoke(null, $config, 'remote.example'));
         }
     }
 }

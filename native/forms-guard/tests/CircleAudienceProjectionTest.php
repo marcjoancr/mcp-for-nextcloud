@@ -65,6 +65,11 @@ final class CircleAudienceProjectionTest extends TestCase {
         $this->expectException(RuntimeException::class);
         CircleAudienceProjection::build($circle['id'],456,77,$circle,$parent,$members);
     }
+    public function testRemoteOwnerInstanceIsRejected(): void {
+        [$circle,$parent,$members]=$this->data();$circle['owner']['instance']='remote.example';
+        $this->expectException(RuntimeException::class);
+        CircleAudienceProjection::build($circle['id'],456,77,$circle,$parent,$members);
+    }
     public function testAudienceOverflowIsNotTruncated(): void {
         [$circle,$parent,$members]=$this->data(1001);
         $this->expectException(RuntimeException::class);

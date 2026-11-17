@@ -167,7 +167,7 @@ final class Lease {
         }
         $circleData=['id'=>$circleId,'creation'=>$circle->getCreation(),'source'=>$circle->getSource(),
             'owner'=>['uid'=>$owner->getUserId(),'member_id'=>$owner->getId(),'single_id'=>$owner->getSingleId(),
-                'level'=>$owner->getLevel(),'status'=>$owner->getStatus(),'instance'=>$owner->getInstance()]];
+                'level'=>$owner->getLevel(),'status'=>$owner->getStatus(),'instance'=>self::canonicalOwnerInstance($this->config,$owner->getInstance())]];
         $nativeMembers=$circle->getInheritedMembers();
         if(count($nativeMembers)>CircleAudienceProjection::MAX_RECIPIENTS){throw new \RuntimeException('Circle audience recipient budget exceeded');}
         $members=[];
@@ -193,4 +193,7 @@ final class Lease {
     public function __destruct() {$this->close();}
     private function __clone() {}
     public function __serialize(): array {throw new \LogicException('Circle leases cannot be persisted');}
+    private static function canonicalOwnerInstance(Config $config,string $instance):string {
+        return $config->isLocalInstance($instance)?'':$instance;
+    }
 }
