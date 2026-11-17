@@ -31,7 +31,9 @@ final class FormsStorageAdmissionTest extends TestCase {
     public function testUploadSourceScopeIsRecheckedAfterStreamOpenAndExclusiveLock(): void {$this->assertRefused('post_lock_upload_source');}
     public function testLinkedSharedDestinationRechecksFreshFilesAclAndCanRecoverAfterGrantReturns(): void {
         $result = $this->probe('linked_shared_destination_acl');
-        foreach (['positive_sink', 'acl_revocation_rejected', 'acl_preflight_rejected', 'old_output_preserved', 'restored_sink', 'unscoped_storage_still_rejected'] as $check) {
+        foreach (['positive_sink', 'original_origin_linked_file_accepted', 'wrong_origin_tuple_rejected', 'generic_shared_node_rejected',
+            'revoked_origin_linked_file_rejected', 'acl_revocation_rejected', 'acl_preflight_rejected', 'old_output_preserved',
+            'restored_sink', 'unscoped_storage_still_rejected'] as $check) {
             self::assertTrue($result[$check] ?? false, 'Linked shared destination failed ' . $check);
         }
     }

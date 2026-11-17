@@ -259,8 +259,13 @@ final class StorageAdmission {
             || ($nodePath !== rtrim($mount->getMountPoint(), '/') && !str_starts_with($nodePath, rtrim($mount->getMountPoint(), '/') . '/'))) {
             throw new \RuntimeException('Forms linked shared mount identity changed');
         }
+        $required = \OCP\Constants::PERMISSION_READ
+            | ($create ? \OCP\Constants::PERMISSION_CREATE : \OCP\Constants::PERMISSION_UPDATE);
         $shared = self::sharedStorage($storage);
-        if ($shared !== self::sharedStorage($nodeStorage)) {
+        $nodeShared = self::sharedStorage($nodeStorage);
+        $mountShare = self::shared($shared, $uid, $required);
+        $nodeShare = self::shared($nodeShared, $uid, $required);
+        if (!self::sameShareTuple(self::shareTuple($mountShare), self::shareTuple($nodeShare))) {
             throw new \RuntimeException('Forms linked shared node mount changed');
         }
         $storageGroupedShares = (new \ReflectionProperty($shared, 'groupedShares'))->getValue($shared);
@@ -270,8 +275,6 @@ final class StorageAdmission {
             || !is_array($mountGroupedShares) || $mountGroupedShares !== $storageGroupedShares) {
             throw new \RuntimeException('Forms linked shared mount is not a direct share');
         }
-        $required = \OCP\Constants::PERMISSION_READ
-            | ($create ? \OCP\Constants::PERMISSION_CREATE : \OCP\Constants::PERMISSION_UPDATE);
         self::validateStorage($storage, $uid, $required);
     }
 
@@ -549,6 +552,32 @@ final class StorageAdmission {
             throw new \RuntimeException('Forms linked shared permission mask changed');
         }
         return $fresh;
+    }
+
+    /** Stable identity for two separately materialized views of the same current direct share. */
+    private static function shareTuple(\OCP\Share\IShare $share): array {
+        if ($share::class !== 'OC\\Share20\\Share') {
+            throw new \RuntimeException('Forms linked share tuple is unqualified');
+        }
+        return [
+            'full_id' => $share->getFullId(),
+            'id' => $share->getId(),
+            'type' => $share->getShareType(),
+            'recipient' => $share->getSharedWith(),
+            'shared_by' => $share->getSharedBy(),
+            'owner' => $share->getShareOwner(),
+            'node_id' => $share->getNodeId(),
+            'target' => $share->getTarget(),
+            'permissions' => $share->getPermissions(),
+            'status' => $share->getStatus(),
+            'expiration' => $share->getExpirationDate(),
+        ];
+    }
+
+    /** Require the same complete actor/share/source/ACL tuple; no class-only alias is admitted. */
+    private static function sameShareTuple(array $left, array $right): bool {
+        $keys = ['full_id','id','type','recipient','shared_by','owner','node_id','target','permissions','status','expiration'];
+        return array_keys($left) === $keys && array_keys($right) === $keys && $left === $right;
     }
 
     /** Initialize only the selected direct share, with native Home lookup unable to create a missing owner root. */

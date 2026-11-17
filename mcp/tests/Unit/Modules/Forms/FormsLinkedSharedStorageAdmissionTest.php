@@ -10,6 +10,43 @@ use OCA\Forms\Mcp\Service\StorageAdmission;
 use PHPUnit\Framework\TestCase;
 
 final class FormsLinkedSharedStorageAdmissionTest extends TestCase {
+	public function testDistinctSharedStorageSnapshotsRequireTheSameFreshDirectShareTuple(): void {
+		$guardRoot = dirname(__DIR__, 5) . '/native/forms-guard';
+		require_once $guardRoot . '/src/Service/StorageAdmission.php';
+		$method = new \ReflectionMethod(StorageAdmission::class, 'sameShareTuple');
+		$share = [
+			'full_id' => 'ocinternal:17', 'id' => '17', 'type' => 0, 'recipient' => 'actor',
+			'shared_by' => 'owner', 'owner' => 'owner', 'node_id' => 42, 'target' => '/Shared',
+			'permissions' => 7, 'status' => 0, 'expiration' => null,
+		];
+
+		self::assertTrue($method->invoke(null, $share, $share));
+		foreach (['recipient', 'owner', 'node_id', 'target', 'permissions', 'status'] as $field) {
+			$foreign = $share;
+			$foreign[$field] = is_int($foreign[$field]) ? $foreign[$field] + 1 : $foreign[$field] . '-changed';
+			self::assertFalse($method->invoke(null, $share, $foreign), 'Changed direct-share ' . $field . ' was accepted');
+		}
+		$missingField = $share;
+		unset($missingField['owner']);
+		self::assertFalse($method->invoke(null, $share, $missingField));
+
+		$source = file_get_contents($guardRoot . '/src/Service/StorageAdmission.php');
+		$start = strpos($source, 'public static function linkedDestination(');
+		$end = strpos($source, 'public static function linkedSharedAudience(', $start);
+		self::assertIsInt($start);
+		self::assertIsInt($end);
+		$destination = substr($source, $start, $end - $start);
+		self::assertStringContainsString('self::shared($shared, $uid, $required)', $destination);
+		self::assertStringContainsString('self::shared($nodeShared, $uid, $required)', $destination);
+		self::assertStringContainsString('$shared = self::sharedStorage($storage)', $destination);
+		self::assertStringContainsString('$nodeShared = self::sharedStorage($nodeStorage)', $destination);
+		self::assertStringContainsString('self::sameShareTuple(self::shareTuple($mountShare), self::shareTuple($nodeShare))', $destination);
+		self::assertStringContainsString('$shared->getShare() !== $mount->getShare()', $destination);
+		self::assertStringNotContainsString('self::shareTuple($shared->getShare())', $destination);
+		self::assertStringNotContainsString('self::shareTuple($mount->getShare())', $destination);
+		self::assertStringNotContainsString('$shared !== self::sharedStorage($nodeStorage)', $destination);
+	}
+
 	private function rootBindingPredicate(): \Closure {
 		$guardRoot = dirname(__DIR__, 5) . '/native/forms-guard';
 		$tree = (new ParserFactory())->createForNewestSupportedVersion()->parse(file_get_contents($guardRoot . '/src/Service/StorageAdmission.php'));
@@ -65,7 +102,7 @@ final class FormsLinkedSharedStorageAdmissionTest extends TestCase {
 		self::assertStringContainsString('self::source(new \\ReflectionClass($class))', $admission);
 		self::assertStringNotContainsString('self::WRAPPERS[$class]', $admission);
 		$start = strpos($source, 'private static function shared(');
-		$end = strpos($source, 'private static function initializeLinkedSharedStorage(', $start);
+		$end = strpos($source, 'private static function shareTuple(', $start);
 		self::assertIsInt($start);
 		self::assertIsInt($end);
 		$shareAdmission = substr($source, $start, $end - $start);
