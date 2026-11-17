@@ -9,6 +9,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Modules\Forms\Exports;
 /** Native queue ordering owns fairness. Every bounded step has its own original-actor process. */
 final class FormsLinkedSweep {
+    private const STEP_BUDGET_MS=FormsLinkedExportRunner::CHILD_BUDGET_MS;
     public function __construct(private FormsLinkedExportRunner $runner,private \Closure $pending,private ?\Closure $nowNs=null) {}
     private function now():int {return $this->nowNs===null?hrtime(true):($this->nowNs)();}
     public function run():void {
@@ -22,8 +23,8 @@ final class FormsLinkedSweep {
             $seen[$id]=true;
         }
         foreach($ids as $id) {
-            $remaining=(int)(($deadline-$this->now())/1000000);if($remaining<20000)break;
-            try {$this->runner->run($id,20000);}catch(\Throwable){/* Durable native state controls subsequent attempts. */}
+            $remaining=(int)(($deadline-$this->now())/1000000);if($remaining<self::STEP_BUDGET_MS)break;
+            try {$this->runner->run($id,self::STEP_BUDGET_MS);}catch(\Throwable){/* Durable native state controls subsequent attempts. */}
         }
     }
 }

@@ -720,7 +720,7 @@ class Application extends App implements IBootstrap {
             }
         ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner(
-            $c->get(\OCA\Mcp\Platform\Process\NativeMutationProcess::class),static function()use($c):?array {
+            new \OCA\Mcp\Platform\Process\NativeMutationProcess(\OCA\Mcp\Platform\Process\NativeMutationProcess::MAX_BUDGET_MS),static function()use($c):?array {
                 try {
                     $root=dirname($c->get(IAppManager::class)->getAppPath('files'),2);$cli=PHP_BINDIR.'/php';
                     if(!is_executable($cli)||!is_file($root.'/occ')||!is_file($root.'/lib/base.php'))return null;

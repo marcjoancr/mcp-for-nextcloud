@@ -14,11 +14,24 @@ use OCP\IUserSession;
 use OCP\IUser;
 use PHPUnit\Framework\TestCase;
 final class FormsLinkedProcessTest extends TestCase {
-    public function testRunnerPassesOnlyOpaqueAssociationToOneBoundedChild():void {
+    public function testOnlyFormsRunnerGetsTheDedicatedMaximumBudgetProcess():void {
+        self::assertSame(NativeMutationProcess::DEFAULT_MAX_BUDGET_MS,20000);
+        self::assertSame(FormsLinkedExportRunner::CHILD_BUDGET_MS,NativeMutationProcess::MAX_BUDGET_MS);
+        $source=file_get_contents(dirname(__DIR__,4).'/lib/AppInfo/Application.php');
+        $start=strpos($source,'FormsLinkedExportRunner::class,');
+        $end=strpos($source,'FormsLinkedSweep::class,',$start);
+        self::assertIsInt($start);self::assertIsInt($end);
+        $formsRunner=substr($source,$start,$end-$start);
+        self::assertStringContainsString('new \\OCA\\Mcp\\Platform\\Process\\NativeMutationProcess(\\OCA\\Mcp\\Platform\\Process\\NativeMutationProcess::MAX_BUDGET_MS)',$formsRunner);
+        self::assertGreaterThanOrEqual(3,substr_count($source,'$c->get(\\OCA\\Mcp\\Platform\\Process\\NativeMutationProcess::class)'));
+    }
+
+    public function testRunnerPassesOnlyOpaqueAssociationWithFormsOnlyThirtySecondCap():void {
         $id=str_repeat('a',64);$process=$this->createMock(NativeMutationProcess::class);
         $command=['/usr/bin/php','/srv/nextcloud/occ','mcp:forms-linked-export','--no-interaction','--no-ansi'];
-        $process->expects(self::once())->method('run')->with($command,'/srv/nextcloud',['association_id'=>$id],20000)->willReturn(['status'=>'unknown']);
+        $process->expects(self::exactly(2))->method('run')->with($command,'/srv/nextcloud',['association_id'=>$id],30000)->willReturn(['status'=>'unknown']);
         $runner=new FormsLinkedExportRunner($process,static fn():array=>['command'=>$command,'cwd'=>'/srv/nextcloud']);
+        self::assertSame(['status'=>'unknown'],$runner->run($id));
         self::assertSame(['status'=>'unknown'],$runner->run($id,60000));
     }
     public function testReadOnlyHealthUsesTheRealBoundedChildAndNeverClaimsAnAssociation():void {

@@ -6,6 +6,15 @@ namespace OCA\Mcp\Tests\Unit\Platform\Process;
 use OCA\Mcp\Platform\Process\NativeMutationProcess;
 use PHPUnit\Framework\TestCase;
 final class NativeMutationProcessTest extends TestCase {
+    public function testPerInstanceDeadlineCapDefaultsToTwentySecondsAndCanReachThirty():void {
+        self::assertSame(20000,NativeMutationProcess::DEFAULT_MAX_BUDGET_MS);
+        self::assertSame(30000,NativeMutationProcess::MAX_BUDGET_MS);
+        $process=new NativeMutationProcess(80);$start=microtime(true);
+        self::assertSame(['status'=>'unknown'],$process->run([PHP_BINARY,'-r','usleep(300000);echo json_encode(["status"=>"completed"]);'],sys_get_temp_dir(),[],30000));
+        self::assertLessThan(0.6,microtime(true)-$start);
+        self::assertSame(['status'=>'completed'],(new NativeMutationProcess(30000))->run([PHP_BINARY,'-r','echo json_encode(["status"=>"completed"]);'],sys_get_temp_dir(),[],30000));
+    }
+
     public function testOnlyFixedAcknowledgementsCrossBoundary():void {
         $p=new NativeMutationProcess();
         self::assertSame(['status'=>'completed'],$p->run([PHP_BINARY,'-r','fwrite(STDERR,"SECRET");echo json_encode(["status"=>"completed","secret"=>"SECRET"]);'],sys_get_temp_dir(),[],1000));

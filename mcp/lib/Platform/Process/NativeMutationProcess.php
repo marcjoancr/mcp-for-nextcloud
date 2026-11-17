@@ -9,10 +9,15 @@ namespace OCA\Mcp\Platform\Process;
 /** Dedicated writer process: fixed acknowledgements only; durable proof lives in the operation table. */
 class NativeMutationProcess {
     public const MAX_INPUT_BYTES=65536;
-    public function run(array $command,string $cwd,array $payload,int $budgetMs=20000):array {
+    public const DEFAULT_MAX_BUDGET_MS=20000;
+    public const MAX_BUDGET_MS=30000;
+    public function __construct(private int $maxBudgetMs=self::DEFAULT_MAX_BUDGET_MS) {
+        if($maxBudgetMs<1||$maxBudgetMs>self::MAX_BUDGET_MS)throw new \InvalidArgumentException('Invalid native mutation process budget cap.');
+    }
+    public function run(array $command,string $cwd,array $payload,int $budgetMs=self::DEFAULT_MAX_BUDGET_MS):array {
         $unknown=['status'=>'unknown'];$bytes=json_encode($payload,JSON_THROW_ON_ERROR);
         if(strlen($bytes)>self::MAX_INPUT_BYTES||!function_exists('proc_open')||!function_exists('proc_terminate'))return $unknown;
-        $deadline=hrtime(true)+max(1,min(20000,$budgetMs))*1000000;
+        $deadline=hrtime(true)+max(1,min($this->maxBudgetMs,$budgetMs))*1000000;
         $p=@proc_open($command,[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes,$cwd,null,['bypass_shell'=>true]);
         if(!is_resource($p))return $unknown;
         foreach($pipes as $pipe)stream_set_blocking($pipe,false);
