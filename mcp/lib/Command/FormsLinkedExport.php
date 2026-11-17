@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Command;
 use OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportWorker;
+use OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner;
 use OCA\Mcp\Platform\Process\NativeMutationProcess;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -21,7 +22,8 @@ final class FormsLinkedExport extends Command {
         if(PHP_SAPI!=='cli'||!function_exists('pcntl_alarm')||!function_exists('pcntl_async_signals')||!function_exists('pcntl_signal')) {
             $output->writeln(json_encode($result));return self::SUCCESS;
         }
-        pcntl_async_signals(true);pcntl_signal(SIGALRM,static function():void {exit(124);});pcntl_alarm(20);
+        pcntl_async_signals(true);pcntl_signal(SIGALRM,static function():void {exit(124);});
+        pcntl_alarm((int)ceil(FormsLinkedExportRunner::CHILD_BUDGET_MS/1000));
         try {
             $raw=stream_get_contents(STDIN,NativeMutationProcess::MAX_INPUT_BYTES+1);
             if(is_string($raw)&&strlen($raw)<=NativeMutationProcess::MAX_INPUT_BYTES) {
