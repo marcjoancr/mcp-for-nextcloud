@@ -541,7 +541,7 @@ final class ShareWrapper extends \OCA\Circles\Model\ShareWrapper
         }
         $display = $circle->getDisplayName();
         if ($circle->getSource() === \OCA\Circles\Model\Member::TYPE_CIRCLE) {
-            $l10n = $this->__formsCircleLease->service(\OCP\L10N\IFactory::class)->get('circles');
+            $l10n = $this->__formsCircleLease->circleLocalization();
             $display = $l10n->t('%s (Team owned by %s)', [$display, $circle->getOwner()->getDisplayName()]);
         } else {
             $display .= ' (' . \OCA\Circles\Model\Circle::$DEF_SOURCE[$circle->getSource()] . ')';

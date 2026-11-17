@@ -89,6 +89,20 @@ final class Lease {
     public function system(): \OC\SystemConfig {$this->assertActive();return $this->systemConfig;}
     public function logger(): \Psr\Log\LoggerInterface {$this->assertActive();return $this->log;}
     public function url(): \OCP\IURLGenerator {$this->assertActive();return $this->urlGenerator;}
+    /** Exact read-only localization used by Circles' native provider/event listeners. */
+    public function circleLocalization(): \OCP\IL10N {
+        $this->assertActive();
+        $factory = \OCP\Server::get(\OCP\L10N\IFactory::class);
+        if ($factory::class !== \OC\L10N\Factory::class) {
+            throw new \RuntimeException('Native Circle localization factory is unqualified');
+        }
+        $localization = $factory->get('circles');
+        if (!$localization instanceof \OCP\IL10N) {
+            throw new \RuntimeException('Native Circle localization service is unavailable');
+        }
+        $this->assertActive();
+        return $localization;
+    }
     public function service(string $class): object {
         $this->assertActive();
         return match($class){\OCA\Circles\Model\ModelManager::class=>$this->manager,\OCA\Circles\Service\ConfigService::class=>$this->config,default=>throw new \RuntimeException('Circle global dependency is not qualified')};
