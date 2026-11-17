@@ -15,6 +15,19 @@ final class NativeMutationProcessTest extends TestCase {
         self::assertSame(['status'=>'completed'],(new NativeMutationProcess(30000))->run([PHP_BINARY,'-r','echo json_encode(["status"=>"completed"]);'],sys_get_temp_dir(),[],30000));
     }
 
+    public function testWithBudgetCapClonesTheSharedProcessWithoutChangingItsDefault():void {
+        $shared=new class extends NativeMutationProcess {public string $policy='shared';};
+        $forms=$shared->withBudgetCap(30000);
+        self::assertNotSame($shared,$forms);
+        self::assertInstanceOf(get_class($shared),$forms);
+        self::assertSame('shared',$forms->policy);
+        $budget=new \ReflectionProperty(NativeMutationProcess::class,'maxBudgetMs');
+        self::assertSame(20000,$budget->getValue($shared));
+        self::assertSame(30000,$budget->getValue($forms));
+        try {$shared->withBudgetCap(30001);self::fail('The Forms process cap exceeded the hard limit.');}
+        catch (\InvalidArgumentException) {}
+    }
+
     public function testOnlyFixedAcknowledgementsCrossBoundary():void {
         $p=new NativeMutationProcess();
         self::assertSame(['status'=>'completed'],$p->run([PHP_BINARY,'-r','fwrite(STDERR,"SECRET");echo json_encode(["status"=>"completed","secret"=>"SECRET"]);'],sys_get_temp_dir(),[],1000));

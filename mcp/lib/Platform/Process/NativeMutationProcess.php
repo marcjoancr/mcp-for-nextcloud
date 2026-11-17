@@ -14,6 +14,10 @@ class NativeMutationProcess {
     public function __construct(private int $maxBudgetMs=self::DEFAULT_MAX_BUDGET_MS) {
         if($maxBudgetMs<1||$maxBudgetMs>self::MAX_BUDGET_MS)throw new \InvalidArgumentException('Invalid native mutation process budget cap.');
     }
+    public function withBudgetCap(int $maxBudgetMs):self {
+        if($maxBudgetMs<1||$maxBudgetMs>self::MAX_BUDGET_MS)throw new \InvalidArgumentException('Invalid native mutation process budget cap.');
+        $copy=clone $this;$copy->maxBudgetMs=$maxBudgetMs;return $copy;
+    }
     public function run(array $command,string $cwd,array $payload,int $budgetMs=self::DEFAULT_MAX_BUDGET_MS):array {
         $unknown=['status'=>'unknown'];$bytes=json_encode($payload,JSON_THROW_ON_ERROR);
         if(strlen($bytes)>self::MAX_INPUT_BYTES||!function_exists('proc_open')||!function_exists('proc_terminate'))return $unknown;

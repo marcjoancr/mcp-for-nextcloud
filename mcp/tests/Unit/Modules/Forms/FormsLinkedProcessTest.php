@@ -22,12 +22,22 @@ final class FormsLinkedProcessTest extends TestCase {
         $end=strpos($source,'FormsLinkedSweep::class,',$start);
         self::assertIsInt($start);self::assertIsInt($end);
         $formsRunner=substr($source,$start,$end-$start);
-        self::assertStringContainsString('new \\OCA\\Mcp\\Platform\\Process\\NativeMutationProcess(\\OCA\\Mcp\\Platform\\Process\\NativeMutationProcess::MAX_BUDGET_MS)',$formsRunner);
+        self::assertStringContainsString('$c->get(\\OCA\\Mcp\\Platform\\Process\\NativeMutationProcess::class)',$formsRunner);
         self::assertGreaterThanOrEqual(3,substr_count($source,'$c->get(\\OCA\\Mcp\\Platform\\Process\\NativeMutationProcess::class)'));
+    }
+
+    public function testRunnerClonesTheSharedTwentySecondProcessForFormsOnly():void {
+        $process=new NativeMutationProcess();
+        $runner=new FormsLinkedExportRunner($process,static fn():array=>['command'=>['/usr/bin/php','/srv/occ'],'cwd'=>'/srv']);
+        $sharedCap=new \ReflectionProperty(NativeMutationProcess::class,'maxBudgetMs');
+        $runnerProcess=new \ReflectionProperty(FormsLinkedExportRunner::class,'process');
+        self::assertSame(20000,$sharedCap->getValue($process));
+        self::assertSame(30000,$sharedCap->getValue($runnerProcess->getValue($runner)));
     }
 
     public function testRunnerPassesOnlyOpaqueAssociationWithFormsOnlyThirtySecondCap():void {
         $id=str_repeat('a',64);$process=$this->createMock(NativeMutationProcess::class);
+        $process->expects(self::once())->method('withBudgetCap')->with(30000)->willReturn($process);
         $command=['/usr/bin/php','/srv/nextcloud/occ','mcp:forms-linked-export','--no-interaction','--no-ansi'];
         $process->expects(self::exactly(2))->method('run')->with($command,'/srv/nextcloud',['association_id'=>$id],30000)->willReturn(['status'=>'unknown']);
         $runner=new FormsLinkedExportRunner($process,static fn():array=>['command'=>$command,'cwd'=>'/srv/nextcloud']);
@@ -36,6 +46,7 @@ final class FormsLinkedProcessTest extends TestCase {
     }
     public function testReadOnlyHealthUsesTheRealBoundedChildAndNeverClaimsAnAssociation():void {
         $process=$this->createMock(NativeMutationProcess::class);
+        $process->expects(self::once())->method('withBudgetCap')->with(30000)->willReturn($process);
         $process->expects(self::once())->method('run')->with(['/usr/bin/php','/srv/occ','mcp:forms-linked-export'],'/srv',['health'=>true],5000)->willReturn(['status'=>'completed']);
         $runner=new FormsLinkedExportRunner($process,static fn():array=>['command'=>['/usr/bin/php','/srv/occ','mcp:forms-linked-export'],'cwd'=>'/srv']);
         self::assertTrue($runner->available());
@@ -46,6 +57,7 @@ final class FormsLinkedProcessTest extends TestCase {
     }
     public function testHealthRefusalDoesNotTurnAnUnknownRuntimeIntoAnAvailableWriter():void {
         $process=$this->createMock(NativeMutationProcess::class);$process->method('run')->willReturn(['status'=>'unknown']);
+        $process->method('withBudgetCap')->willReturn($process);
         $runner=new FormsLinkedExportRunner($process,static fn():array=>['command'=>['/usr/bin/php','/srv/occ'],'cwd'=>'/srv']);
         self::assertFalse($runner->available());
         $session=$this->createMock(IUserSession::class);$session->method('getUser')->willReturn(null);
@@ -54,6 +66,7 @@ final class FormsLinkedProcessTest extends TestCase {
     }
     public function testUnavailableCliAndMalformedIdentityNeverStartAWriter():void {
         $process=$this->createMock(NativeMutationProcess::class);$process->expects(self::never())->method('run');
+        $process->method('withBudgetCap')->willReturn($process);
         $runner=new FormsLinkedExportRunner($process,static fn():?array=>null);
         self::assertSame(['status'=>'refused'],$runner->run(str_repeat('a',64)));
         self::assertSame(['status'=>'refused'],$runner->run('invalid'));

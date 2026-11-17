@@ -11,7 +11,10 @@ use OCA\Mcp\Platform\Process\NativeMutationProcess;
 /** Only the opaque association enters a fresh child. Native SQL retains its own original approval. */
 final class FormsLinkedExportRunner {
     public const CHILD_BUDGET_MS=30000;
-    public function __construct(private NativeMutationProcess $process,private \Closure $command) {}
+    private NativeMutationProcess $process;
+    public function __construct(NativeMutationProcess $process,private \Closure $command) {
+        $this->process=$process->withBudgetCap(self::CHILD_BUDGET_MS);
+    }
     public function available():bool {return $this->execute(['health'=>true],5000)['status']==='completed';}
     public function run(string $associationId,int $budgetMs=self::CHILD_BUDGET_MS):array {
         if(preg_match('/^[a-f0-9]{64}$/D',$associationId)!==1)return ['status'=>'refused'];
