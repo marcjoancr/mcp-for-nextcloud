@@ -82,7 +82,8 @@ final class ShareWriteBoundary {
     public function consume(string $actorUid,string $action,\OCP\Share\IShare $share,bool $create,?array $binding):void {
         $activation=in_array($this->mode,['activate-parent','activate-child'],true);
         $expectedAction=match($this->mode){'insert-parent'=>'insert','insert-child'=>'insert-child','activate-parent'=>'update','activate-child'=>'update-child',default=>throw new \RuntimeException('Bulk transfer Circle capability mode is unknown')};
-        if($this->consumed||$action!==$expectedAction||$create===$activation||$actorUid!==$this->actorUid||$share->getShareType()!==7||$share->getSharedWith()!==$this->circleId
+        $expectedRecipient=$this->mode==='insert-child'?$this->child['share_with']:$this->circleId;
+        if($this->consumed||$action!==$expectedAction||$create===$activation||$actorUid!==$this->actorUid||$share->getShareType()!==7||$share->getSharedWith()!==$expectedRecipient
             ||$share->getShareOwner()!==$this->targetOwner||$share->getSharedBy()!==$this->actorUid||(int)$share->getNodeId()!==$this->targetFileId
             ||$share->getPermissions()!==($activation?1:0)){throw new \RuntimeException('Bulk transfer Circle write differs from its claim');}
         $live=$this->store->load($this->job['id']);
