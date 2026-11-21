@@ -62,6 +62,20 @@ namespace {
             self::assertSame($share,$created);self::assertTrue($provider->createdHere('ocCircleShare:11'));
             self::assertSame(['fresh'],$trace);self::assertSame([],$request->trace);
         }
+        public function testNativeRootParentRepresentationsStillRequireTransferCapability():void {
+            foreach([null,0]as$parentId){
+                $share=$this->createMock(\OCP\Share\IShare::class);$share->method('getShareType')->willReturn(7);$share->method('getId')->willReturn('11');$share->method('getSharedWith')->willReturn('circle-id');$share->method('getParent')->willReturn($parentId);
+                $provider=new CircleBoundaryProvider('actor',static function():never{throw new \LogicException('Native provider must not run without capability');},static function():void{},static function():void{},null);
+                try{$provider->createTransferChild($share,[],'recipient',static function():void{});self::fail('Missing capability accepted');}catch(\RuntimeException $error){self::assertSame('Native Circle transfer capability is unavailable',$error->getMessage());}
+            }
+        }
+        public function testNonRootParentCannotReachTransferCapability():void {
+            foreach([-1,1]as$parentId){
+                $share=$this->createMock(\OCP\Share\IShare::class);$share->method('getShareType')->willReturn(7);$share->method('getId')->willReturn('11');$share->method('getSharedWith')->willReturn('circle-id');$share->method('getParent')->willReturn($parentId);
+                $provider=new CircleBoundaryProvider('actor',static function():never{throw new \LogicException('Native provider must not run');},static function():void{},static function():void{},null);
+                try{$provider->createTransferChild($share,[],'recipient',static function():void{});self::fail('Non-root parent accepted');}catch(\RuntimeException $error){self::assertSame('Native Circle transfer parent is unqualified',$error->getMessage());}
+            }
+        }
         public function testPublicReadByIdUsesNativeReadAndChecksProviderIdentity():void {
             $request=new ShareWrapperRequest();$cache=new ShareWrapperService($request);$native=new ShareByCircleProvider($cache);$share=$this->createMock(\OCP\Share\IShare::class);
             $share->method('getShareType')->willReturn(7);$share->method('getId')->willReturn('11');$share->method('getSharedWith')->willReturn('circle-id');$share->method('getShareOwner')->willReturn('owner');
