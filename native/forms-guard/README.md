@@ -179,8 +179,7 @@ closed form; its final form ID is intentionally unknown at preview.
 
 One request deadline covers the fence wait, authority checks, fingerprints,
 metadata, hashing and effects. Ordinary row pages yield after16s to reserve checkpoint time. SQL work checks
-the hard18s budget before commit and rolls back on exhaustion; the atomic
-transfer commit and indivisible file operations retain that hard deadline. A durable claim still prohibits replay when an external effect
+the hard18s budget before commit and rolls back on exhaustion. A verified `forms_transfer` origin uses a 25-second step deadline, including its atomic commit and indivisible Files hooks; all other origins keep 18 seconds. A durable claim still prohibits replay when an external effect
 cannot be verified within the deadline. Cancellation or source drift after a
 verified recovery allocation or staged copy reports partial effects, including
 retained-file counts and the durable operation evidence ID. An unsealed recovery

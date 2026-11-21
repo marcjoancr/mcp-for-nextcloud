@@ -10,8 +10,10 @@ final class BulkDeadline {
   if(self::$start!==null){return $work();}
   self::$start=microtime(true);try{return $work();}finally{self::$start=null;}
  }
+ /** Transfer work includes indivisible native Files hooks; all other actions keep 18s. */
+ public static function limit():int {return OriginContext::active()&&(OriginContext::current()['verified']['tool']??null)==='forms_transfer'?25:18;}
  public static function started():float {return self::$start??microtime(true);}
  public static function check():void {
-  if(self::$start!==null&&microtime(true)-self::$start>18){throw new \OCA\Forms\Mcp\BeforeEffect('Bulk request deadline exhausted; committed evidence retained');}
+  if(self::$start!==null&&microtime(true)-self::$start>self::limit()){throw new \OCA\Forms\Mcp\BeforeEffect('Bulk request deadline exhausted; committed evidence retained');}
  }
 }
