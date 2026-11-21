@@ -318,7 +318,16 @@ final class BulkOperations {
     $this->admit($uid,$j['action'],$j['input'],$authorize);$beforeEpoch=$this->sourceEpoch($j);$globalEpoch=BulkEpoch::epoch(0);$worker->effect($j,$row,$files);BulkDeadline::check();if(!HistoricalFiles::isUnavailable($row['data'])&&in_array($j['phase'],['backup_files','copy_files','restore_files'],true)){$kind=$j['phase']==='backup_files'?'recovery':'copies';$j['retained_files'][$kind]=($j['retained_files'][$kind]??0)+1;}if($beforeEpoch!==$this->sourceEpoch($j)||$globalEpoch!==BulkEpoch::epoch(0)){throw new \RuntimeException('Native source changed during Files callbacks');}if(in_array($j['phase'],['delete_files','remove_shares','restore_files'],true)){BulkEpoch::touch((int)($j['action']==='forms_restore'?$j['restored_form_id']:$j['form']['id']));}OriginContext::assertFresh();if($j['phase']==='delete_files'&&$row['data']['delete']){$j['source_effects']=true;$j['files_done']=($j['files_done']??0)+1;}
     $j['cursor']=$row['id'];$j['state']='pending';unset($j['claim']);$j['revision']=$this->fence->revision();$j['epoch']=$this->sourceEpoch($j);$this->store->save($j);$dto=$this->dto($j);$this->store->record($j['id'],$key,$dto);BulkDeadline::check();return $dto;
    });
-  }catch(\Throwable){return $this->dto($this->store->load($j['id']));}
+  }catch(\Throwable $failure){
+   // step() retains the session fence around this entire catch; never write after session loss.
+   try{
+    $this->fence->assertSession();$failed=$this->store->load($j['id']);
+    if(($failed['state']??null)==='uncertain'&&($failed['claim']['step_key']??null)===$key&&($failed['version']??null)===$j['version']&&($failed['uid']??null)===$uid){
+     $failed['private_failure']=self::failureDiagnostic($failure);$this->fence->assertSession();$this->store->save($failed);
+    }
+   }catch(\Throwable){}
+   return $this->dto($this->store->load($j['id']));
+  }
  }
  public function cancel(string $uid,string $id,int $version,string $key):array {
   self::key($key);$original=$this->store->load($id);$this->actor($uid,$original);return OriginContext::within($uid,$original['origin'],'lookup',$original['input'],fn()=> $this->fence->transaction(function()use($uid,$id,$version,$key):array{$j=$this->store->load($id);$this->actor($uid,$j);$prior=$this->store->receipt($id,$key);if($prior){return $prior;}if($version!==$j['version']){throw new BeforeEffect('Bulk version conflict');}if($j['state']==='pending'){$j['state']=($j['done']>0||($j['source_effects']??false)||(array_sum($j['retained_files']??[])+($j['retained_shares']??0)+($j['retained_folders']??0))>0)?'partial':'cancelled';$j['version']++;$this->store->save($j);}$dto=$this->dto($j);$this->store->record($id,$key,$dto);return $dto;}));
@@ -457,6 +466,24 @@ final class BulkOperations {
  private function answerText(array $j,array $q,?string $text):?string {
   if(!in_array($q['type'],['grid','ranking'],true)){return $text;}$value=json_decode($text,true,64,JSON_THROW_ON_ERROR);$map=fn($v)=>$this->store->mapped($j['id'],'options',(int)$v);
   if($q['type']==='ranking'){$value=array_map($map,$value);}else{$new=[];$numeric=(json_decode($q['extra_settings_json']??'{}',true,64,JSON_THROW_ON_ERROR)['questionType']??null)===\OCA\Forms\Constants::ANSWER_GRID_TYPE_NUMBER;foreach($value as$key=>$v){if($numeric){$cells=[];foreach($v as$column=>$number){$cells[$map($column)]=$number;}$new[$map($key)]=$cells;}else{$new[$map($key)]=is_array($v)?array_map($map,$v):$map($v);}}$value=$new;}return json_encode($value,JSON_THROW_ON_ERROR);
+ }
+ /** Encrypted checkpoint metadata only: no messages, arguments, SQL or absolute paths. */
+ private static function failureDiagnostic(\Throwable $failure):array {
+  $location=static function(\Throwable $error):array {
+   $name=(new \ReflectionClass($error))->getShortName();$file=basename($error->getFile());
+   return ['error_class'=>preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,79}$/D',$name)?$name:'Throwable','public_file'=>preg_match('/^[A-Za-z0-9_.-]{1,100}\.php$/D',$file)?$file:'unknown.php','line'=>max(1,min(1000000,$error->getLine()))];
+  };
+  $out=$location($failure);$out['trace']=[];
+  foreach(array_slice($failure->getTrace(),0,12)as$frame){
+   $row=[];$class=isset($frame['class'])?substr(strrchr('\\'.$frame['class'],'\\'),1):null;$function=$frame['function']??null;$file=isset($frame['file'])?basename($frame['file']):null;$line=$frame['line']??null;
+   if(is_string($class)&&preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,79}$/D',$class))$row['class']=$class;
+   if(is_string($function)&&preg_match('/^(?:[A-Za-z_][A-Za-z0-9_]{0,79}|\{closure\})$/D',$function))$row['function']=$function;
+   if(is_string($file)&&preg_match('/^[A-Za-z0-9_.-]{1,100}\.php$/D',$file))$row['public_file']=$file;
+   if(is_int($line)&&$line>0&&$line<=1000000)$row['line']=$line;
+   if($row!==[])$out['trace'][]=$row;
+  }
+  $out['previous']=[];for($cause=$failure->getPrevious();$cause!==null&&count($out['previous'])<3;$cause=$cause->getPrevious())$out['previous'][]=$location($cause);
+  return$out;
  }
  private function dto(array $j):array {
   $sharePhase=AuthoringScale::metadata($j['action'])&&($j['share_events']??false)?Server::get(ManagedSharePhase::class)->phase($j['key']):null;
