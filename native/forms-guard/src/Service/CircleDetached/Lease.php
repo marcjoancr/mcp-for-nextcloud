@@ -41,6 +41,14 @@ final class Lease {
         $this->circles=new CircleRequest($this);$this->members=new MemberRequest($this);
         $this->memberships=new MembershipRequest($this);$this->remotes=new RemoteRequest($this);
     }
+    /** Named, closed Reader DTO operations only; native provider callbacks retain full per-check verification. */
+    public function readData(\Closure $read):mixed {
+        $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];
+        if(($caller['class']??null)!==Reader::class||($caller['function']??null)!=='read')throw new \RuntimeException('Circle data read issuer is unqualified');
+        return $this->sources->verifiedRead($this->uid,function()use($read):mixed {
+            $this->checkpoint();$data=$read($this);\OCA\Forms\Mcp\Service\CircleReadData::page([['value'=>$data]]);$this->checkpoint();return $data;
+        });
+    }
     public function actorUid(): string {$this->assertActive();return $this->uid;}
     public function assertActive(): void {if(!$this->active||hrtime(true)-$this->started>18000000000){throw new \RuntimeException('Circle request lease ended');}}
     public function checkpoint(): void {

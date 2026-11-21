@@ -27,7 +27,7 @@ final class FinalShareNativeChecks {
         $project=static function(array $row)use($root,$users,$node):\OC\Share20\Share {
             if ((int)$row['id']<1 || !in_array((int)$row['share_type'],[0,1,3],true) || (int)$row['file_source']!==$node->getId() || !is_string($row['uid_owner']) || (!is_string($row['share_with']) && $row['share_with']!==null)) {throw new \RuntimeException('Final sharing duplicate row is malformed');}
             $share=new \OC\Share20\Share($root,$users);
-            $share->setId((int)$row['id']);$share->setProviderId('ocinternal');$share->setShareType((int)$row['share_type']);
+            $share->setId((string)$row['id']);$share->setProviderId('ocinternal');$share->setShareType((int)$row['share_type']);
             if ((int)$row['share_type']!==3) {$share->setSharedWith($row['share_with']);}
             $share->setShareOwner($row['uid_owner']);$share->setNode($node);
             return $share;

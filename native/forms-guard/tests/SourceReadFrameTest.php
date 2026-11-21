@@ -1,0 +1,15 @@
+<?php
+declare(strict_types=1);
+use PHPUnit\Framework\TestCase;
+use OCA\Forms\Mcp\Service\CircleDetached\SourceReadFrame;
+require_once __DIR__.'/../src/Service/CircleDetached/SourceGate.php';
+require_once __DIR__.'/../src/Service/CircleDetached/Lease.php';
+final class SourceReadFrameTest extends TestCase {
+ public function testRepeatedPrivateReadsKeepFullValidationAtBothBoundaries():void {$frame=new SourceReadFrame();$calls=0;$result=$frame->within(static function()use(&$calls):void{$calls++;},static function()use($frame):int{for($i=0;$i<100;$i++)self::assertTrue($frame->active());return 42;});self::assertSame(42,$result);self::assertSame(2,$calls);self::assertFalse($frame->active());}
+ public function testSourceChangePreventsPublishingTheReadResult():void {$frame=new SourceReadFrame();$valid=true;$published=false;try{$frame->within(static function()use(&$valid):void{if(!$valid)throw new RuntimeException('Changed source');},static function()use(&$valid):int{$valid=false;return 42;});$published=true;}catch(RuntimeException){}self::assertFalse($published);self::assertFalse($frame->active());}
+ public function testNestedReadCannotReplaceTheOriginalLifetime():void {$frame=new SourceReadFrame();$calls=0;$denied=false;$frame->within(static function()use(&$calls):void{$calls++;},static function()use($frame,&$denied):void{try{$frame->within(static fn()=>null,static fn()=>null);}catch(RuntimeException){$denied=true;}self::assertTrue($frame->active());});self::assertTrue($denied);self::assertSame(2,$calls);self::assertFalse($frame->active());}
+ public function testReadFailureStillValidatesAndClosesTheLifetime():void {$frame=new SourceReadFrame();$calls=0;try{$frame->within(static function()use(&$calls):void{$calls++;},static function():void{throw new RuntimeException('Read failed');});}catch(RuntimeException){}self::assertSame(2,$calls);self::assertFalse($frame->active());}
+ public function testFailedEntryNeverRunsTheRead():void {$frame=new SourceReadFrame();$ran=false;try{$frame->within(static function():void{throw new RuntimeException('Source invalid');},static function()use(&$ran):void{$ran=true;});}catch(RuntimeException){}self::assertFalse($ran);self::assertFalse($frame->active());}
+ public function testArbitraryCallbacksCannotEnterTheSourceGateRead():void {$gate=new \OCA\Forms\Mcp\Service\CircleDetached\SourceGate();$ran=false;$denied=false;try{$gate->verifiedRead('actor',static function()use(&$ran):void{$ran=true;});}catch(RuntimeException){$denied=true;}self::assertTrue($denied);self::assertFalse($ran);}
+ public function testOnlyTheClosedReaderCanEnterTheLeaseRead():void {$lease=(new ReflectionClass(\OCA\Forms\Mcp\Service\CircleDetached\Lease::class))->newInstanceWithoutConstructor();$ran=false;$denied=false;try{$lease->readData(static function()use(&$ran):void{$ran=true;});}catch(RuntimeException){$denied=true;}self::assertTrue($denied);self::assertFalse($ran);}
+}

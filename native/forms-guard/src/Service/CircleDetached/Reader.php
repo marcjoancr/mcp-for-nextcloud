@@ -9,9 +9,7 @@ final class Reader {
         $lease=($this->open)();
         if(!$lease instanceof Lease){throw new \RuntimeException('Circle read lease is unavailable');}
         try {
-            $data=$work($lease);
-            \OCA\Forms\Mcp\Service\CircleReadData::page([['value'=>$data]]);
-            return $data;
+            return $lease->readData($work);
         } finally {$lease->close();}
     }
     public function profile(string $id): array {return $this->read(static fn(Lease $lease): array=>$lease->profile($id));}
