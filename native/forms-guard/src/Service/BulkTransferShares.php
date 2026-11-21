@@ -81,7 +81,7 @@ final class BulkTransferShares {
   BulkDeadline::check();
  }
  public function stage(array &$j,array $row,?callable $boundary):void {
-  $r=$row['data'];if(!($r['live']??false)){return;}$this->authority($j,$r);
+  $r=$row['data'];if(($r['approved_tuple']['type']??null)===7){BulkDeadline::admitCircleStaging();}if(!($r['live']??false)){return;}$this->authority($j,$r);
   $impact=['files'=>[],'files_share'=>true,'share_impact'=>['parent'=>['file_id'=>(int)$r['folder_id']],'folder_ids'=>[(int)$r['folder_id']],'recipient'=>$r['approved_tuple']['recipient'],'type'=>$r['approved_tuple']['type'],'create'=>true,'permissions'=>['read']],'destination_owner'=>$j['input']['owner_id'],'destination_path'=>self::path($j,$r['folder_path']),'source_shares'=>'retained'];
   OriginContext::withFileBoundary($boundary,function()use(&$j,$r,$row,$impact):void{OriginContext::withFileImpact('forms_transfer',$impact,function()use(&$j,$r,$row):void{
    $root=Server::get(IRootFolder::class)->getUserFolder($j['input']['owner_id']);if($j['cursor']===0&&$j['counts']['files']===0){$form=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$j['form']['id']);$base=Server::get(\OCA\Forms\Helper\FilePathHelper::class)->getFormUploadedFilesFolderPath($form);if($root->nodeExists($base)){throw new \RuntimeException('Transfer destination already exists');}}$path=self::path($j,$r['folder_path']);
