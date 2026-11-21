@@ -9,12 +9,12 @@ final class ScopedFederatedUserService extends \OCA\Circles\Service\FederatedUse
     public function __construct(private readonly Lease $lease) {}
     public function initCurrentUser(string $defaultUser=''): void {
         if($defaultUser!==''&&$defaultUser!==$this->lease->actorUid()){throw new \RuntimeException('Native Circle default actor changed');}
-        $this->lease->identity($this->lease->actorUid());
+        $this->lease->metadataRead(fn()=>$this->lease->identity($this->lease->actorUid()));
     }
-    public function getCurrentUser(): ?\OCA\Circles\Model\FederatedUser {return $this->lease->identity($this->lease->actorUid());}
+    public function getCurrentUser(): ?\OCA\Circles\Model\FederatedUser {return $this->lease->metadataRead(fn()=>$this->lease->identity($this->lease->actorUid()));}
     public function mustHaveCurrentUser(): void {$this->getCurrentUser();}
     public function getLocalFederatedUser(string $userId,bool $check=true,bool $generate=false): \OCA\Circles\Model\FederatedUser {
         if(!$check||$generate){throw new \RuntimeException('Native Circle recipient enrollment is unavailable');}
-        return $this->lease->identity($userId);
+        return $this->lease->metadataRead(fn()=>$this->lease->identity($userId));
     }
 }

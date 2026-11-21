@@ -40,7 +40,7 @@ final class WriteQueryBuilder extends \OCA\Circles\Db\CoreQueryBuilder {
     public function executeQuery(?IDBConnection $connection=null): \OCP\DB\IResult {throw new \RuntimeException('Circle write request cannot read');}
     public function executeStatement(?IDBConnection $connection=null): int {
         if($this->consumed){throw new \RuntimeException('Native Circle write intent was already consumed');}
-        $this->consumed=true;$this->lease->checkpoint();($this->assertFresh)();
+        $this->consumed=true;$this->lease->assertNoMetadataWrite();$this->lease->checkpoint();($this->assertFresh)();
         if($connection!==null&&$connection!==$this->lease->db()){throw new \RuntimeException('Native Circle write database changed');}
         if($this->action!=='insert'){
             $this->andWhere($this->expr()->eq('share_type',$this->createNamedParameter(7)));
@@ -72,6 +72,7 @@ final class WriteQueryBuilder extends \OCA\Circles\Db\CoreQueryBuilder {
         if($this->childProof!==null){($this->childProof)();}
         if($this->transferCapability!==null){$this->transferCapability->consume($this->lease->actorUid(),$this->action,$this->writeShare,$this->create,$this->binding);}
         $this->lease->checkpoint();($this->assertFresh)();
+        $this->lease->assertNoMetadataWrite();
         return parent::executeStatement($this->lease->db());
     }
 

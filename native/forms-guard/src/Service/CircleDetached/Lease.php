@@ -49,6 +49,21 @@ final class Lease {
             $this->checkpoint();$data=$read($this);\OCA\Forms\Mcp\Service\CircleReadData::page([['value'=>$data]]);$this->checkpoint();return $data;
         });
     }
+    private bool $metadataReading=false;
+    /** Closed native metadata callbacks only. Provider calls/events/writes remain outside this lifetime. */
+    public function metadataRead(\Closure $read):mixed {
+        $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];
+        $allowed=[ScopedFederatedUserService::class=>['initCurrentUser','getCurrentUser','getLocalFederatedUser'],ScopedCircleService::class=>['getCircle','probeCircle']];
+        if(!in_array($caller['function']??null,$allowed[$caller['class']??'']??[],true))throw new \RuntimeException('Circle metadata read issuer is unqualified');
+        if(!\OCA\Forms\Mcp\Service\OriginContext::active()||(\OCA\Forms\Mcp\Service\OriginContext::current()['verified']['tool']??null)!=='forms_transfer')return $read();
+        if(\OCA\Forms\Mcp\Service\OriginContext::current()['verified']['uid']!==$this->uid)throw new \RuntimeException('Circle metadata actor changed');
+        if($this->metadataReading)return $read();
+        $run=function()use($read):mixed {$this->metadataReading=true;try{$this->checkpoint();$result=$read();$this->checkpoint();return$result;}finally{$this->metadataReading=false;}};
+        if(\OCA\Forms\Mcp\Service\OriginReadAuthority::check())return$run();
+        $frame=\OCA\Forms\Mcp\Service\OriginContext::transferSharingAuthority()['frame'];
+        return \OCA\Forms\Mcp\Service\OriginContext::verifiedRead($frame,$run);
+    }
+    public function assertNoMetadataWrite():void {if($this->metadataReading)throw new \RuntimeException('Circle metadata read cannot write');}
     public function actorUid(): string {$this->assertActive();return $this->uid;}
     public function assertActive(): void {if(!$this->active||hrtime(true)-$this->started>18000000000){throw new \RuntimeException('Circle request lease ended');}}
     public function checkpoint(): void {

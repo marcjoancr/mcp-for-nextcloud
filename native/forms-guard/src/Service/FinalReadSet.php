@@ -65,8 +65,15 @@ final class FinalReadSet {
             },$sql);
             if(count($seen)!==count($params)||$sql===null)throw new \RuntimeException('Final read parameter is unqualified');
             $keys=$rows===[]?[]:array_keys($rows[0]);
-            if($provider==='pgsql')$json=$keys===[]?'\'{"_present":1}\'':'row_to_json(t)::text';
-            else{$parts=[];foreach($keys as$key){$parts[]="'".$key."'";$parts[]='t.`'.$key.'`';}$json=$keys===[]?'\'{"_present":1}\'':'JSON_OBJECT('.implode(',',$parts).')';}
+            $parts=[];
+            foreach($keys as$key){
+                $value=$provider==='pgsql'?'t."'.$key.'"':'t.`'.$key.'`';$strings=false;$other=false;
+                foreach($rows as$row){$item=$row[$key]??null;if(is_string($item))$strings=true;elseif($item!==null)$other=true;}
+                // Native PDO returns JSON columns as strings. Preserve those exact bytes rather than embedding JSON values.
+                if($strings&&!$other)$value='CAST('.$value.' AS '.($provider==='pgsql'?'TEXT':'CHAR').')';
+                $parts[]="'".$key."'";$parts[]=$value;
+            }
+            $json=$keys===[]?'\'{"_present":1}\'':($provider==='pgsql'?'('.implode(' || ',array_map(static fn(array$chunk):string=>'jsonb_build_object('.implode(',',$chunk).')',array_chunk($parts,100))).')::text':'JSON_OBJECT('.implode(',',$parts).')');
             $alias=$provider==='pgsql'?'"row"':'`row`';
             $branches[]='SELECT '.$i.' AS q, CASE WHEN OCTET_LENGTH(j.r)>1048576 THEN NULL ELSE j.r END AS '.$alias.' FROM (SELECT '.$json.' AS r FROM ('.$sql.') t) j';
         }
