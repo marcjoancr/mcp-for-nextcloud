@@ -203,7 +203,7 @@ final class BulkFiles {
   };
   $validator=new TransferFinalFiles($records,array_values($sources),array_values($parents),$j['input']['owner_id'],static fn(string$path)=>$root->get($path),$cache,static fn($node)=>StorageAdmission::node($node),$targetAuthority,$authority);
   $joint=OriginContext::transferSharingAuthority()['joint'];
-  $validator->assert();$fence->beforeCommit(static function()use($validator,$sharing,$joint):void{$check=$sharing();if(!$check instanceof FinalTransferShareCheck)throw new \LogicException('Managed transfer final collector is unavailable');$validator->assertManaged($check,$joint);});BulkDeadline::check();return$commit();
+  $validator->assert();$fence->beforeCommit(static function()use($validator,$sharing,$joint):void{$check=$sharing();if(!$check instanceof FinalTransferShareCheck)throw new \LogicException('Managed transfer final collector is unavailable');$validator->assertManaged($check,$joint);});BulkDeadline::check();return Server::get(BulkTransferShares::class)->finalAudienceReplay($j,$commit);
  }
  public function remap(array &$j,float $start):void {
   $references=0;foreach(['answers','uploads','artifacts']as$kind){$cursor=0;while($rows=$this->store->page($j['id'],$kind,$cursor)){

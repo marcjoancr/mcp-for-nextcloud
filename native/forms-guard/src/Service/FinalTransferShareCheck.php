@@ -105,6 +105,7 @@ final class FinalTransferShareCheck {
                 if ($native!==$this->store->one($j['id'],'shares',(int)$r['native_share_id'])) {throw new \RuntimeException('Final sharing Forms audience changed');}
                 $m=$this->store->one($j['id'],'staged_shares',$id);
                 if ($r['approved_tuple']['type']===1) {NativeGroupHistory::assertCurrent($r['approved_tuple']['recipient'],$r['group_lifetime'],$this->readDb);}
+                if($r['approved_tuple']['type']===7){$audience=CircleRuntime::linkedAudienceEvidence($j['uid'],$r['approved_tuple']['recipient'],FinalShareRows::id($r['files_share_id']),(int)$r['folder_id'],$this->readDb);if($audience!==($r['circle_audience']??null))throw new \RuntimeException('Final Circle audience changed');}
                 $folders[(int)$m['folder_id']]=true;
                 if ($m['files_share_id']===null) {
                     if ($r['approved_tuple']['type']!==0 || $r['approved_tuple']['recipient']!==$j['input']['owner_id']) {throw new \RuntimeException('Final sharing target-self mapping changed');}

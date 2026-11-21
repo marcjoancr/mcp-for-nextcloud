@@ -9,6 +9,15 @@ use OCP\Lock\ILockingProvider;
 /** Original-actor transfer capability, never a target-user session or arbitrary share authority. */
 final class BulkTransferShares {
  public function __construct(private IDBConnection $db,private BulkStore $store){}
+ private ?array $finalAudienceScope=null;
+ /** SQL-only commit scope issued after BulkFiles installs the unique mandatory final replay. */
+ public function finalAudienceReplay(array $j,callable $commit):mixed {
+  $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];
+  if(($caller['class']??null)!==BulkFiles::class||($caller['function']??null)!=='commitWithManagedShares'||$this->finalAudienceScope!==null||($j['action']??null)!=='forms_transfer'||($j['phase']??null)!=='apply'||!$this->db->inTransaction()||!Server::get(FormsRevisionFence::class)->active())throw new \RuntimeException('Final Circle audience replay scope is unavailable');
+  OriginContext::assertJobInput($j);$frame=OriginContext::transferSharingAuthority()['frame'];$frame();$this->finalAudienceScope=[$j['id'],$frame];
+  try{return$commit();}finally{$this->finalAudienceScope=null;}
+ }
+
  public static function relative(string $owner,string $path):string {
   $prefix='/'.$owner.'/files/';if(!str_starts_with($path,$prefix)){throw new \RuntimeException('Transfer source is outside original owner storage');}$relative=substr($path,strlen($prefix));if($relative===''||in_array('..',explode('/',$relative),true)){throw new \RuntimeException('Invalid transfer source path');}return $relative;
  }
@@ -74,7 +83,7 @@ final class BulkTransferShares {
   if(!hash_equals($j['target_principal'],\OCA\Forms\Mcp\Comments\CommentsRuntime::principal($j['input']['owner_id']))){throw new \RuntimeException('Transfer target incarnation changed');}
   SharingIdentity::assertType($r['approved_tuple']['type']);ManagedShares::assertIdentity(SharingIdentity::manager()->getShareById($r['files_share_id'],onlyValid:false),$r['approved_tuple'],$r);
   if(self::shareState($r['files_share_id'])!==$r['share_state']){throw new \RuntimeException('Original recipient acceptance or restrictions changed');}
-  if($r['approved_tuple']['type']===7){$audience=CircleRuntime::linkedAudienceEvidence($j['uid'],$r['approved_tuple']['recipient'],CoreShareIdentity::id($r['files_share_id'],7),(int)$r['folder_id']);if($audience!==($r['circle_audience']??null)){throw new \RuntimeException('Original Circle audience changed');}}
+  if($r['approved_tuple']['type']===7){if($this->finalAudienceScope!==null){[$jobId,$frame]=$this->finalAudienceScope;if($jobId!==$j['id']||($j['phase']??null)!=='apply'||!$this->db->inTransaction())throw new \RuntimeException('Final Circle audience replay scope changed');$frame();}else{$audience=CircleRuntime::linkedAudienceEvidence($j['uid'],$r['approved_tuple']['recipient'],CoreShareIdentity::id($r['files_share_id'],7),(int)$r['folder_id']);if($audience!==($r['circle_audience']??null)){throw new \RuntimeException('Original Circle audience changed');}}}
   $source=Server::get(IRootFolder::class)->getUserFolder($j['uid'])->getById((int)$r['folder_id'])[0]??null;
   if(!$source instanceof Folder||$source->getPath()!==$r['folder_path']||$source->getOwner()?->getUID()!==$j['uid']){throw new \RuntimeException('Transfer source folder changed');}StorageAdmission::node($source);
   if($folder!==null){StorageAdmission::node($folder);if($folder->getOwner()?->getUID()!==$j['input']['owner_id']||$folder->getPath()!=='/'.$j['input']['owner_id'].'/files/'.self::path($j,$r['folder_path'])){throw new \RuntimeException('Transfer destination folder changed');}}
