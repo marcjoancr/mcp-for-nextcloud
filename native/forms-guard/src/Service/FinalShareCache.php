@@ -4,17 +4,18 @@ declare(strict_types=1);
 namespace OCA\Forms\Mcp\Service;
 /** Bounded projection of the native cache query; no lazy Storage enrollment or unrelated metadata. */
 final class FinalShareCache {
-    private function __construct(private readonly \OCP\Files\Storage\IStorage $storage,private readonly \OCP\Files\Storage\IStorage $cacheOwner,
+    private function __construct(private readonly \OCP\Files\Storage\IStorage $storage,private readonly \OCP\Files\Storage\IStorage $cacheOwner,private readonly \OCP\Files\Storage\IStorage $cacheStorage,
         private readonly \OC\Files\Cache\Cache $base,private readonly array $masks,
         private readonly \OC\Files\Cache\Storage $storageCache,private readonly int $numericId,
         private readonly \OCP\IDBConnection $db,private readonly \OC\Files\Type\Loader $loader,
-        private readonly \OCP\FilesMetadata\IFilesMetadataManager $metadata,private readonly array $chain) {}
+        private readonly \OCP\FilesMetadata\IFilesMetadataManager $metadata,private readonly array $chain,private readonly array $cacheChain) {}
     private static function raw(object $object,string $property):mixed {
         $r=new \ReflectionProperty($object::class===\OC\Files\Cache\HomeCache::class?\OC\Files\Cache\Cache::class:$object,$property);
         if(!$r->isInitialized($object))throw new \RuntimeException('Final sharing cache initialization is required');
         return $r->getValue($object);
     }
-    public static function capture(\OCP\Files\Storage\IStorage $storage,int $numericId):self {
+    /** The cached HomeCache can have been initialized through any native wrapper of the same Home object. */
+    private static function unwrap(\OCP\Files\Storage\IStorage $storage):array {
         // Prove getWrapperStorage cannot construct FailedStorage/log before admission.
         $node=$storage;$seen=[];$chain=[];
         while($node instanceof \OC\Files\Storage\Wrapper\Wrapper){
@@ -23,11 +24,18 @@ final class FinalShareCache {
             $seen[spl_object_id($node)]=true;$wrapped=self::raw($node,'storage');$chain[]=[$node,$wrapped];$node=$wrapped;
             if(!$node instanceof \OCP\Files\Storage\IStorage)throw new \RuntimeException('Final sharing cache initialization is required');
         }
+        return[$node,$chain];
+    }
+    public static function capture(\OCP\Files\Storage\IStorage $storage,int $numericId):self {
+        [$node,$chain]=self::unwrap($storage);
         $getter=(new \ReflectionMethod($node,'getCache'))->getDeclaringClass()->getName();$home=$getter===\OC\Files\Storage\Home::class&&$node::class===\OC\Files\Storage\Home::class;
         if(!$home&&$getter!==\OC\Files\Storage\Common::class)throw new \RuntimeException('Final sharing cache getter is unqualified');
         StorageAdmission::storage($storage);$cacheOwner=$home?$node:$storage;$expected=$home?\OC\Files\Cache\HomeCache::class:\OC\Files\Cache\Cache::class;
         $base=self::raw($cacheOwner,'cache');
-        if(!is_object($base)||$base::class!==$expected||self::raw($base,'storage')!==$storage)throw new \RuntimeException('Final sharing cache is unqualified');
+        if(!is_object($base)||$base::class!==$expected)throw new \RuntimeException('Final sharing cache is unqualified');
+        $cacheStorage=self::raw($base,'storage');if(!$cacheStorage instanceof \OCP\Files\Storage\IStorage)throw new \RuntimeException('Final sharing cache is unqualified');
+        StorageAdmission::storage($cacheStorage);[$cacheLeaf,$cacheChain]=self::unwrap($cacheStorage);
+        if(($home&&$cacheLeaf!==$node)||(!$home&&$cacheStorage!==$storage))throw new \RuntimeException('Final sharing cache is unqualified');
         // Positive integer-ID reads use the exact inherited Cache::get path in HomeCache.
         if($home&&(realpath((new \ReflectionClass(\OC\Files\Cache\HomeCache::class))->getFileName())!==realpath(\OC::$SERVERROOT.'/lib/private/Files/Cache/HomeCache.php')))throw new \RuntimeException('Final native Home cache source is unqualified');
         $storageCache=self::raw($base,'storageCache');$db=self::raw($base,'connection');$loader=self::raw($base,'mimetypeLoader');$metadata=self::raw($base,'metadataManager');
@@ -43,11 +51,11 @@ final class FinalShareCache {
             $mask=self::raw($cache,'mask');if(!is_int($mask)||$mask<0||$mask>31)throw new \RuntimeException('Final sharing cache wrapper is unqualified');
             $masks[]=$cache;$cache=self::raw($cache,'cache');
         }
-        return new self($storage,$cacheOwner,$base,$masks,$storageCache,$numericId,$db,$loader,$metadata,$chain);
+        return new self($storage,$cacheOwner,$cacheStorage,$base,$masks,$storageCache,$numericId,$db,$loader,$metadata,$chain,$cacheChain);
     }
     public function assertStorage(\OCP\Files\Storage\IStorage $storage):void {
-        foreach($this->chain as[$wrapper,$inner])if(self::raw($wrapper,'storage')!==$inner)throw new \RuntimeException('Final sharing cache binding changed');
-        if($storage!==$this->storage||self::raw($this->cacheOwner,'cache')!==$this->base||self::raw($this->base,'storage')!==$storage
+        foreach([...$this->chain,...$this->cacheChain]as[$wrapper,$inner])if(self::raw($wrapper,'storage')!==$inner)throw new \RuntimeException('Final sharing cache binding changed');
+        if($storage!==$this->storage||self::raw($this->cacheOwner,'cache')!==$this->base||self::raw($this->base,'storage')!==$this->cacheStorage
             ||self::raw($this->base,'storageCache')!==$this->storageCache||self::raw($this->storageCache,'numericId')!==$this->numericId
             ||self::raw($this->base,'connection')!==$this->db||self::raw($this->base,'mimetypeLoader')!==$this->loader||self::raw($this->base,'metadataManager')!==$this->metadata)throw new \RuntimeException('Final sharing cache binding changed');
     }
