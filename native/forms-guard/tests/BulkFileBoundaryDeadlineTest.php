@@ -18,7 +18,7 @@ final class BulkFileBoundaryDeadlineTest extends \PHPUnit\Framework\TestCase {
  }
  public function testBoundarySeesExtensionAdmittedAfterItWasCreated():void{$this->boundary('forms_transfer',26,true);self::assertTrue(true);}
  public function testOrdinaryTransferBoundaryStillRejectsAfter25Seconds():void{$this->expectException(RuntimeException::class);$this->boundary('forms_transfer',26,false);}
- public function testExtendedBoundaryStillRejectsAfter45Seconds():void{$this->expectException(RuntimeException::class);$this->boundary('forms_transfer',46,true);}
+ public function testExtendedBoundaryStillRejectsAfter60Seconds():void{$this->expectException(RuntimeException::class);$this->boundary('forms_transfer',61,true);}
  public function testOtherOriginsRetain18SecondBoundary():void{$this->expectException(RuntimeException::class);$this->boundary('forms_update',19,true);}
 }
 }

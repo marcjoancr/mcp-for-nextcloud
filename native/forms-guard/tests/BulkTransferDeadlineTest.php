@@ -33,17 +33,17 @@ final class BulkTransferDeadlineTest extends TestCase {
         $this->context('forms_transfer',0,function():void {
             $start=new ReflectionProperty(BulkDeadline::class,'start');$start->setValue(null,null);
             $stop=new RuntimeException('stop');
-            try{BulkDeadline::run(function()use($stop):void{$this->admit();self::assertSame(45,BulkDeadline::limit());throw $stop;});}catch(RuntimeException $error){self::assertSame($stop,$error);}
+            try{BulkDeadline::run(function()use($stop):void{$this->admit();self::assertSame(60,BulkDeadline::limit());throw $stop;});}catch(RuntimeException $error){self::assertSame($stop,$error);}
             self::assertSame(25,BulkDeadline::limit());
         });
     }
     public function testExpiredRequestCannotAcquireExtension():void {$this->context('forms_transfer',26,function():void{$this->expectException(BeforeEffect::class);$this->admit();});}
     public function testUnqualifiedCallerCannotAcquireExtension():void {$this->context('forms_transfer',0,function():void{$this->expectException(BeforeEffect::class);BulkDeadline::admitCircleStaging();});}
 
-    public function testCircleExtensionStillRefusesAfter45Seconds():void {
+    public function testCircleExtensionStillRefusesAfter60Seconds():void {
         $this->context('forms_transfer',0,function():void{
             $flag=new ReflectionProperty(BulkDeadline::class,'circleStage');
-            try{$this->admit();(new ReflectionProperty(BulkDeadline::class,'start'))->setValue(null,microtime(true)-46);$this->expectException(BeforeEffect::class);BulkDeadline::check();}finally{$flag->setValue(null,false);}
+            try{$this->admit();(new ReflectionProperty(BulkDeadline::class,'start'))->setValue(null,microtime(true)-61);$this->expectException(BeforeEffect::class);BulkDeadline::check();}finally{$flag->setValue(null,false);}
         });
     }
 

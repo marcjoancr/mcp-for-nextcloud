@@ -19,6 +19,8 @@ final class Lease {
     private int $objects=0;
     private int $queries=0;
     private int $started;
+    private int $maxAgeNanos=18000000000;
+    private static function admittedMaxAge():int {return \OCA\Forms\Mcp\Service\BulkDeadline::limit()===60?45000000000:18000000000;}
     private const MODELS=['Circle','Member','FederatedUser','Membership','CircleInvitation','ShareWrapper','FileCacheWrapper','ShareToken','Mount','Mountpoint'];
     public function __construct(
         private readonly string $uid,
@@ -30,7 +32,7 @@ final class Lease {
         private readonly \Closure $readSystem,
         private readonly SourceGate $sources,
     ) {
-        $this->started=hrtime(true);
+        $this->started=hrtime(true);$this->maxAgeNanos=self::admittedMaxAge();
         ($this->assertAuthority)();$this->sources->assert($this->uid);
         $core=$connection instanceof FinalReadConnection?FinalReadCore::fresh($uid,$connection):new FreshCore($uid);
         if(!$core->apps()->isEnabledForUser('forms',$core->user())||!$core->apps()->isEnabledForUser('circles',$core->user())){throw new \RuntimeException('Circle actor application access is unavailable');}
@@ -65,7 +67,7 @@ final class Lease {
     }
     public function assertNoMetadataWrite():void {if($this->metadataReading)throw new \RuntimeException('Circle metadata read cannot write');}
     public function actorUid(): string {$this->assertActive();return $this->uid;}
-    public function assertActive(): void {if(!$this->active||hrtime(true)-$this->started>18000000000){throw new \RuntimeException('Circle request lease ended');}}
+    public function assertActive(): void {if(!$this->active||hrtime(true)-$this->started>$this->maxAgeNanos){throw new \RuntimeException('Circle request lease ended');}}
     public function checkpoint(): void {
         $this->assertActive();
         if(++$this->queries>128){throw new \RuntimeException('Circle query budget exceeded');}
