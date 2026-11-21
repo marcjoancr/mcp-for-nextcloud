@@ -38,6 +38,12 @@ final class BulkTransferShares {
   if($share->getPermissions()!==$permissions){throw new \RuntimeException('Transfer quarantine permissions changed');}$validation=clone $share;$validation->setPermissions(1);ManagedShares::assertIdentity($validation,$mapping['approved_tuple'],$mapping);
  }
  public static function capture(array $row,array $j):array {
+  if(($row['approved_tuple']['type']??null)!==7){return self::captureRead($row,$j);}
+  $frame=OriginContext::transferSharingAuthority()['frame'];
+  return \OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($frame,static fn():array=>self::captureRead($row,$j));
+ }
+ /** Circle capture reads only; journal writes occur after this source frame closes. */
+ private static function captureRead(array $row,array $j):array {
   $row['live']=!ManagedShares::isAbsent($row['files_share_id']);
   if(!$row['live']){return $row;}
   FinalShareProfile::assertCurrent();

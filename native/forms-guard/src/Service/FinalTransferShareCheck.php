@@ -68,6 +68,11 @@ final class FinalTransferShareCheck {
     private function share(int $id,FinalShareBudget $budget):array {return $this->one('SELECT '.FinalShareRows::COLUMNS.' FROM *PREFIX*share WHERE id = ?',[$id],$budget);}
     /** All methods here may wait and MUST finish before the unique final native ACL resolver. */
     public function collect(FinalShareBudget $budget):array {
+        try {return \OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($this->frame,fn():array=>$this->collectRead($budget));}
+        catch (\Throwable $error) {$this->close();throw $error;}
+    }
+    /** The complete collector is a closed read batch; source checks finish before resolution. */
+    private function collectRead(FinalShareBudget $budget):array {
         if (!$this->sealed || $this->closed || $this->collectStarted) {throw new \RuntimeException('Final sharing collector escaped or repeated');}
         $this->collectStarted=true;
         try {
@@ -142,8 +147,7 @@ final class FinalTransferShareCheck {
                         ($this->fresh)();
                     }
                     };
-                    if($r['approved_tuple']['type']===1){\OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($this->frame,$verifyChildren);}
-                    else{$verifyChildren();}
+                    $verifyChildren();
                     if ($targetById!==[]) {throw new \RuntimeException('Final sharing target child set changed');}
                     if ($sourceChildren!==$sealed || count($children)!==count($sealed)) {throw new \RuntimeException('Final sharing original child set changed');}
                     $maps[]=['files_share_id'=>$m['files_share_id'],'form_id'=>$j['form']['id'],'native_share_id'=>$m['native_share_id'],'folder_id'=>$m['folder_id']];
