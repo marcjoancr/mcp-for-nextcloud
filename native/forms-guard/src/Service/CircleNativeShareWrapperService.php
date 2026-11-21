@@ -25,7 +25,7 @@ final class CircleNativeShareWrapperService extends ShareWrapperService {
     public function getShareById(int $shareId,?FederatedUser $federatedUser=null):ShareWrapper {($this->assertFresh)();return $this->request->getShareById($shareId,$federatedUser);}
     public function getChild(IShare $share,FederatedUser $federatedUser):ShareWrapper {
         ($this->assertFresh)();$id=self::positiveId($share->getId());$recipient=$this->currentRecipient??$federatedUser->getUserId();
-        if($recipient!==$federatedUser->getUserId()||$federatedUser->getUserType()!==\OCA\Circles\Model\Member::TYPE_USER||$federatedUser->getInstance()!==''||$share->getShareType()!==7){throw new \RuntimeException('Native Circle child actor is unqualified');}
+        if($recipient!==$federatedUser->getUserId()||$federatedUser->getUserType()!==\OCA\Circles\Model\Member::TYPE_USER||!$federatedUser->isLocal()||$share->getShareType()!==7){throw new \RuntimeException('Native Circle child actor is unqualified');}
         CircleRuntime::assertRecipientMember($this->actorUid,$share->getSharedWith(),$recipient,$federatedUser->getSingleId());
         if($this->childGrant!==null){
             $grant=$this->childGrant;$this->childGrant=null;$this->childGrantConsumed=true;
@@ -52,7 +52,7 @@ final class CircleNativeShareWrapperService extends ShareWrapperService {
             ||$parent->getShareType()!==7||$parent->getSharedWith()===''||$parent->getPermissions()<0){throw new \RuntimeException('Native Circle transfer child tuple is malformed');}
         ($this->transferCapability??throw new \RuntimeException('Native Circle transfer child capability is unavailable'))->assertTransferParent($this->actorUid,$parent);
         $freshRecipient=$this->federatedUsers->getLocalFederatedUser($recipientUid,true,false);
-        if($freshRecipient->getSingleId()!==$singleId||$freshRecipient->getUserType()!==\OCA\Circles\Model\Member::TYPE_USER||$freshRecipient->getInstance()!==''){throw new \RuntimeException('Native Circle transfer recipient identity changed');}
+        if($freshRecipient->getSingleId()!==$singleId||$freshRecipient->getUserType()!==\OCA\Circles\Model\Member::TYPE_USER||!$freshRecipient->isLocal()){throw new \RuntimeException('Native Circle transfer recipient identity changed');}
         CircleRuntime::assertRecipientMember($this->actorUid,$parent->getSharedWith(),$recipientUid,$singleId);
         $this->childGrant=['target_parent_id'=>$parentId,'source_parent_id'=>$sourceParent,'source_child_id'=>$sourceId,'source_file_id'=>$sourceFileId,'parent_type'=>7,
             'circle_id'=>$parent->getSharedWith(),'single_id'=>$singleId,'recipient_uid'=>$recipientUid,'target_file_id'=>(int)$parent->getNodeId(),'source_child'=>$sourceChild,'proof'=>$proof];
