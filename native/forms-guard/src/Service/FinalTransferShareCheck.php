@@ -68,11 +68,6 @@ final class FinalTransferShareCheck {
     private function share(int $id,FinalShareBudget $budget):array {return $this->one('SELECT '.FinalShareRows::COLUMNS.' FROM *PREFIX*share WHERE id = ?',[$id],$budget);}
     /** All methods here may wait and MUST finish before the unique final native ACL resolver. */
     public function collect(FinalShareBudget $budget):array {
-        try {return \OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($this->frame,fn():array=>$this->collectRead($budget));}
-        catch (\Throwable $error) {$this->close();throw $error;}
-    }
-    /** The complete collector is a closed read batch; source checks finish before resolution. */
-    private function collectRead(FinalShareBudget $budget):array {
         if (!$this->sealed || $this->closed || $this->collectStarted) {throw new \RuntimeException('Final sharing collector escaped or repeated');}
         $this->collectStarted=true;
         try {

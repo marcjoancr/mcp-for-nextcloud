@@ -57,6 +57,13 @@ final class BulkTransferShares {
   return $row;
  }
  private function authority(array $j,array $r,?Folder $folder=null):void {
+  $frame=OriginContext::transferSharingAuthority()['frame'];
+  \OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($frame,fn()=> $this->authorityRead($j,$r,$folder));
+  if($folder!==null){DestinationFiles::authorize($folder,true);}
+  BulkDeadline::check();
+ }
+ /** This fresh authority projection closes before the caller performs its native effect. */
+ private function authorityRead(array $j,array $r,?Folder $folder=null):void {
   OriginContext::assertFresh();$v=OriginContext::current()['verified'];
   if($v['tool']!=='forms_transfer'||$v['uid']!==$j['uid']||(int)($v['references']['form_id']??0)!==(int)$j['form']['id']||!in_array('share',$v['references']['files_operations']??[],true)){throw new \RuntimeException('Original transfer and sharing authority unavailable');}
   $form=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$j['form']['id']);
@@ -70,7 +77,7 @@ final class BulkTransferShares {
   if($r['approved_tuple']['type']===7){$audience=CircleRuntime::linkedAudienceEvidence($j['uid'],$r['approved_tuple']['recipient'],CoreShareIdentity::id($r['files_share_id'],7),(int)$r['folder_id']);if($audience!==($r['circle_audience']??null)){throw new \RuntimeException('Original Circle audience changed');}}
   $source=Server::get(IRootFolder::class)->getUserFolder($j['uid'])->getById((int)$r['folder_id'])[0]??null;
   if(!$source instanceof Folder||$source->getPath()!==$r['folder_path']||$source->getOwner()?->getUID()!==$j['uid']){throw new \RuntimeException('Transfer source folder changed');}StorageAdmission::node($source);
-  if($folder!==null){DestinationFiles::authorize($folder,true);StorageAdmission::node($folder);if($folder->getOwner()?->getUID()!==$j['input']['owner_id']||$folder->getPath()!=='/'.$j['input']['owner_id'].'/files/'.self::path($j,$r['folder_path'])){throw new \RuntimeException('Transfer destination folder changed');}}
+  if($folder!==null){StorageAdmission::node($folder);if($folder->getOwner()?->getUID()!==$j['input']['owner_id']||$folder->getPath()!=='/'.$j['input']['owner_id'].'/files/'.self::path($j,$r['folder_path'])){throw new \RuntimeException('Transfer destination folder changed');}}
   BulkDeadline::check();
  }
  public function stage(array &$j,array $row,?callable $boundary):void {

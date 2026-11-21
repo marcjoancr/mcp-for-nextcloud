@@ -119,9 +119,12 @@ final class OriginContext {
         $joint=static function(\Closure $collect,\Closure $resolve)use($frame,$origin,$control,$boundary,$target):void {
             $frame();
             $bounded=static function()use($collect,$frame,$boundary,$target):array {
+                $projection=\OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($frame,static function()use($collect,$frame,$target):array {
                 $frame();$projection=$collect();
                 if(!is_array($projection)||!array_is_list($projection)||count($projection)!==3)throw new \RuntimeException('Joint transfer projection is invalid');
                 foreach([...$projection[1],...$projection[2]]as$node)if(!$node instanceof \OCP\Files\Node||$node->getOwner()?->getUID()!==$target)throw new \RuntimeException('Joint transfer destination owner changed');
+                $frame();return$projection;
+                });
                 if($boundary!==null)foreach(array_chunk($projection[0]['files'],100)as$page)$boundary('forms_transfer',['files'=>$page]);
                 $frame();return$projection;
             };
