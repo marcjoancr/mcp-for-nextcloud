@@ -119,7 +119,7 @@ final class OriginContext {
         $joint=static function(\Closure $collect,\Closure $resolve)use($frame,$origin,$control,$boundary,$target):void {
             $frame();
             $bounded=static function()use($collect,$frame,$boundary,$target):array {
-                $projection=\OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($frame,static function()use($collect,$frame,$target):array {
+                $projection=self::verifiedRead($frame,static function()use($collect,$frame,$target):array {
                 $frame();$projection=$collect();
                 if(!is_array($projection)||!array_is_list($projection)||count($projection)!==3)throw new \RuntimeException('Joint transfer projection is invalid');
                 foreach([...$projection[1],...$projection[2]]as$node)if(!$node instanceof \OCP\Files\Node||$node->getOwner()?->getUID()!==$target)throw new \RuntimeException('Joint transfer destination owner changed');
@@ -176,8 +176,13 @@ final class OriginContext {
         self::$nextBulkFrame=['original'=>$original,'control'=>$control['origin']];
         try{return $work();}finally{self::$nextBulkFrame=null;self::$bulkControlActive=false;}
     }
+    /** Closed native reads publish nothing until both code and current authority are rechecked. */
+    public static function verifiedRead(\Closure $frame,\Closure $read):mixed {
+        return OriginReadAuthority::within($frame,self::assertFresh(...),static fn()=>\OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($frame,$read));
+    }
     /** Refresh after waits and before file effects. Callers may type a rejection only while no effect has begun. */
     public static function assertFresh(): void {
+        if(OriginReadAuthority::check()){return;}
         $context=self::current();
         try {
             $authorization=Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class);
@@ -236,5 +241,20 @@ final class OriginContext {
         $v=self::current()['verified'];
         if ($v['uid']!==$uid) {throw new \RuntimeException('Original Forms actor does not match');}
         return hash_hmac('sha256',json_encode([$uid,$v['actor'],$v['connection']],JSON_THROW_ON_ERROR),Server::get(\OCP\IConfig::class)->getSystemValueString('secret'));
+    }
+}
+
+/** Synchronous private read lifetime; callbacks and effects must remain outside it. */
+final class OriginReadAuthority {
+    private static ?\Closure $active=null;
+    public static function check():bool {
+        if(self::$active===null){return false;}
+        (self::$active)();return true;
+    }
+    public static function within(\Closure $frame,\Closure $fresh,\Closure $read):mixed {
+        if(self::$active!==null){throw new \RuntimeException('Nested authority read is unavailable');}
+        $frame();$fresh();$frame();self::$active=$frame;
+        try{return $read();}
+        finally{self::$active=null;$fresh();$frame();}
     }
 }

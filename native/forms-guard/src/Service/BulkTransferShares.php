@@ -40,7 +40,7 @@ final class BulkTransferShares {
  public static function capture(array $row,array $j):array {
   if(($row['approved_tuple']['type']??null)!==7){return self::captureRead($row,$j);}
   $frame=OriginContext::transferSharingAuthority()['frame'];
-  return \OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($frame,static fn():array=>self::captureRead($row,$j));
+  return OriginContext::verifiedRead($frame,static fn():array=>self::captureRead($row,$j));
  }
  /** Circle capture reads only; journal writes occur after this source frame closes. */
  private static function captureRead(array $row,array $j):array {
@@ -58,7 +58,7 @@ final class BulkTransferShares {
  }
  private function authority(array $j,array $r,?Folder $folder=null):void {
   $frame=OriginContext::transferSharingAuthority()['frame'];
-  \OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($frame,fn()=> $this->authorityRead($j,$r,$folder));
+  OriginContext::verifiedRead($frame,fn()=> $this->authorityRead($j,$r,$folder));
   if($folder!==null){DestinationFiles::authorize($folder,true);}
   BulkDeadline::check();
  }
