@@ -232,7 +232,7 @@ final class BulkTransferShares {
  /** All mappings switch within the existing final SQL transaction. Original shares remain untouched. */
  public function commit(array $j):?FinalTransferShareCheck {
   if($j['counts']['managed_shares']===0){if($j['counts']['share_recipients']!==0)throw new \RuntimeException('Transfer recipient inventory has no managed parent');return null;}
-  $capability=OriginContext::transferSharingAuthority();$final=new FinalTransferShareCheck($this->db,$this->store,$j,$capability['fresh'],$capability['frame']);
+  $capability=OriginContext::transferSharingAuthority();FinalNativeAcl::prepareSubjects([$j['uid'],$j['input']['owner_id']],$capability['fresh']);$final=new FinalTransferShareCheck($this->db,$this->store,$j,$capability['fresh'],$capability['frame']);
   $this->verifyRecipients($j);$cursor=0;while($rows=$this->store->page($j['id'],'managed_shares',$cursor)){foreach($rows as$row){
    BulkDeadline::check();$cursor=$row['id'];$r=$row['data'];$expiry=null;$m=null;
    if($r['live']??false){$m=$this->store->one($j['id'],'staged_shares',$row['id']);foreach([$r['files_share_id'],$m['files_share_id']]as$shareId){if($shareId!==null){$this->db->executeQuery('SELECT id FROM *PREFIX*share WHERE id = ? FOR UPDATE',[CoreShareIdentity::id($shareId,$r['approved_tuple']['type'])])->fetchOne();}}$folder=Server::get(IRootFolder::class)->getUserFolder($j['input']['owner_id'])->getById((int)$m['folder_id'])[0]??null;if(!$folder instanceof Folder){throw new \RuntimeException('Staged transfer folder unavailable');}$this->authority($j,$r,$folder);

@@ -78,7 +78,7 @@ final class FinalTransferShareCheck {
         FinalShareRows::form($form,$this->store->one($j['id'],'form',(int)$j['form']['id']),$j['input']['owner_id']);
         $target=FinalReadCore::fresh($j['input']['owner_id'],$this->readDb);$target->assertPrincipal(false,false);
         if (!hash_equals($j['target_principal'],FinalReadCore::principal($j['input']['owner_id'],$this->readDb))) {throw new \RuntimeException('Final sharing target incarnation changed');}
-        $root=\OCP\Server::get(\OCP\Files\IRootFolder::class);$cursor=0;$seen=0;$maps=[];$folders=[];$effects=[];
+        $root=FinalNativeAcl::root();$cursor=0;$seen=0;$maps=[];$folders=[];$effects=[];
         $expiryPolicy=null;
         if ($this->expiry!==null) {
             $manager=clone SharingIdentity::manager();
@@ -178,7 +178,7 @@ final class FinalTransferShareCheck {
         if ($this->closed || !$this->collected || $this->renewed) {throw new \RuntimeException('Final sharing policy projection is unavailable');}
         $this->renewed=true;
         try {
-        $root=\OCP\Server::get(\OCP\Files\IRootFolder::class);
+        $root=FinalNativeAcl::root();
         $refreshed=[];
         foreach ($this->policies as $key=>[$policy,$prior,$subject,$id,$path]) {
             $cacheKey=$subject->getUID().':'.$id;

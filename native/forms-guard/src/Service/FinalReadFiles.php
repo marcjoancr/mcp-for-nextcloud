@@ -13,7 +13,7 @@ final class FinalReadFiles {
   if($node->getInternalPath()==='')throw new \RuntimeException('Final file root-storage permission profile is unqualified');
   $owner=$node->getOwner();if($owner===null)throw new \RuntimeException('Final file owner is unavailable');
   $subject=FinalReadCore::fresh($owner->getUID(),$db)->user();
-  $root=\OCP\Server::get(\OCP\Files\IRootFolder::class);
+  $root=FinalNativeAcl::root();
   $views=FinalShareViews::read($root,$subject,$node->getId(),$budget,static fn()=>BulkDeadline::check(),$db);
   $fresh=$views->node($node->getPath());
   if($fresh->getStorage()!==$node->getStorage()||$fresh->getInternalPath()!==$node->getInternalPath())throw new \RuntimeException('Final file mount identity changed');
