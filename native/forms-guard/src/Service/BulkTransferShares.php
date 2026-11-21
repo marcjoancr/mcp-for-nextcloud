@@ -180,7 +180,7 @@ final class BulkTransferShares {
   self::stagedIdentity($parent,$mapped,0);$this->authority($j,$r,$folder);
   $childSeed=$child;$parentExpiry=$r['share_state']['expiration']??null;
   if($parentExpiry!==null&&(($childSeed['expiration']??null)===null||(new \DateTime((string)$childSeed['expiration']))>(new \DateTime((string)$parentExpiry))))$childSeed['expiration']=$parentExpiry;
-  $created=$provider->createTransferChild($parent,$childSeed,$recipientUid,$proof);$id=(int)$created->getId();
+  $id=$provider->createTransferChild($parent,$childSeed,$recipientUid,$proof);
   if($id<1){throw new \RuntimeException('Native Circle child creation returned an invalid ID');}
   $actual=$this->recipientState($id);
   foreach(['share_with','accepted','attributes','expiration'] as$key){if($actual[$key]!==$childSeed[$key])throw new \RuntimeException('Circle recipient decision was not preserved');}

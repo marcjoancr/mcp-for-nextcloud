@@ -18,15 +18,15 @@ final class CircleBoundaryProvider implements IPartialShareProvider,IShareProvid
     public function update(IShare $share){$this->share($share);return$this->invoke($share,null,false,static fn($native)=>$native->update($share));}
     public function delete(IShare $share){$this->share($share);$this->invoke($share,null,true,static function($native)use($share):void{$native->delete($share);});}
     public function createdHere(string $id):bool{return isset($this->created[$id]);}
-    public function createTransferChild(IShare $parent,array $sourceChild,string $recipientUid,\Closure $proof):\OCA\Circles\Model\ShareWrapper {
+    public function createTransferChild(IShare $parent,array $sourceChild,string $recipientUid,\Closure $proof):int {
         $this->share($parent);$parentId=self::positiveId($parent->getId());
         if($recipientUid===''||strlen($recipientUid)>255||($parent->getParent()??0)!==0){throw new \RuntimeException('Native Circle transfer parent is unqualified');}
         ($this->transferCapability??throw new \RuntimeException('Native Circle transfer capability is unavailable'))->assertTransferParent($this->uid,$parent);
-        return$this->invoke($parent,$recipientUid,false,static function($native,CircleNativeShareWrapperService $wrapper)use($parent,$parentId,$sourceChild,$recipientUid,$proof):\OCA\Circles\Model\ShareWrapper {
+        return$this->invoke($parent,$recipientUid,false,static function($native,CircleNativeShareWrapperService $wrapper)use($parent,$parentId,$sourceChild,$recipientUid,$proof):int {
             $fresh=$native->getShareById($parentId,$recipientUid);
             if($fresh->getShareType()!==7||$fresh->getShareOwner()!==$parent->getShareOwner()||$fresh->getSharedWith()!==$parent->getSharedWith()||$fresh->getNodeId()!==$parent->getNodeId()||($fresh->getParent()??0)!==0){throw new \RuntimeException('Native Circle transfer parent changed');}
             $wrapper->current($fresh,$recipientUid);
-            return$wrapper->createTransferChild($fresh,$sourceChild,$recipientUid,$proof);
+            return self::positiveId($wrapper->createTransferChild($fresh,$sourceChild,$recipientUid,$proof)->getId());
         });
     }
     private function recipient(string $uid):void {if($uid===''||strlen($uid)>255||str_contains($uid,"\0")){throw new \RuntimeException('Native Circle recipient identity is malformed');}CircleExistingIdentity::read(\OCP\Server::get(\OCP\IDBConnection::class),$uid);}
