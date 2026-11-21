@@ -42,6 +42,7 @@ final class WriteQueryBuilder extends \OCA\Circles\Db\CoreQueryBuilder {
         if($this->consumed){throw new \RuntimeException('Native Circle write intent was already consumed');}
         $this->consumed=true;$this->lease->assertNoMetadataWrite();$this->lease->checkpoint();($this->assertFresh)();
         if($connection!==null&&$connection!==$this->lease->db()){throw new \RuntimeException('Native Circle write database changed');}
+        if($this->action==='insert-child'){$this->setValue('accepted',$this->createNamedParameter($this->writeShare->getStatus(),\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT));}
         if($this->action!=='insert'){
             $this->andWhere($this->expr()->eq('share_type',$this->createNamedParameter(7)));
             $this->andWhere($this->expr()->eq('share_with',$this->createNamedParameter($this->circleId)));
@@ -58,7 +59,7 @@ final class WriteQueryBuilder extends \OCA\Circles\Db\CoreQueryBuilder {
         };
         $insert=in_array($this->action,['insert','insert-child'],true)?$this->insertValues($sql,$params):[];
         $rowValues=in_array($this->action,['insert','insert-child'],true)
-            ? (($insert['share_type']??null)===7&&($insert['share_with']??null)===$this->circleId&&($insert['uid_owner']??null)===$this->ownerUid&&($insert['file_source']??null)===$this->fileId&&($this->action!=='insert-child'||($insert['parent']??null)===$this->targetId))
+            ? (($insert['share_type']??null)===7&&($insert['share_with']??null)===$this->circleId&&($insert['uid_owner']??null)===$this->ownerUid&&($insert['file_source']??null)===$this->fileId&&($this->action!=='insert-child'||(($insert['parent']??null)===$this->targetId&&($insert['accepted']??null)===$this->writeShare->getStatus())))
             : ($this->hasBinding($sql,$params,'share_type',7)&&$this->hasBinding($sql,$params,'share_with',$this->circleId)&&$this->hasBinding($sql,$params,'file_source',$this->fileId)&&$this->hasBinding($sql,$params,'uid_owner',$this->ownerUid));
         if(!$allowed||!$rowValues){
             throw new \RuntimeException('Native Circle write SQL is outside the pinned share row');

@@ -600,6 +600,14 @@ final class ShareWrapper extends \OCA\Circles\Model\ShareWrapper
         }
         return $this;
     }
+    /** Preserve native row ancestry and consent; never infer acceptance from successful hydration. */
+    private function hydrateDecision(array $data,string $prefix):void {
+        if(!array_key_exists($prefix.'parent',$data)||!array_key_exists($prefix.'accepted',$data))throw new \RuntimeException('Circle share decision projection is incomplete');
+        $parent=$data[$prefix.'parent']??0;$status=$data[$prefix.'accepted'];
+        if((!is_int($parent)&&!is_string($parent))||!preg_match('/^(?:0|[1-9][0-9]*)$/D',(string)$parent)||filter_var($parent,FILTER_VALIDATE_INT)===false||$parent<0
+            ||(!is_int($status)&&!is_string($status))||!in_array($status,[0,1,2,'0','1','2'],true))throw new \RuntimeException('Circle share decision projection is malformed');
+        $this->setParent((int)$parent);$this->setStatus((int)$status);
+    }
     public function importFromDatabase(array $data, string $prefix = ''): \OCA\Circles\Tools\Db\IQueryRow
     {
         $this->__formsCircleLease->assertActive();
@@ -621,7 +629,8 @@ final class ShareWrapper extends \OCA\Circles\Model\ShareWrapper
         //		} else if (($password = $this->get('password', $data, '')) !== '') {
         //			$share->setPassword($this->get('password', $data, ''));
         //		}
-        $this->setChildId($this->getInt($prefix . 'child_id', $data))->setChildFileTarget($this->get($prefix . 'child_file_target', $data))->setChildPermissions($this->getInt($prefix . 'child_permissions', $data))->setProviderId(\OCA\Circles\ShareByCircleProvider::IDENTIFIER)->setStatus(\OCP\Share\IShare::STATUS_ACCEPTED);
+        $this->setChildId($this->getInt($prefix . 'child_id', $data))->setChildFileTarget($this->get($prefix . 'child_file_target', $data))->setChildPermissions($this->getInt($prefix . 'child_permissions', $data))->setProviderId(\OCA\Circles\ShareByCircleProvider::IDENTIFIER);
+        $this->hydrateDecision($data,$prefix);
         $this->getManager()->manageImportFromDatabase($this, $data, $prefix);
         return $this;
     }
