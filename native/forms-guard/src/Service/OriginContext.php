@@ -178,7 +178,7 @@ final class OriginContext {
     }
     /** Closed native reads publish nothing until both code and current authority are rechecked. */
     public static function verifiedRead(\Closure $frame,\Closure $read):mixed {
-        return OriginReadAuthority::within($frame,self::assertFresh(...),static fn()=>\OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($frame,$read));
+        return \OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($frame,static fn()=>OriginReadAuthority::within($frame,self::assertFresh(...),$read));
     }
     /** Refresh after waits and before file effects. Callers may type a rejection only while no effect has begun. */
     public static function assertFresh(): void {
