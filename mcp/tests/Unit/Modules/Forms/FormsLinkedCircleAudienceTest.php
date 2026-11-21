@@ -62,4 +62,33 @@ final class FormsLinkedCircleAudienceTest extends TestCase {
         $audience->snapshot('alice','/exports/results.csv',['uid'=>'bob','tool'=>'forms_link_results_file','references'=>['form_id'=>4,'owner_id'=>'alice']]);
         self::assertSame(0,$calls);
     }
+    private function personalShareColumns():void {
+        $this->sql->dbal->executeStatement('ALTER TABLE share ADD COLUMN parent INTEGER');
+        $this->sql->dbal->executeStatement('ALTER TABLE share ADD COLUMN uid_owner TEXT');
+        $this->sql->dbal->executeStatement('ALTER TABLE share ADD COLUMN uid_initiator TEXT');
+    }
+    public function testPersonalCircleRowsUseOnlyParentEvidenceButRemainInApprovalFingerprint():void {
+        $this->personalShareColumns();$calls=0;
+        $resolver=static function(string $uid,string $circleId,int $shareId,int $fileId)use(&$calls):array {
+            $calls++;self::assertSame('circle-a',$circleId);self::assertSame(11,$shareId);
+            return ['circle_id'=>'circle-a','parent_share_id'=>11,'file_id'=>2,'files_share_provider'=>'ocCircleShare','share_type'=>7,'circle_incarnation_digest'=>str_repeat('a',64),'native_membership_digest'=>str_repeat('b',64),'native_recipient_projection_digest'=>str_repeat('c',64),'recipient_count'=>1];
+        };
+        $audience=$this->audience($resolver);
+        $this->sql->dbal->executeStatement("INSERT INTO share (id,file_source,share_type,share_with,permissions,parent,uid_owner,uid_initiator) VALUES (11,2,7,'circle-a',1,NULL,'alice','alice'),(12,2,7,'personal-bob',1,11,'alice','alice'),(13,2,7,'personal-declined',0,11,'alice','alice')");
+        $before=$audience->snapshot('alice','/exports/results.csv');self::assertSame(1,$calls);self::assertCount(1,$before['recipients']);
+        $this->sql->dbal->executeStatement('UPDATE share SET permissions=1 WHERE id=13');$after=$audience->snapshot('alice','/exports/results.csv');
+        self::assertSame(2,$calls);self::assertNotSame($before['digest'],$after['digest']);self::assertStringNotContainsString('personal-',json_encode($after));
+    }
+    public function testDerivedCircleRowsRefuseMissingOrMismatchedNativeParents():void {
+        $this->personalShareColumns();$audience=$this->audience(static fn():array=>throw new \RuntimeException('parent resolver must not be reached'));
+        $this->sql->dbal->executeStatement("INSERT INTO share (id,file_source,share_type,share_with,permissions,parent,uid_owner,uid_initiator) VALUES (12,2,7,'personal-bob',1,99,'alice','alice')");
+        $this->expectException(\RuntimeException::class);$this->expectExceptionMessage('Native personal share parent is unavailable');$audience->snapshot('alice','/exports/results.csv');
+    }
+    public function testNativeGroupPersonalOverridesRemainBoundToTheGroupApproval():void {
+        $this->personalShareColumns();$audience=$this->audience(static fn():array=>throw new \RuntimeException('group override is not a Circle'));
+        $this->sql->dbal->executeStatement("INSERT INTO share (id,file_source,share_type,share_with,permissions,parent,uid_owner,uid_initiator) VALUES (11,2,1,'group-a',1,NULL,'alice','alice'),(12,2,2,'bob',0,11,'alice','alice')");
+        $this->sql->dbal->executeStatement("INSERT INTO group_user VALUES ('group-a','bob')");$before=$audience->snapshot('alice','/exports/results.csv');
+        $this->sql->dbal->executeStatement('UPDATE share SET permissions=1 WHERE id=12');self::assertNotSame($before['digest'],$audience->snapshot('alice','/exports/results.csv')['digest']);
+    }
+
 }

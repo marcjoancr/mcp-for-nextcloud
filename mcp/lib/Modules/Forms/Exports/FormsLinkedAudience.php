@@ -66,12 +66,26 @@ final class FormsLinkedAudience {
             ->orderBy('id','ASC')->setMaxResults(1001)->executeQuery();
         try{$shares=$result->fetchAll();}finally{$result->closeCursor();}
         if(count($shares)>1000)throw new \RuntimeException('Linked Forms audience exceeds its bounded share limit.');
+        $nativeParents=[];foreach($shares as $row){$id=(int)($row['id']??0);if($id<1||isset($nativeParents[$id]))throw new \RuntimeException('Native share identity is unavailable.');$nativeParents[$id]=$row;}
         $groups=[];$recipients=[];$circleEvidence=[];$audienceRows=0;$now=($this->time)();
         foreach($shares as &$share) {
             $type=(int)$share['share_type'];
-            if(!in_array($type,[0,1,3,7],true))throw new \RuntimeException('Linked Forms recipient provider is not qualified.');
             $expires=$share['expiration']??null;$active=$expires===null||$expires===''||(new \DateTimeImmutable($expires,new \DateTimeZone('UTC')))->getTimestamp()>$now;
             $share['mcp_effective']=$active;
+            $parentId=(int)($share['parent']??0);
+            if($parentId>0&&in_array($type,[2,7],true)){
+                $nativeParent=$nativeParents[$parentId]??null;$parentType=$type===2?1:7;
+                $owner=$share['uid_owner']??null;$initiator=$share['uid_initiator']??$owner;
+                if(!is_array($nativeParent)||(int)$nativeParent['share_type']!==$parentType
+                    ||(int)($nativeParent['parent']??0)!==0||(int)$nativeParent['file_source']!==(int)$share['file_source']
+                    ||!is_string($owner)||$owner===''||$owner!==($nativeParent['uid_owner']??null)
+                    ||!is_string($initiator)||$initiator!==($nativeParent['uid_initiator']??$nativeParent['uid_owner']??null)
+                    ||!is_string($share['share_with']??null)||$share['share_with']==='')
+                    throw new \RuntimeException('Native personal share parent is unavailable.');
+                // Personal overrides remain in the private fingerprint; their parent resolves the audience.
+                $share['mcp_derived_parent']=$parentId;continue;
+            }
+            if(!in_array($type,[0,1,3,7],true))throw new \RuntimeException('Linked Forms recipient provider is not qualified.');
             if($type===1)$groups[(string)$share['share_with']]=true;
             if($active&&in_array($type,[0,3],true)){$audienceRows++;$recipients[]=['type'=>$type,'recipient'=>$type===3?'public link':(string)$share['share_with'],'permissions'=>(int)$share['permissions'],'expires'=>$expires];}
             if($active&&$type===7){$circleId=(string)$share['share_with'];$evidence=$this->circle($uid,$circleId,(int)$share['id'],(int)$share['file_source'],$origin);$circleEvidence[]=$evidence;$audienceRows+=$evidence['recipient_count'];if($evidence['recipient_count']>0){$recipients[]=['type'=>7,'recipient'=>$circleId,'permissions'=>(int)$share['permissions'],'expires'=>$expires];}}
