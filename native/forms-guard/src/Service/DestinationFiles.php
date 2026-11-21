@@ -17,6 +17,23 @@ final class DestinationFiles {
   Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assertDestination(OriginContext::current()['origin'],$fresh,$create);
   BulkDeadline::check();
  }
+ /** Resolve an already existing path only, keeping every ancestor's traversal admission in one policy window. */
+ public static function existing(Folder $root,string $path):Folder {
+  $context=OriginContext::current();$target=$context['input']['owner_id']??null;
+  if($context['action']!=='forms_transfer'||!is_string($target)||$target===''||$root->getPath()!=='/'.$target.'/files'||$root->getOwner()?->getUID()!==$target)throw new \RuntimeException('Forms existing destination is unqualified');
+  OriginContext::assertFileEffect();StorageAdmission::path($root->getPath().'/'.trim($path,'/'),true);
+  $service=Server::get(IRootFolder::class);$folder=$service->get($root->getPath());
+  if(!$folder instanceof Folder||$folder->getId()!==$root->getId())throw new \RuntimeException('Forms destination identity changed');
+  StorageAdmission::node($folder);$folders=[$folder];
+  foreach(explode('/',trim($path,'/'))as$segment){
+   if($segment===''||$segment==='.'||$segment==='..'||count($folders)>=2000)throw new \RuntimeException('Invalid existing destination path');
+   $next=$service->get($folder->getPath().'/'.$segment);
+   if(!$next instanceof Folder||$next->getOwner()?->getUID()!==$target)throw new \RuntimeException('Forms existing destination changed');
+   StorageAdmission::node($next);$folders[]=$next;$folder=$next;
+  }
+  Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assertDestinationChain($context['origin'],$target,$folders);
+  BulkDeadline::check();return $folder;
+ }
  /** Admission before allocation, without requiring the ancestor above an allowed folder to be writable. */
  public static function admit(Folder $root,string $path):void {
   $folder=$root;self::authorize($folder,false);

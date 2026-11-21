@@ -85,7 +85,7 @@ final class BulkTransferShares {
   $impact=['files'=>[],'files_share'=>true,'share_impact'=>['parent'=>['file_id'=>(int)$r['folder_id']],'folder_ids'=>[(int)$r['folder_id']],'recipient'=>$r['approved_tuple']['recipient'],'type'=>$r['approved_tuple']['type'],'create'=>true,'permissions'=>['read']],'destination_owner'=>$j['input']['owner_id'],'destination_path'=>self::path($j,$r['folder_path']),'source_shares'=>'retained'];
   OriginContext::withFileBoundary($boundary,function()use(&$j,$r,$row,$impact):void{OriginContext::withFileImpact('forms_transfer',$impact,function()use(&$j,$r,$row):void{
    $root=Server::get(IRootFolder::class)->getUserFolder($j['input']['owner_id']);if($j['cursor']===0&&$j['counts']['files']===0){$form=Server::get(\OCA\Forms\Db\FormMapper::class)->findById((int)$j['form']['id']);$base=Server::get(\OCA\Forms\Helper\FilePathHelper::class)->getFormUploadedFilesFolderPath($form);if($root->nodeExists($base)){throw new \RuntimeException('Transfer destination already exists');}}$path=self::path($j,$r['folder_path']);
-   $wasPresent=$root->nodeExists($path);$folder=NewFileStorage::folder($root,$path,function()use($j,$r):void{$this->authority($j,$r);},destination:DestinationFiles::callback());$folder->lock(ILockingProvider::LOCK_EXCLUSIVE);
+   $wasPresent=$root->nodeExists($path);$folder=$wasPresent?DestinationFiles::existing($root,$path):NewFileStorage::folder($root,$path,function()use($j,$r):void{$this->authority($j,$r);},destination:DestinationFiles::callback());$folder->lock(ILockingProvider::LOCK_EXCLUSIVE);
    try{
     $this->authority($j,$r,$folder);OriginContext::assertFileEffect([(int)$r['folder_id']]);
     $tuple=['owner_id'=>$j['input']['owner_id'],'recipient'=>$r['approved_tuple']['recipient'],'type'=>$r['approved_tuple']['type']];
@@ -127,10 +127,10 @@ final class BulkTransferShares {
       ||$eventBinding[1]!==$r['approved_tuple']['recipient']||(int)$eventBinding[5]!==(int)$folder->getId()||(int)$eventBinding[6]!==0){throw new \RuntimeException('Bulk Circle event does not match its staged transfer');}
     $shareId=(int)$eventBinding[4];$native=$this->db->executeQuery('SELECT id,share_type,share_with,uid_owner,uid_initiator,file_source,item_type,parent,permissions FROM *PREFIX*share WHERE id = ? LIMIT 2',[$shareId])->fetchAll();
     if(count($native)!==1||(int)$native[0]['id']!==$shareId||(int)$native[0]['share_type']!==7||$native[0]['share_with']!==$r['approved_tuple']['recipient']
-      ||$native[0]['uid_owner']!==$mapped['owner_id']||$native[0]['uid_initiator']!==$j['uid']||(int)$native[0]['file_source']!==(int)$folder->getId()
+      ||$native[0]['uid_owner']!==$mapped['approved_tuple']['owner_id']||$native[0]['uid_initiator']!==$j['uid']||(int)$native[0]['file_source']!==(int)$folder->getId()
       ||$native[0]['item_type']!=='folder'||(int)$native[0]['parent']!==0||(int)$native[0]['permissions']!==0){throw new \RuntimeException('Bulk Circle event row does not match its staged transfer');}
    }
-   return ['operation'=>$operation,'type'=>7,'owner_id'=>$j['uid'],'share_owner'=>$mapped['owner_id'],'recipient'=>$r['approved_tuple']['recipient'],'file_id'=>(int)$folder->getId()];
+   return ['operation'=>$operation,'type'=>7,'owner_id'=>$j['uid'],'share_owner'=>$mapped['approved_tuple']['owner_id'],'recipient'=>$r['approved_tuple']['recipient'],'file_id'=>(int)$folder->getId()];
   };
  }
  public function stageRecipient(array &$j,array $row,?callable $boundary):void {

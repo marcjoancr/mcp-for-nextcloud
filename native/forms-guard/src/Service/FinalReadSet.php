@@ -90,7 +90,18 @@ final class FinalReadSet {
             if(!is_array($value)||array_is_list($value))throw new \RuntimeException('Final read snapshot is malformed');
             $actual[(int)$row['q']][]=$value;
         }
-        foreach($this->queries as$i=>$query)if(!self::equalRows($query[3],$actual[$i]))throw new \RuntimeException('Final read dependency changed');
+        foreach($this->queries as$i=>$query)if(!self::equalRows($query[3],$actual[$i])){
+            $columns=[];$keys=[];foreach([...$query[3],...$actual[$i]]as$row)foreach(array_keys($row)as$key)$keys[$key]=true;
+            foreach(array_keys($keys)as$key){$values=static function(array$rows)use($key):array{$out=[];foreach($rows as$row)$out[]=json_encode([array_key_exists($key,$row),$row[$key]??null],JSON_THROW_ON_ERROR);sort($out,SORT_STRING);return$out;};if($values($query[3])!==$values($actual[$i]))$columns[]=$key;}
+            sort($columns,SORT_STRING);
+            throw new FinalReadMismatch(['tables'=>$query[4],'columns'=>$columns,'expected_rows'=>count($query[3]),'actual_rows'=>count($actual[$i])]);
+        }
         ($this->deadline)();
     }
+}
+
+/** Closed schema/count metadata only; SQL, parameters and row values never enter the exception. */
+final class FinalReadMismatch extends \RuntimeException {
+    public function __construct(private readonly array $diagnostic) {parent::__construct('Final read dependency changed');}
+    public function details():array {return $this->diagnostic;}
 }

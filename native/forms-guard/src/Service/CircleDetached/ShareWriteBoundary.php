@@ -62,7 +62,7 @@ final class ShareWriteBoundary {
         $source=$store->one($job['id'],'managed_shares',(int)$row['id']);
         if(!hash_equals($row['digest'],\OCA\Forms\Mcp\Service\BulkStore::digest($source))||$source!==($row['data']??null)||($source['approved_tuple']['type']??null)!==7)throw new \RuntimeException('Circle transfer activation source changed');
         $staged=$store->one($job['id'],'staged_shares',(int)$row['id']);
-        if($staged!==$mapping||($mapping['approved_tuple']['type']??null)!==7||($mapping['owner_id']??null)!==($job['input']['owner_id']??null))throw new \RuntimeException('Circle transfer activation mapping changed');
+        if($staged!==$mapping||($mapping['approved_tuple']['type']??null)!==7||($mapping['approved_tuple']['owner_id']??null)!==($job['input']['owner_id']??null))throw new \RuntimeException('Circle transfer activation mapping changed');
         $sourceParent=\OCA\Forms\Mcp\Service\CoreShareIdentity::id((string)$source['files_share_id'],7);
         $targetParent=\OCA\Forms\Mcp\Service\CoreShareIdentity::id((string)$mapping['files_share_id'],7);
         $targetChild=0;$kind='managed_shares';$sourceId=(int)$row['id'];$digest=$row['digest'];

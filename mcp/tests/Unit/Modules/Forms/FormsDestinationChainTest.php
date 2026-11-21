@@ -1,0 +1,21 @@
+<?php
+declare(strict_types=1);
+namespace OCA\Mcp\Tests\Unit\Modules\Forms;
+use OCA\Mcp\Modules\Forms\Attachments\FormsFileImpact;
+use OCA\Mcp\Access\ResourceScope\FilesAccessGuard;
+use OCP\Files\{Folder,IRootFolder};
+use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
+final class FormsDestinationChainTest extends TestCase {
+ private function folders():array {$out=[];for($i=0;$i<3;$i++){$f=$this->createMock(Folder::class);$f->method('isReadable')->willReturn(true);$f->method('isCreatable')->willReturn(true);$out[]=$f;}return$out;}
+ public function testEveryAncestorRemainsTraversableAndTheLeafRemainsWritableWithinOneFreshScope():void {$folders=$this->folders();$guard=$this->createMock(FilesAccessGuard::class);$guard->expects(self::once())->method('clearCache')->with(true);$guard->expects(self::once())->method('assertScopeReadable');$seen=[];$guard->method('isTraversable')->willReturnCallback(static function($node)use(&$seen):bool{$seen[]=$node;return true;});$guard->expects(self::once())->method('isVisible')->with($folders[2])->willReturn(true);(new FormsFileImpact($this->createMock(IRootFolder::class),$guard))->assertDestinationChain($folders);self::assertSame($folders,$seen);}
+ public static function ancestors():array{return [[0],[1],[2]];}
+ #[DataProvider('ancestors')]
+ public function testAnExcludedAncestorCannotBeSkippedEvenWhenTheLeafIsVisible(int$hidden):void {$folders=$this->folders();$guard=$this->createMock(FilesAccessGuard::class);$guard->method('isTraversable')->willReturnCallback(static fn($f)=>$f!==$folders[$hidden]);$guard->expects(self::never())->method('isVisible');$this->expectExceptionMessage('Forms destination is outside the current Files access');(new FormsFileImpact($this->createMock(IRootFolder::class),$guard))->assertDestinationChain($folders);}
+ public function testPermissionsAreReadAgainOnTheNextInvocation():void {$folders=$this->folders();$allowed=true;$guard=$this->createMock(FilesAccessGuard::class);$guard->expects(self::exactly(2))->method('clearCache')->with(true);$guard->method('isTraversable')->willReturnCallback(static fn()=> $allowed);$guard->method('isVisible')->willReturn(true);$impact=new FormsFileImpact($this->createMock(IRootFolder::class),$guard);$impact->assertDestinationChain($folders);$allowed=false;$guard->method('assertScopeReadable')->willThrowException(new \RuntimeException('Revoked scope'));$this->expectExceptionMessage('Revoked scope');$impact->assertDestinationChain($folders);}
+ public function testMalformedOrOversizedChainsRefuseBeforeAccessChecks():void {$guard=$this->createMock(FilesAccessGuard::class);$guard->expects(self::never())->method('clearCache');$impact=new FormsFileImpact($this->createMock(IRootFolder::class),$guard);foreach([[],[new \stdClass()],[1=>$this->createMock(Folder::class)],array_fill(0,2001,$this->createMock(Folder::class))]as$chain){$denied=false;try{$impact->assertDestinationChain($chain);}catch(\RuntimeException){$denied=true;}self::assertTrue($denied);}}
+ public static function leafRestrictions():array{return [[false,true,true],[true,false,true],[true,true,false]];}
+ #[DataProvider('leafRestrictions')]
+ public function testLeafMustStillBeReadableCreatableAndVisible(bool$read,bool$create,bool$visible):void {$folders=$this->folders();$leaf=$this->createMock(Folder::class);$leaf->method('isReadable')->willReturn($read);$leaf->method('isCreatable')->willReturn($create);$folders[2]=$leaf;$guard=$this->createMock(FilesAccessGuard::class);$guard->method('isTraversable')->willReturn(true);$guard->method('isVisible')->willReturn($visible);$this->expectExceptionMessage('Forms destination is outside the current Files access');(new FormsFileImpact($this->createMock(IRootFolder::class),$guard))->assertDestinationChain($folders);}
+ public function testReadOnlyAncestorsDoNotPreventWritingTheAdmittedLeaf():void {$folders=[];for($i=0;$i<3;$i++){$node=$this->createMock(Folder::class);$node->method('isReadable')->willReturn(true);$node->method('isCreatable')->willReturn($i===2);$folders[]=$node;}$guard=$this->createMock(FilesAccessGuard::class);$guard->method('isTraversable')->willReturn(true);$guard->expects(self::once())->method('isVisible')->with($folders[2])->willReturn(true);(new FormsFileImpact($this->createMock(IRootFolder::class),$guard))->assertDestinationChain($folders);}
+}

@@ -42,7 +42,7 @@ final class FormsTransferAuthorizationTest extends TestCase {
         $bulk=['tool'=>'forms_transfer','required_operations'=>['transfer'],'files_operations'=>['read','create']];
         $original=$proof->create('alice',0,'forms_transfer',['transfer'],['form_id'=>4,'files_operations'=>['read','create']]);
         $control=$proof->create('alice',0,'forms_continue_operation',['continue_operations'],['form_id'=>4,'bulk_authority'=>$bulk]);
-        return (object)compact('fx','services','policy','selection','tools','state','fresh','deferred','actors','proof','native','bulk','original','control','guestState','resource','copy','parent');
+        return (object)compact('fx','services','policy','selection','tools','state','fresh','deferred','actors','proof','native','bulk','original','control','guestState','resource','copy','parent','guard');
     }
     private function admit(object$f,?array$control=null):void{$f->native->assertTransferFiles($f->original,$control,['files'=>[['file_id'=>11]]],[$f->copy],[$f->parent],static function()use($f):array{self::assertSame([11,22,33],array_slice($f->resource->seen,-3));$f->resource->resolved++;return[['files'=>[['file_id'=>11]]],[$f->copy],[$f->parent]];});}
     public function testOriginalAndPairedCallsRecheckPrincipalAndEveryResource():void{
@@ -106,4 +106,18 @@ final class FormsTransferAuthorizationTest extends TestCase {
         self::assertSame('Joint transfer final projection differs',$error);
     }
 
+    private function destinationChain(object$f):array {
+        $owner=$f->fx->user('target');$out=[];
+        foreach(['/target/files','/target/files/Forms']as$i=>$path){$node=$this->createMock(\OCP\Files\Folder::class);$node->method('getId')->willReturn(41+$i);$node->method('getPath')->willReturn($path);$node->method('getOwner')->willReturn($owner);$node->method('isReadable')->willReturn(true);$node->method('isCreatable')->willReturn(true);$out[]=$node;}
+        $f->guard->method('isTraversable')->willReturn(true);return$out;
+    }
+    public function testDestinationChainUsesSignedActorAuthorityForTheOtherOwnerTree():void {
+        $f=$this->fixture();$f->native->assertDestinationChain($f->original,'target',$this->destinationChain($f));self::assertSame([42],$f->resource->seen);self::assertNotEmpty($f->state->calls);foreach($f->state->calls as[$uid])self::assertSame('alice',$uid);
+    }
+    public function testDestinationChainRejectsRevocationBeforeUsingTargetNodes():void {
+        $f=$this->fixture();$chain=$this->destinationChain($f);$f->services->grants->setGrant('alice','files','create',false);$denied=false;try{$f->native->assertDestinationChain($f->original,'target',$chain);}catch(ToolFailure){$denied=true;}self::assertTrue($denied);self::assertSame([],$f->resource->seen);
+    }
+    public function testDestinationChainCannotSkipAnIntermediatePath():void {
+        $f=$this->fixture();$chain=$this->destinationChain($f);$leaf=$this->createMock(\OCP\Files\Folder::class);$leaf->method('getId')->willReturn(99);$leaf->method('getOwner')->willReturn($f->fx->user('target'));$leaf->method('getPath')->willReturn('/target/files/Forms/skipped');$denied=false;try{$f->native->assertDestinationChain($f->original,'target',[$chain[0],$leaf]);}catch(\RuntimeException){$denied=true;}self::assertTrue($denied);self::assertSame([],$f->resource->seen);
+    }
 }

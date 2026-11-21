@@ -17,6 +17,15 @@ final class FormsFileImpact {
         if(!$folder->isReadable()||($create?(!$folder->isCreatable()||!$this->access->isVisible($folder)):!$this->access->isTraversable($folder)))
             throw new \RuntimeException('Forms destination is outside the current Files access');
     }
+    /** Existing-only path: every ancestor retains traversal checks in the same fresh policy window. */
+    public function assertDestinationChain(array $folders):void {
+        if(!array_is_list($folders)||$folders===[]||count($folders)>2000)throw new \RuntimeException('Forms destination chain is invalid');
+        foreach($folders as$folder)if(!$folder instanceof \OCP\Files\Folder)throw new \RuntimeException('Forms destination chain is invalid');
+        $this->access->clearCache(true);$this->access->assertScopeReadable();
+        foreach($folders as$folder)if(!$folder->isReadable()||!$this->access->isTraversable($folder))throw new \RuntimeException('Forms destination is outside the current Files access');
+        $leaf=$folders[array_key_last($folders)];
+        if(!$leaf->isCreatable()||!$this->access->isVisible($leaf))throw new \RuntimeException('Forms destination is outside the current Files access');
+    }
     /** A future Home has no native node yet, so only an explicitly unrestricted captured Files scope can admit it. */
     public function assertUnrestrictedDestinationScope(string $uid):void {
         $this->access->clearCache(true);$this->access->assertScopeReadable();$this->access->assertUnrestrictedScope($uid);

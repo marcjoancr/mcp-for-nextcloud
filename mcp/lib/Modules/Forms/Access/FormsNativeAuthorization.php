@@ -39,6 +39,19 @@ final class FormsNativeAuthorization {
             throw new \RuntimeException('Forms destination authority is unavailable.');
         $this->policy->resourceBoundary($context['uid'],fn()=>$this->impact->assertDestination($folder,$create));
     }
+    /** Native existing destination only. No allocation or provider callback runs in this policy window. */
+    public function assertDestinationChain(array $origin,string $targetUid,array $folders):void {
+        $context=$this->assert($origin);self::assertNativeHomeContext($context,$targetUid);
+        if($context['tool']!=='forms_transfer'||!array_is_list($folders)||$folders===[]||count($folders)>2000)throw new \RuntimeException('Forms destination chain is invalid');
+        $previous=null;
+        foreach($folders as$index=>$folder){
+            if(!$folder instanceof \OCP\Files\Folder||$folder->getOwner()?->getUID()!==$targetUid||(int)$folder->getId()<1)throw new \RuntimeException('Forms destination chain is invalid');
+            $path=$folder->getPath();
+            if(($index===0&&$path!=='/'.$targetUid.'/files')||($index>0&&dirname($path)!==$previous))throw new \RuntimeException('Forms destination chain is invalid');
+            $previous=$path;
+        }
+        $this->policy->resourceBoundary($context['uid'],fn()=>$this->impact->assertDestinationChain($folders));
+    }
     /** Pure binding check used by focused tests and the fresh-Home capability below. */
     public static function assertNativeHomeContext(array $context,string $targetUid):void {
         $files=$context['references']['files_operations']??null;
