@@ -150,7 +150,7 @@ final class FinalTransferShareCheck {
                 yield ['mapping',$id,['source_folder'=>(int)$r['folder_id'],'absent'=>false,'mapping'=>$m,'parent'=>$parent,'children'=>$children]];
                 // Source and target Core policies use their actual subjects; neither becomes MCP authority.
                 foreach ([[$j['uid'],(int)$r['folder_id'],$r['folder_path'],$source],[$j['input']['owner_id'],(int)$m['folder_id'],$m['folder_path'],$parent]] as [$subject,$nodeId,$path,$actualShare]) {
-                                        $core=FinalReadCore::fresh($subject,$this->readDb);$home=$root->getUserFolder($subject);FinalReadFiles::capture($home,$budget,$this->readDb);
+                                        $core=FinalReadCore::fresh($subject,$this->readDb);$home=$root->getUserFolder($subject);$homePath=$home->getPath();$homeId=$home->getId();$home=$root->get($homePath);if(!$home instanceof \OCP\Files\Folder||$home->getId()!==$homeId||$home->getPath()!==$homePath||$home->getOwner()?->getUID()!==$subject){throw new \RuntimeException('Final sharing Home identity changed');}FinalReadFiles::capture($home,$budget,$this->readDb);
                     $views=FinalShareViews::read($root,$core->user(),$nodeId,$budget,$this->fresh,$this->readDb);
                     if (!in_array($path,array_column($views->identities(),'path'),true)) {throw new \RuntimeException('Final sharing folder path changed');}
                     if ($subject===$j['input']['owner_id']) {$this->destinations[$nodeId]=[$views,$core->user(),$path];}
