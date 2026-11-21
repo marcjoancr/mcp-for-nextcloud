@@ -43,9 +43,13 @@ final class WriteQueryBuilder extends \OCA\Circles\Db\CoreQueryBuilder {
         $this->consumed=true;$this->lease->assertNoMetadataWrite();$this->lease->checkpoint();($this->assertFresh)();
         if($connection!==null&&$connection!==$this->lease->db()){throw new \RuntimeException('Native Circle write database changed');}
         if($this->action==='insert-child'){$this->setValue('accepted',$this->createNamedParameter($this->writeShare->getStatus(),\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT));}
+        $childDecision=$this->action==='update-child'&&$this->transferCapability!==null?$this->transferCapability->childUpdateDecision($this->lease->actorUid(),$this->writeShare,$this->binding):null;
+        $rowRecipient=$childDecision['recipient']??$this->circleId;
+        if($childDecision!==null){$this->set('accepted',$this->createNamedParameter($childDecision['accepted'],\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT));}
         if($this->action!=='insert'){
             $this->andWhere($this->expr()->eq('share_type',$this->createNamedParameter(7)));
-            $this->andWhere($this->expr()->eq('share_with',$this->createNamedParameter($this->circleId)));
+            $recipient=$this->expr()->eq('share_with',$this->createNamedParameter($rowRecipient));
+            $this->andWhere($this->action==='delete'?$this->expr()->orX($recipient,$this->expr()->eq('parent',$this->createNamedParameter($this->targetId))):$recipient);
             $this->andWhere($this->expr()->eq('file_source',$this->createNamedParameter($this->fileId)));
             $this->andWhere($this->expr()->eq('uid_owner',$this->createNamedParameter($this->ownerUid)));
         }
@@ -60,7 +64,8 @@ final class WriteQueryBuilder extends \OCA\Circles\Db\CoreQueryBuilder {
         $insert=in_array($this->action,['insert','insert-child'],true)?$this->insertValues($sql,$params):[];
         $rowValues=in_array($this->action,['insert','insert-child'],true)
             ? (($insert['share_type']??null)===7&&($insert['share_with']??null)===$this->circleId&&($insert['uid_owner']??null)===$this->ownerUid&&($insert['file_source']??null)===$this->fileId&&($this->action!=='insert-child'||(($insert['parent']??null)===$this->targetId&&($insert['accepted']??null)===$this->writeShare->getStatus())))
-            : ($this->hasBinding($sql,$params,'share_type',7)&&$this->hasBinding($sql,$params,'share_with',$this->circleId)&&$this->hasBinding($sql,$params,'file_source',$this->fileId)&&$this->hasBinding($sql,$params,'uid_owner',$this->ownerUid));
+            : ($this->hasBinding($sql,$params,'share_type',7)&&$this->hasBinding($sql,$params,'share_with',$rowRecipient)&&$this->hasBinding($sql,$params,'file_source',$this->fileId)&&$this->hasBinding($sql,$params,'uid_owner',$this->ownerUid));
+        if($childDecision!==null){$rowValues=$rowValues&&$this->hasBinding($sql,$params,'accepted',$childDecision['accepted']);}
         if(!$allowed||!$rowValues){
             throw new \RuntimeException('Native Circle write SQL is outside the pinned share row');
         }
@@ -74,11 +79,14 @@ final class WriteQueryBuilder extends \OCA\Circles\Db\CoreQueryBuilder {
         if($this->transferCapability!==null){$this->transferCapability->consume($this->lease->actorUid(),$this->action,$this->writeShare,$this->create,$this->binding);}
         $this->lease->checkpoint();($this->assertFresh)();
         $this->lease->assertNoMetadataWrite();
-        return parent::executeStatement($this->lease->db());
+        $affected=parent::executeStatement($this->lease->db());
+        if($this->action==='delete'){$this->lease->checkpoint();$result=$this->lease->db()->executeQuery('SELECT COUNT(*) FROM *PREFIX*share WHERE id = ? OR parent = ?',[$this->targetId,$this->targetId]);try{$remaining=$result->fetchOne();}finally{$result->closeCursor();}if($remaining!==0&&$remaining!=='0')throw new \RuntimeException('Native Circle parent or child deletion is incomplete');}
+        return $affected;
     }
 
     private function hasBinding(string $sql,array $parameters,string $column,mixed $expected):bool {
-        if(!preg_match_all('/\b'.preg_quote($column,'/').'\s*=\s*(:[A-Za-z0-9_]+|\?)/i',$sql,$matches)){return false;}
+        $name=preg_quote($column,'/');
+        if(!preg_match_all('/(?<![A-Za-z0-9_])(?:"'.$name.'"|`'.$name.'`|'.$name.'(?![A-Za-z0-9_]))\s*=\s*(:[A-Za-z0-9_]+|\?)/i',$sql,$matches)){return false;}
         $found=false;foreach($matches[1] as $placeholder){$key=ltrim($placeholder,':');if(array_key_exists($key,$parameters)){$value=$parameters[$key];}elseif(array_key_exists($placeholder,$parameters)){$value=$parameters[$placeholder];}else{return false;}if($value!==$expected)return false;$found=true;}
         return $found;
     }

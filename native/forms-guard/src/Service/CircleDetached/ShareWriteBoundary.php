@@ -120,6 +120,23 @@ final class ShareWriteBoundary {
         }elseif($binding!==null||$this->targetParentId!==0){throw new \RuntimeException('Bulk transfer Circle parent write binding changed');}
         $this->consumed=true;
     }
+    /** Closed SQL tuple for the one sealed child; parent authority remains the Circle share. */
+    public function childUpdateDecision(string $actorUid,\OCP\Share\IShare $parent,?array $binding):array {
+        if($this->mode!=='activate-child'||$this->consumed||$this->targetChildId<1||$binding!==['child_id'=>$this->targetChildId]||!\OCP\Server::get(\OCP\IDBConnection::class)->inTransaction())throw new \RuntimeException('Circle child SQL decision is unavailable');
+        $this->assertTransferParent($actorUid,$parent);
+        $recipient=$this->child['share_with']??null;$accepted=$this->child['accepted']??null;
+        if(!is_string($recipient)||$recipient===''||strlen($recipient)>255||!in_array($accepted,[0,1,2,'0','1','2'],true))throw new \RuntimeException('Circle child SQL decision changed');
+        return ['recipient'=>$recipient,'accepted'=>(int)$accepted];
+    }
+    /** Native parent propagation would touch no rows while every staged child is quarantined. */
+    public function assertQuarantinedParentPropagation(string $actorUid,\OCP\Share\IShare $parent,\OCA\Circles\Model\ShareWrapper $row):void {
+        $db=\OCP\Server::get(\OCP\IDBConnection::class);
+        if($this->mode!=='activate-parent'||!$this->consumed||!$db->inTransaction())throw new \RuntimeException('Circle parent propagation is outside activation');
+        $this->assertTransferParent($actorUid,$parent);
+        if($row->getParent()!==0||self::id($row->getId())!==$this->targetParentId||$row->getShareType()!==7||$row->getSharedWith()!==$this->circleId||$row->getShareOwner()!==$this->targetOwner||$row->getSharedBy()!==$this->actorUid||$row->getFileSource()!==$this->targetFileId||$row->getPermissions()!==1||$parent->getPermissions()!==1)throw new \RuntimeException('Circle parent propagation tuple changed');
+        $count=$db->executeQuery('SELECT COUNT(*) FROM *PREFIX*share WHERE parent = ? AND permissions > 0',[$this->targetParentId])->fetchOne();
+        if($count!==0&&$count!=='0')throw new \RuntimeException('Circle parent propagation has active children');
+    }
     public function assertTransferParent(string $actorUid,\OCP\Share\IShare $share):void {
         if($actorUid!==$this->actorUid||$share->getShareType()!==7||$share->getShareOwner()!==$this->targetOwner||$share->getSharedWith()!==$this->circleId
             ||(int)$share->getNodeId()!==$this->targetFileId||$this->targetParentId>0&&self::id($share->getId())!==$this->targetParentId){throw new \RuntimeException('Bulk transfer Circle parent is outside its capability');}

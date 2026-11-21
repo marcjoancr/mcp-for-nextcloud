@@ -73,10 +73,12 @@ final class CircleNativeShareWrapperService extends ShareWrapperService {
         $share=$this->currentShare??throw new \RuntimeException('Native Circle update intent is unavailable');
         if($shareWrapper->getParent()>0){$this->assertChildUpdate($shareWrapper,$share);}
         ($this->assertFresh)();$this->cacheOwner->clearCache($shareWrapper->getSharedWith());
+        if($shareWrapper->getParent()>0&&$this->transferCapability!==null){$this->writeRequest->within('update-child',self::positiveId($share->getId()),$share,false,function()use($shareWrapper):void{$this->writeRequest->update($shareWrapper);},['child_id'=>self::positiveId($shareWrapper->getId())]);return;}
         $this->writeRequest->within('update',self::positiveId($shareWrapper->getId()),$share,false,function()use($shareWrapper):void{$this->writeRequest->update($shareWrapper);});
     }
     public function updateChildPermissions(ShareWrapper $shareWrapper):void {
         $share=$this->currentShare??throw new \RuntimeException('Native Circle child update intent is unavailable');
+        if($shareWrapper->getParent()===0&&$this->transferCapability!==null){($this->assertFresh)();$this->transferCapability->assertQuarantinedParentPropagation($this->actorUid,$share,$shareWrapper);($this->assertFresh)();return;}
         $this->assertChildUpdate($shareWrapper,$share);
         $childId=self::positiveId($shareWrapper->getId());$parentId=self::positiveId($share->getId());
         ($this->assertFresh)();$this->cacheOwner->clearCache($shareWrapper->getSharedWith());
