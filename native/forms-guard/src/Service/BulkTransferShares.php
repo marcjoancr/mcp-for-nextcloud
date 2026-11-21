@@ -99,7 +99,8 @@ final class BulkTransferShares {
      $transferCircle=$tuple['type']===7;$writeCapability=$transferCircle?$this->circleParentWriteCapability($j,$row,$mapped):null;
      $eventProof=$transferCircle?$this->circleEventProof($j,$r,$row,$mapped,$folder,'create'):null;
      $manager=ScopedShareManager::create($j['uid'],$authorize,null,$eventProof,$writeCapability);
-     if(!$transferCircle){$manager=TransferShareManager::scoped($manager,$source,$authorize);ScopedShareManager::quarantineTransfer($manager);}
+     $manager=TransferShareManager::scoped($manager,$source,$authorize);
+     if(!$transferCircle){ScopedShareManager::quarantineTransfer($manager);}
      $share=$manager->newShare();$share->setShareType($tuple['type']);$share->setSharedWith($tuple['recipient']);$share->setSharedBy($j['uid']);$share->setShareOwner($tuple['owner_id']);$share->setNode($folder);$share->setPermissions($transferCircle?0:1);$share->setStatus((int)$r['share_state']['accepted']);if($r['share_state']['expiration']!==null){$share->setExpirationDate(new \DateTime($r['share_state']['expiration']));}if($r['share_state']['attributes']!==null){$attributes=$share->newAttributes();foreach(json_decode($r['share_state']['attributes'],true,64,JSON_THROW_ON_ERROR)as$a){$attributes->setAttribute($a[0],$a[1],$a[2]);}$share->setAttributes($attributes);}
      if($transferCircle){$j['share_events']=true;$j['event_phase']='uncertain';}
      $created=$manager->createShare($share);if(!ScopedShareManager::createdHere($manager,$created->getFullId())){throw new \RuntimeException('Transfer cannot adopt a pre-existing destination share');}
