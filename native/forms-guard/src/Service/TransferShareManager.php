@@ -33,11 +33,12 @@ final class TransferShareManager extends \OC\Share20\Manager {
  protected function generalChecks(IShare $share):void {
   ($this->transferAuthority)($share,true);
   // Actual IShare and initiator are unchanged. These two validation objects emit only
-  // native permission/restriction checks, never persistence or share-created events.
-  $source=clone $share;$source->setNode($this->transferSource);$source->setShareOwner($share->getSharedBy());
+  // native permission/restriction checks for the approved read grant. The actual
+  // provisional share remains at zero until activation; no consent is created.
+  $source=clone $share;$source->setPermissions(1);$source->setNode($this->transferSource);$source->setShareOwner($share->getSharedBy());
   parent::generalChecks($source);
   ($this->transferAuthority)($share,true);
-  $target=clone $share;$target->setSharedBy($share->getShareOwner());
+  $target=clone $share;$target->setPermissions(1);$target->setSharedBy($share->getShareOwner());
   parent::generalChecks($target);
   ($this->transferAuthority)($share,true);
  }
