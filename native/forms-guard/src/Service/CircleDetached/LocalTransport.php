@@ -206,6 +206,13 @@ private function assertOneShot(?array $eventBinding=null): void {
     if(($envelope['type']??null)!==7||($envelope['owner_id']??null)!==$this->lease->actorUid()||($envelope['intent_key']??null)!==$this->intentKey){throw new \RuntimeException('Circle phase actor or type binding changed');}
     if($this->envelope!==null&&$this->envelope!==$envelope){throw new \RuntimeException('Circle one-shot envelope changed');}$this->envelope=$envelope;
 }
+/** Cheap phase checks only; full proofs still bracket verify callbacks and manage/result effects. */
+private function assertAdmission(?array $binding=null): void {
+    if($this->intentKey!==null){$this->assertOneShot($binding);return;}
+    if($this->closed||$this->envelope===null){throw new \RuntimeException('Circle event admission is unavailable');}
+    $this->lease->checkpoint();
+    if($binding!==null&&($this->proofBinding===null||$this->proofBinding!==$binding)){throw new \RuntimeException('Circle event admission binding changed');}
+}
 private function allowClass(string $class): void {
     if(!in_array($class,[\OCA\Circles\FederatedItems\Files\FileShare::class,\OCA\Circles\FederatedItems\Files\FileUnshare::class],true)){throw new \RuntimeException('Circle event class is not qualified');}
 }
@@ -221,13 +228,13 @@ private function assertLocal(\OCA\Circles\Model\Federated\FederatedEvent $event)
 public function newEvent(\OCA\Circles\Model\Federated\FederatedEvent $event): array {
     try {
         if($event::class!==\OCA\Circles\Model\Federated\FederatedEvent::class){throw new \RuntimeException('Circle event declaration is not qualified');}
-        $this->assertOneShot();
+        $this->assertAdmission();
         $admissionBinding=$this->binding($event);
         $this->assertOneShot($admissionBinding);
         if($this->intentKey===null){$this->phaseKey=hash('sha256',"forms-circle-bulk-event-v1\0".json_encode([$this->envelope,$admissionBinding],JSON_THROW_ON_ERROR));$this->phase=new LocalEventState($this->phaseKey);}
         $phase=$this->phase??throw new \RuntimeException('Circle one-shot phase is unavailable');
         $entry=$phase->admit($this->phaseKey,$admissionBinding,function()use($event,$admissionBinding):array {
-            $this->assertOneShot($admissionBinding);$this->allowClass($event->getClass());
+            $this->assertAdmission($admissionBinding);$this->allowClass($event->getClass());
             if($this->draining||$this->queue!==[]){throw new \RuntimeException('Nested Circle event queue is unavailable');}
             EventModes::incoming($event->isForceSync(),$event->isAsync(),$event->isDataRequestOnly(),$event->isLimitedToInstanceWithMember());
             $this->assertLocal($event);
@@ -237,10 +244,12 @@ public function newEvent(\OCA\Circles\Model\Federated\FederatedEvent $event): ar
             EventModes::configured($event->isForceSync(),$event->isAsync(),$event->isDataRequestOnly(),$event->isLimitedToInstanceWithMember());
             $event->setSender($event->getCircle()->getInstance());$binding=$this->binding($event);
             if($binding!==$admissionBinding){throw new \RuntimeException('Circle event changed during admission');}
+            $this->assertOneShot();
             $item->verify($event);
+            $this->assertOneShot();
             if($this->binding($event)!==$binding){throw new \RuntimeException('Circle verification changed the event binding');}
             EventModes::configured($event->isForceSync(),$event->isAsync(),$event->isDataRequestOnly(),$event->isLimitedToInstanceWithMember());
-            $this->assertOneShot();
+            $this->assertAdmission();
             return ['event'=>$event,'binding'=>$binding,'phase'=>$this->phase];
         });
         $this->queue[]=$entry;
@@ -249,19 +258,20 @@ public function newEvent(\OCA\Circles\Model\Federated\FederatedEvent $event): ar
 }
 public function drain(): void {
     try {
-        $this->assertOneShot();if($this->draining){throw new \LogicException('Circle event drain is reentrant');}$this->draining=true;
+        $this->assertAdmission();if($this->draining){throw new \LogicException('Circle event drain is reentrant');}$this->draining=true;
         foreach($this->queue as &$entry){
             $entry['phase']->claimManage();
             $fresh=($this->fresh)();
             if(!$fresh instanceof Lease||$fresh->actorUid()!==$this->lease->actorUid()){throw new \RuntimeException('Fresh Circle lease is unavailable');}
             try {
-                $this->assertOneShot();$event=$entry['event'];
+                $this->assertAdmission();$event=$entry['event'];
                 if($this->binding($event)!==$entry['binding']){throw new \RuntimeException('Queued Circle event changed');}
                 $event->setCircle($fresh->actorCircle($event->getCircle()->getSingleId()));
                 $this->assertLocal($event);$this->confirmInitiator($event,true);
                 if($this->binding($event)!==$entry['binding']){throw new \RuntimeException('Circle identity incarnation changed before event processing');}
                 $item=$this->getFederatedItem($event,false);
                 EventModes::configured($event->isForceSync(),$event->isAsync(),$event->isDataRequestOnly(),$event->isLimitedToInstanceWithMember());
+                $this->assertOneShot();
                 $item->manage($event);
                 $this->assertOneShot();
                 $entry['phase']->done();
