@@ -5,7 +5,22 @@ declare(strict_types=1);
 
 namespace OCA\Forms\Mcp;
 final class SourceIdentity {
+    private static ?\Closure $verifiedReadFrame=null;
+    /** Only for a closed read batch: authority stays fresh; code is checked at both boundaries. */
+    public static function withinVerifiedReadFrame(\Closure $frame, \Closure $read): mixed {
+        if (self::$verifiedReadFrame!==null) {throw new \RuntimeException('Nested native source read frame is unavailable');}
+        $frame();
+        if (!self::verify()) {throw new \RuntimeException('Native source is unavailable before final read');}
+        self::$verifiedReadFrame=$frame;
+        try {return $read();}
+        finally {
+            self::$verifiedReadFrame=null;
+            $frame();
+            if (!self::verify()) {throw new \RuntimeException('Native source changed during final read');}
+        }
+    }
     public static function verify(): bool {
+        if (self::$verifiedReadFrame!==null) {(self::$verifiedReadFrame)();return true;}
         $root=dirname(__DIR__,2);
         $path=$root.'/mcp-guard-installed.json';
         if (!is_file($path)) {return false;}

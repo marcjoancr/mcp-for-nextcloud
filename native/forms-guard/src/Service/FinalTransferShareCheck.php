@@ -117,6 +117,7 @@ final class FinalTransferShareCheck {
                     $children=$this->read('SELECT '.FinalShareRows::COLUMNS.' FROM *PREFIX*share WHERE parent = ? ORDER BY id LIMIT 1001',[(int)$parent['id']],1000,$budget);
                     $sourceChildren=$this->read('SELECT '.FinalShareRows::COLUMNS.' FROM *PREFIX*share WHERE parent = ? ORDER BY id LIMIT 1001',[(int)$source['id']],1000,$budget);
                     $sealed=[];$targetById=[];foreach($children as $targetChild){$key=(int)$targetChild['id'];if(isset($targetById[$key]))throw new \RuntimeException('Final sharing child identity duplicated');$targetById[$key]=$targetChild;}
+                    $verifyChildren=function()use($j,$r,$source,$parent,$childSource,$childTargets,&$sealed,&$targetById):void {
                     $actorGroup=null;$checkedGroupMembers=[];
                     foreach ($childSource[(int)$source['id']]??[] as $childRecord) {
                         $child=$childRecord['data'];$selected=[];
@@ -140,6 +141,9 @@ final class FinalTransferShareCheck {
                         }
                         ($this->fresh)();
                     }
+                    };
+                    if($r['approved_tuple']['type']===1){\OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($this->frame,$verifyChildren);}
+                    else{$verifyChildren();}
                     if ($targetById!==[]) {throw new \RuntimeException('Final sharing target child set changed');}
                     if ($sourceChildren!==$sealed || count($children)!==count($sealed)) {throw new \RuntimeException('Final sharing original child set changed');}
                     $maps[]=['files_share_id'=>$m['files_share_id'],'form_id'=>$j['form']['id'],'native_share_id'=>$m['native_share_id'],'folder_id'=>$m['folder_id']];
