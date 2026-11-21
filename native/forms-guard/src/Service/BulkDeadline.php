@@ -14,9 +14,9 @@ final class BulkDeadline {
  /** Transfer work includes indivisible native Files hooks; all other actions keep 18s. */
  public static function limit():int {return OriginContext::active()&&(OriginContext::current()['verified']['tool']??null)==='forms_transfer'?(self::$circleStage?60:25):18;}
  /** Only an indivisible TYPE7 staging request may retain its fence for up to 60s. */
- public static function admitCircleStaging():void {
+ public static function admitCircleStaging(?string $phase=null):void {
   $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];
-  if(($caller['class']??null)!==BulkTransferShares::class||($caller['function']??null)!=='stage'||self::$start===null||self::$circleStage||!OriginContext::active()||(OriginContext::current()['verified']['tool']??null)!=='forms_transfer')throw new \OCA\Forms\Mcp\BeforeEffect('Circle staging budget is unavailable');
+  if(($caller['class']??null)!==BulkTransferShares::class||!(($caller['function']??null)==='stage'&&$phase===null||($caller['function']??null)==='stageCircleRecipient'&&$phase==='stage_recipients')||self::$start===null||self::$circleStage||!OriginContext::active()||(OriginContext::current()['verified']['tool']??null)!=='forms_transfer')throw new \OCA\Forms\Mcp\BeforeEffect('Circle staging budget is unavailable');
   self::check();self::$circleStage=true;
  }
  public static function started():float {return self::$start??microtime(true);}

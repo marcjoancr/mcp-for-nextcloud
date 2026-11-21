@@ -152,6 +152,8 @@ final class BulkTransferShares {
   });});
  }
  private function stageCircleRecipient(array &$j,array $row,array $child,array $r,array $mapped,Folder $folder):void {
+  if(($j['phase']??null)!=='stage_recipients'||($r['approved_tuple']['type']??null)!==7)throw new \RuntimeException('Circle recipient staging phase changed');
+  BulkDeadline::admitCircleStaging('stage_recipients');
   $circleId=$r['approved_tuple']['recipient'];$singleId=$child['share_with']??null;
   if(!is_string($singleId)||($child['share_type']??null)!==7||(int)($child['parent']??0)!==CoreShareIdentity::id($r['files_share_id'],7))throw new \RuntimeException('Original Circle child identity changed');
   $recipientUid=CircleRuntime::recipientUid($j['uid'],$circleId,$singleId);
