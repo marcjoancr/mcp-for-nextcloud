@@ -45,7 +45,16 @@ final class CoreQueryBuilder extends \OCA\Circles\Db\CoreQueryBuilder
     private array $sqlPath = [];
     public function __construct()
     {
-        \OC\DB\QueryBuilder\QueryBuilder::__construct($this->__formsCircleLease->db(), $this->__formsCircleLease->system(), $this->__formsCircleLease->logger());
+        $connection=$this->__formsCircleLease->db();
+        if($connection instanceof \OCA\Forms\Mcp\Service\FinalReadConnection){
+            // Native expression construction needs private DBAL state; execution remains lease-recorded below.
+            $query=$connection->getQueryBuilder();
+            if($query::class!==\OCA\Forms\Mcp\Service\FinalReadQuery::class)throw new \RuntimeException('Circle final read builder is unqualified');
+            foreach((new \ReflectionClass(\OC\DB\QueryBuilder\QueryBuilder::class))->getProperties()as$property){
+                if($property->isStatic())throw new \RuntimeException('Circle final read builder state is unqualified');
+                if($property->isInitialized($query))$property->setValue($this,$property->getValue($query));
+            }
+        }else{\OC\DB\QueryBuilder\QueryBuilder::__construct($connection, $this->__formsCircleLease->system(), $this->__formsCircleLease->logger());}
         $this->configService = $this->__formsCircleLease->config();
     }
     /**
