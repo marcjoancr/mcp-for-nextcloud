@@ -10,7 +10,7 @@
 
 ## Get started
 
-Requires **Nextcloud 33–35** and **PHP 8.4+**. This independently maintained fork of [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declares version **2.8.2** and retains app ID `mcp`. The Nextcloud App Store edition is the original project; use this fork's reviewed package for installation or replacement.
+Requires **Nextcloud 33–35** and **PHP 8.4+**. This independently maintained fork of [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declares version **2.9.0** and retains app ID `mcp`. The Nextcloud App Store edition is the original project; use this fork's reviewed package for installation or replacement.
 
 1. [Install the application](../docs/en/installation.md).
 2. [Enable the service, user eligibility and personal connection](../docs/en/guides/permissions.md#enable-access).

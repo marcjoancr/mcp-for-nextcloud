@@ -16,7 +16,7 @@
 
 ## Primeiros passos
 
-Exige **Nextcloud 33–35** e **PHP 8.4+**. Este fork mantido independentemente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara a versão **2.8.2** e mantém o identificador `mcp`. A edição da loja Nextcloud é a do projeto original; use o pacote verificado deste fork para instalar ou substituir.
+Exige **Nextcloud 33–35** e **PHP 8.4+**. Este fork mantido independentemente de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara a versão **2.9.0** e mantém o identificador `mcp`. A edição da loja Nextcloud é a do projeto original; use o pacote verificado deste fork para instalar ou substituir.
 
 1. [Instale o aplicativo](../docs/pt-BR/installation.md).
 2. [Ative o serviço, a elegibilidade do usuário e a conexão pessoal](../docs/pt-BR/guides/permissions.md#habilitar-o-acesso).

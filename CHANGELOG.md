@@ -2,6 +2,14 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.9.0
+
+- Expand Forms authoring, responses, managed attachments, sharing, comments and result exports with separate MCP grants and current native permissions.
+- Add confirmed, bounded deletion and private recovery of managed Forms data, comments and sharing records; preserve unrelated files and forms.
+- Add resumable ownership transfer with fresh destination Home setup, native user/group/Circle sharing checks and preserved recipient decisions.
+- Provide linked exports with qualified destination checks and a separately verified Forms 5.4.2 native companion. Guarded writes require the documented exact runtime, storage and server integrations.
+- Preserve existing Mail delivery controls and grants. Newly added Forms tools require explicit assignment and connection selection.
+
 ## 2.8.2
 
 - Compose new Mail drafts using the user's native reply position and the selected account/alias signature placement before confirmation. Preserve existing draft edits and support an explicit complete-body mode.

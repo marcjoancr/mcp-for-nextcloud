@@ -15,7 +15,7 @@
 
 ## Primers passos
 
-Requereix **Nextcloud 33–35** i **PHP 8.4+**. Aquest fork mantingut independentment de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara la versió **2.8.2** i conserva l'identificador `mcp`. L'edició de la botiga és el projecte original; fes servir el paquet revisat d'aquest fork per instal·lar-lo o substituir-la.
+Requereix **Nextcloud 33–35** i **PHP 8.4+**. Aquest fork mantingut independentment de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara la versió **2.9.0** i conserva l'identificador `mcp`. L'edició de la botiga és el projecte original; fes servir el paquet revisat d'aquest fork per instal·lar-lo o substituir-la.
 
 1. [Instal·la l'aplicació](../docs/ca/installation.md).
 2. [Habilita el servei, l'elegibilitat de l'usuari i la connexió personal](../docs/ca/guides/permissions.md#habilitar-laccés).
