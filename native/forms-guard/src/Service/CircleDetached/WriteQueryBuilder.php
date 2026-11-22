@@ -40,7 +40,7 @@ final class WriteQueryBuilder extends \OCA\Circles\Db\CoreQueryBuilder {
     public function executeQuery(?IDBConnection $connection=null): \OCP\DB\IResult {throw new \RuntimeException('Circle write request cannot read');}
     public function executeStatement(?IDBConnection $connection=null): int {
         if($this->consumed){throw new \RuntimeException('Native Circle write intent was already consumed');}
-        $this->consumed=true;$this->lease->assertNoMetadataWrite();$this->lease->checkpoint();($this->assertFresh)();
+        $this->consumed=true;$this->writeCheckpoint();
         if($connection!==null&&$connection!==$this->lease->db()){throw new \RuntimeException('Native Circle write database changed');}
         if($this->action==='insert-child'){$this->setValue('accepted',$this->createNamedParameter($this->writeShare->getStatus(),\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT));}
         $childDecision=$this->action==='update-child'&&$this->transferCapability!==null?$this->transferCapability->childUpdateDecision($this->lease->actorUid(),$this->writeShare,$this->binding):null;
@@ -77,11 +77,17 @@ final class WriteQueryBuilder extends \OCA\Circles\Db\CoreQueryBuilder {
         ($this->assertFresh)();($this->beforeWrite)($this->writeShare,$this->create,$this->binding);
         if($this->childProof!==null){($this->childProof)();}
         if($this->transferCapability!==null){$this->transferCapability->consume($this->lease->actorUid(),$this->action,$this->writeShare,$this->create,$this->binding);}
-        $this->lease->checkpoint();($this->assertFresh)();
+        $this->writeCheckpoint(true);
         $this->lease->assertNoMetadataWrite();
         $affected=parent::executeStatement($this->lease->db());
         if($this->action==='delete'){$this->lease->checkpoint();$result=$this->lease->db()->executeQuery('SELECT COUNT(*) FROM *PREFIX*share WHERE id = ? OR parent = ?',[$this->targetId,$this->targetId]);try{$remaining=$result->fetchOne();}finally{$result->closeCursor();}if($remaining!==0&&$remaining!=='0')throw new \RuntimeException('Native Circle parent or child deletion is incomplete');}
         return $affected;
+    }
+
+    /** The full lease already checks bound origin/principal, complete sources, actor incarnation and config. */
+    private function writeCheckpoint(bool $final=false):void {
+        $this->lease->assertNoMetadataWrite();$this->lease->checkpoint();$this->lease->assertNoMetadataWrite();
+        if($final||$this->transferCapability===null||!in_array($this->action,['update','update-child'],true))($this->assertFresh)();
     }
 
     /** Native update already assigns accepted; rebind it instead of appending a duplicate SET column. */

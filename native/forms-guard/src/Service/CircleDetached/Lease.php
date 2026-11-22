@@ -55,7 +55,7 @@ final class Lease {
     /** Closed native metadata callbacks only. Provider calls/events/writes remain outside this lifetime. */
     public function metadataRead(\Closure $read):mixed {
         $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];
-        $allowed=[ScopedFederatedUserService::class=>['initCurrentUser','getCurrentUser','getLocalFederatedUser'],ScopedCircleService::class=>['getCircle','probeCircle'],\OCA\Forms\Mcp\Service\CircleRuntime::class=>['readProviderParent'],ShareWrapperRequest::class=>['readModel']];
+        $allowed=[ScopedFederatedUserService::class=>['initCurrentUser','getCurrentUser','getLocalFederatedUser'],ScopedCircleService::class=>['getCircle','probeCircle'],\OCA\Forms\Mcp\Service\CircleRuntime::class=>['readProviderParent','readShareIdentity'],ShareWrapperRequest::class=>['readModel']];
         if(!in_array($caller['function']??null,$allowed[$caller['class']??'']??[],true))throw new \RuntimeException('Circle metadata read issuer is unqualified');
         if(!\OCA\Forms\Mcp\Service\OriginContext::active()||(\OCA\Forms\Mcp\Service\OriginContext::current()['verified']['tool']??null)!=='forms_transfer')return $read();
         if(\OCA\Forms\Mcp\Service\OriginContext::current()['verified']['uid']!==$this->uid)throw new \RuntimeException('Circle metadata actor changed');

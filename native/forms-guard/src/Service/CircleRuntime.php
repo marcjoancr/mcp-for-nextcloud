@@ -128,11 +128,23 @@ final class CircleRuntime {
     public static function assertCircleShareIdentity(string $uid,string $circleId,int $shareId,int $fileId,?FinalReadConnection $readConnection=null):void {
         self::assertAvailable($uid);
         if($shareId<1||$fileId<1||$circleId===''){throw new \RuntimeException('Native Circle parent is unavailable');}
+        if(self::transferRecipientRead()){
+            self::recipientRead(static fn()=>CircleReadRuntime::withProviderLease($uid,static fn(\OCA\Forms\Mcp\Service\CircleDetached\Lease $lease)=>self::readShareIdentity($lease,$circleId,$shareId,$fileId),$readConnection));
+            return;
+        }
         CircleReadRuntime::withProviderLease($uid,static function(\OCA\Forms\Mcp\Service\CircleDetached\Lease $lease)use($circleId,$shareId,$fileId):void {
             try{$row=$lease->shareWrappers()->searchShare($circleId,$fileId);}
             catch(\OCA\Circles\Exceptions\ShareWrapperNotFoundException){return;}
             if((int)$row->getId()!==$shareId||$row->getParent()!==0||$row->getShareType()!==7||$row->getSharedWith()!==$circleId||$row->getFileSource()!==$fileId){throw new \RuntimeException('Native Circle duplicate share identity changed');}
         },$readConnection);
+    }
+    /** Pure native duplicate lookup only; no leased model or provider effect leaves this metadata callback. */
+    private static function readShareIdentity(\OCA\Forms\Mcp\Service\CircleDetached\Lease $lease,string $circleId,int $shareId,int $fileId):void {
+        $lease->metadataRead(static function()use($lease,$circleId,$shareId,$fileId):void {
+            try{$row=$lease->shareWrappers()->searchShare($circleId,$fileId);}
+            catch(\OCA\Circles\Exceptions\ShareWrapperNotFoundException){return;}
+            if((int)$row->getId()!==$shareId||$row->getParent()!==0||$row->getShareType()!==7||$row->getSharedWith()!==$circleId||$row->getFileSource()!==$fileId)throw new \RuntimeException('Native Circle duplicate share identity changed');
+        });
     }
     /** Exact bounded managed parent-share projection for one owned Forms upload folder. */
     public static function managedParents(string $uid,Folder $folder,int $limit=1000):array {
