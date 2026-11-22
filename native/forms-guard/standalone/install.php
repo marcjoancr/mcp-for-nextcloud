@@ -51,6 +51,7 @@ try {
     if ($action==='status' || isset($options['dry-run'])) {echo json_encode($state,JSON_THROW_ON_ERROR)."\n";exit;}
     if (!is_writable($directory) || $config->getSystemValueBool('config_is_read_only',false)) {throw new RuntimeException('System configuration is read-only');}
     if ($action==='rollback') {
+        if (is_file($directory.'/CommentsActivationState.php')) {require_once $directory.'/CommentsActivationState.php';\McpFormsServerExtension\CommentsActivationState::retire($metadata??[]);}
         if ($selector!==$owned) {echo json_encode($state+['preserved'=>true])."\n";exit;}
         if (!$metadata || !array_key_exists('prior',$metadata)) {throw new RuntimeException('Original factory setting is unavailable');}
         if ($metadata['prior']===null) {$config->deleteSystemValue('comments.managerFactory');}
@@ -63,7 +64,7 @@ try {
     }
     if (!in_array($selector,[null,$default,$owned],true)) {throw new RuntimeException('Existing custom comments factory preserved');}
     if ($selector===$owned && !$metadata) {throw new RuntimeException('Owned factory metadata is missing');}
-    $artifacts=['mcp_forms_comments_bootstrap.php','mcp-forms-comments.config.php'];
+    $artifacts=['mcp_forms_comments_bootstrap.php','mcp-forms-comments.config.php','CommentsActivationState.php'];
     foreach ($artifacts as $name) {
         $path=$directory.'/'.$name;
         if (is_file($path) && (!$metadata || !in_array(hash_file('sha256',$path),[$metadata['hashes'][$name]??'', $metadata['staged_hashes'][$name]??''],true))) {
@@ -94,6 +95,8 @@ try {
     // Every explicit activation/validation retires previews from any unguarded maintenance interval.
     \OCP\Server::get(\OCA\Forms\Mcp\Service\FormsRevisionFence::class)->transaction(static function():void {if(class_exists(\OCA\Forms\Mcp\Service\BulkEpoch::class)){\OCA\Forms\Mcp\Service\BulkEpoch::touch(0);}});
     $metadata['native_manifest']=hash_file('sha256',\OCP\Server::get(\OCP\App\IAppManager::class)->getAppPath('forms').'/mcp-guard-installed.json');
+    require_once $directory.'/CommentsActivationState.php';
+    \McpFormsServerExtension\CommentsActivationState::activate($metadata);
     $metadata['active']=true;atomicFile($metadataPath,json_encode($metadata,JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR)."\n");
     echo json_encode($verified+['installed'=>true,'requires_process_turnover'=>true])."\n";
 } catch (Throwable $error) {fwrite(STDERR,$error->getMessage()."\n");exit(1);}

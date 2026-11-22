@@ -34,7 +34,7 @@ try {
     selector($owned);unlink($fixture);install('validate');
     file_put_contents($fixture,'<?php $CONFIG = ["config_is_read_only"=>true];');
     $readonly=install('validate',false);$readstate=state();
-    $checks['readonly_publication_closed']=$readonly['exit']!==0 && !$readstate['comments'] && $readstate['ordinary_crud'];
+    $checks['readonly_install_refused_active_runtime_preserved']=$readonly['exit']!==0 && $readstate['comments'] && $readstate['ordinary_crud'];
     unlink($fixture);install('validate');
     file_put_contents($fixture,'<?php $CONFIG = ["comments.managerFactory"=>"OC\\\\Comments\\\\ManagerFactory"];');
     $competing=install('validate',false);$competeState=state();

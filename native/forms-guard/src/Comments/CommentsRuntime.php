@@ -34,10 +34,11 @@ final class CommentsRuntime {
                 || $config->getSystemValue('comments.managerFactory')!=='McpFormsServerExtension\\CommentsFactory') {return false;}
             $metadata=json_decode(file_get_contents($path),true,32,JSON_THROW_ON_ERROR);
             if (($metadata['active']??false)!==true || !hash_equals($metadata['native_manifest']??'',hash_file('sha256',dirname(__DIR__,3).'/mcp-guard-installed.json'))) {return false;}
-            foreach (['mcp_forms_comments_bootstrap.php','mcp-forms-comments.config.php'] as $name) {
+            foreach (['mcp_forms_comments_bootstrap.php','mcp-forms-comments.config.php','CommentsActivationState.php'] as $name) {
                 if (!is_file($directory.'/'.$name) || is_link($directory.'/'.$name) || !hash_equals($metadata['hashes'][$name]??'',hash_file('sha256',$directory.'/'.$name))) {return false;}
             }
-            return true;
+            if ((new \ReflectionClass(\McpFormsServerExtension\CommentsActivationState::class))->getFileName()!==realpath($directory.'/CommentsActivationState.php')) {return false;}
+            return \McpFormsServerExtension\CommentsActivationState::active($metadata);
         } catch (\Throwable) {return false;}
     }
     public static function actor(): string {

@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later */
 declare(strict_types=1);
 namespace McpFormsServerExtension;
+require_once __DIR__.'/CommentsActivationState.php';
 /** This class lives outside app trees and has only core declaration dependencies. */
 final class CommentsFactory implements \OCP\Comments\ICommentsManagerFactory {
     public function __construct(private \Psr\Container\ContainerInterface $serverContainer) {}
@@ -14,13 +15,16 @@ final class CommentsFactory implements \OCP\Comments\ICommentsManagerFactory {
                 return $manager::createManager($this->serverContainer);
             }
         } catch (\Throwable) { /* Optional app qualification precedes every mutation. */ }
+        $path=rtrim(\OC::$configDir,'/').'/mcp_forms_comments_install.json';
+        $metadata=is_file($path)&&!is_link($path)?json_decode((string)file_get_contents($path),true,32,JSON_THROW_ON_ERROR):[];
+        CommentsActivationState::retire(is_array($metadata)?$metadata:[]);
         self::invalidateActivation();
         return (new \OC\Comments\ManagerFactory($this->serverContainer))->getManager();
     }
     private static function invalidateActivation(): void {
         $path=rtrim(\OC::$configDir,'/').'/mcp_forms_comments_install.json';
         try {
-            if (!is_file($path) || is_link($path)) {return;}
+            if (!is_file($path) || is_link($path) || !is_writable($path) || !is_writable(dirname($path))) {return;}
             $metadata=json_decode(file_get_contents($path),true,32,JSON_THROW_ON_ERROR);
             if (($metadata['active']??false)!==true) {return;}
             $metadata['active']=false;
@@ -29,7 +33,7 @@ final class CommentsFactory implements \OCP\Comments\ICommentsManagerFactory {
             if (file_put_contents($temporary,$json,LOCK_EX)!==strlen($json)) {return;}
             chmod($temporary,0640);
             if (!rename($temporary,$path)) {unlink($temporary);}
-        } catch (\Throwable) { /* Read-only activation metadata also closes native capability publication. */ }
+        } catch (\Throwable) { /* The data witness has already retired this activation. */ }
     }
 
 }
