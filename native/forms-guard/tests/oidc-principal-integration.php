@@ -6,9 +6,10 @@ declare(strict_types=1);
 define('OC_CONSOLE', true);
 require (getenv('MCP_FORMS_CORE_ROOT') ?: '/var/www/html').'/lib/base.php';
 $apps = \OCP\Server::get(\OCP\App\IAppManager::class);
+\OC_App::loadApps();
 $apps->loadApp('mcp');$apps->loadApp('forms');
 if ($candidate = getenv('MCP_FORMS_PRINCIPAL_CANDIDATE')) {
-    require $candidate.'/Service/FreshUserBackend.php';require $candidate.'/Service/FreshCore.php';
+    require $candidate.'/Service/FreshUserBackend.php';require $candidate.'/Service/FreshGuestGroup.php';require $candidate.'/Service/FreshCore.php';
 }
 $check = static function(bool $ok, string $message): void {if (!$ok) {throw new RuntimeException($message);}};
 $refuses = static function(Closure $call, string $message) use ($check): void {
@@ -36,6 +37,17 @@ try {
     $check($original->isEnabled(), 'Original enabled cache was changed');
     $db->executeStatement('DELETE FROM *PREFIX*preferences WHERE userid = ?', [$uid]);
     (new \OCA\Forms\Mcp\Service\FreshCore($uid))->assertPrincipal();
+    foreach (\OCP\Server::get(\OCP\IGroupManager::class)->getBackends() as $groupBackend) {
+        if ($groupBackend::class !== 'OCA\\Guests\\GroupBackend') {continue;}
+        $manager = (new ReflectionProperty($groupBackend, 'guestManager'))->getValue($groupBackend);
+        $guests = (new ReflectionProperty($manager, 'userBackend'))->getValue($manager);
+        $check(!$guests->userExists($uid), 'Guest absence not warmed');
+        $db->executeStatement('INSERT INTO *PREFIX*guests_users (uid, uid_lower, password) VALUES (?, ?, ?)', [$uid, mb_strtolower($uid), '']);
+        $refuses(static fn() => new \OCA\Forms\Mcp\Service\FreshCore($uid), 'Forms guest authority is unqualified');
+        $check(!$guests->userExists($uid), 'Original Guest cache was changed');
+        $db->executeStatement('DELETE FROM *PREFIX*guests_users WHERE uid = ?', [$uid]);
+        (new \OCA\Forms\Mcp\Service\FreshCore($uid))->assertPrincipal();
+    }
     $check($backend->userExists($uid), 'OIDC cache not warmed');
     $db->executeStatement('DELETE FROM *PREFIX*user_oidc WHERE user_id = ?', [$uid]);
     $refuses(static fn() => new \OCA\Forms\Mcp\Service\FreshCore($uid), 'Forms principal is unavailable');

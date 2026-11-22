@@ -264,3 +264,11 @@ Run `tests/oidc-principal-integration.php` with `MCP_FORMS_CORE_ROOT` pointing t
 qualified installation with user_oidc enabled. Its private fixture rows are
 transactional and always rolled back; no provider request or account provisioning
 is performed.
+
+With the reviewed Guests 4.10.1 backend enabled, Forms proves that a supported
+principal has no Guest account through a cloned primary-database backend with
+a new cache. Only then can the virtual `guest_app` backend be omitted from
+that principal's fresh group authority. Guest accounts, altered implementations,
+custom virtual group names and other group providers remain unavailable. This
+does not change the Guests app, its native restrictions or any user assignment.
+Principal integration validation loads the complete application bootstrap.

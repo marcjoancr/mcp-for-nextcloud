@@ -2,6 +2,11 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.9.3
+
+- Keep the 65 Forms permission entries available during the full web/MCP application bootstrap when Guests 4.10.1 registers its virtual group.
+- Admit only verified non-guest principals with a fresh primary-database absence check. Preserve guest restrictions, current role checks and explicit per-user grants.
+
 ## 2.9.2
 
 - Admit provisioned accounts from the qualified user_oidc 8.11.0 backend to all 65 Forms permission entries. Preserve explicit grants, native roles and connection selections.

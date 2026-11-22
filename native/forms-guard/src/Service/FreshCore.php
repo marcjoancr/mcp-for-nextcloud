@@ -54,6 +54,10 @@ final class FreshCore {
         $this->groups = self::copy(Server::get(\OCP\IGroupManager::class), \OC\Group\Manager::class);
         $backends = [];
         foreach ($this->groups->getBackends() as $groupBackend) {
+            if ($groupBackend::class === 'OCA\\Guests\\GroupBackend') {
+                (new FreshGuestGroup())->assertAbsent($groupBackend, $uid);
+                continue;
+            }
             if ($groupBackend::class !== \OC\Group\Database::class) {
                 throw new \RuntimeException('Forms group backend is unqualified');
             }
