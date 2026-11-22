@@ -5,6 +5,8 @@ namespace OCA\Forms\Mcp\Service;
 /** Exact consumed native SQL inputs. Not a policy engine, lock, or reusable authority. */
 final class FinalReadSet {
     private array $queries=[];
+    private array $observed=[];
+    private int $observations=0;
     private bool $sealed=false;
     private bool $used=false;
     private int $bytes=0;
@@ -41,12 +43,20 @@ final class FinalReadSet {
     }
     public function add(string $sql,array $params,array $types,array $rows):void {
         $this->open();$tables=$this->validate($sql,$params,$types);
-        if(!array_is_list($rows)||count($rows)>1000||count($this->queries)>=10000)throw new \RuntimeException('Final read budget exceeded');
+        if(!array_is_list($rows)||count($rows)>1000||++$this->observations>10000||($this->rows+=count($rows))>10000)throw new \RuntimeException('Final read budget exceeded');
         foreach($rows as$row){if(!is_array($row)||$row===[])throw new \RuntimeException('Final read row is malformed');foreach($row as$key=>$value){if(!is_string($key)||preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/D',$key)!==1||(!is_null($value)&&!is_string($value)&&!is_int($value)&&!is_bool($value)))throw new \RuntimeException('Final read row is malformed');}}
         $typeData=array_map(static fn(mixed$type):mixed=>$type instanceof \UnitEnum?[$type::class,$type->name]:$type,$types);
-        $bytes=strlen(json_encode([$sql,$params,$typeData,$rows],JSON_THROW_ON_ERROR));
-        if(($this->bytes+=$bytes)>1048576||($this->rows+=count($rows))>10000)throw new \RuntimeException('Final read budget exceeded');
-        $this->queries[]=[$sql,$params,$types,$rows,$tables];
+        // Every native query still ran. Only byte-identical inputs with equal observed multisets share replay storage.
+        $key=hash('sha256',json_encode([$sql,$params,$typeData],JSON_THROW_ON_ERROR));
+        if(isset($this->observed[$key])){
+            $prior=$this->queries[$this->observed[$key]];
+            if($prior[0]!==$sql||$prior[1]!==$params||$prior[2]!==$types)throw new \RuntimeException('Final read observation binding changed');
+            if(!self::equalRows($prior[3],$rows))throw new FinalReadMismatch(['tables'=>$tables,'columns'=>[],'expected_rows'=>count($prior[3]),'actual_rows'=>count($rows)]);
+            return;
+        }
+        $bytes=strlen(json_encode([$sql,$params,$typeData,$rows],JSON_THROW_ON_ERROR))+strlen($key);
+        if(($this->bytes+=$bytes)>1048576)throw new \RuntimeException('Final read budget exceeded');
+        $this->observed[$key]=count($this->queries);$this->queries[]=[$sql,$params,$types,$rows,$tables];
     }
     public function seal():void {$this->open();if($this->queries===[])throw new \RuntimeException('Final read snapshot is empty');$this->sealed=true;}
     public function tables():array {$out=[];foreach($this->queries as$q)foreach($q[4]as$t)$out[$t]=true;return array_keys($out);}
