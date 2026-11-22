@@ -61,9 +61,9 @@ final class Lease {
         if(\OCA\Forms\Mcp\Service\OriginContext::current()['verified']['uid']!==$this->uid)throw new \RuntimeException('Circle metadata actor changed');
         if($this->metadataReading)return $read();
         $run=function()use($read):mixed {$this->metadataReading=true;try{$this->checkpoint();$result=$read();$this->checkpoint();return$result;}finally{$this->metadataReading=false;}};
-        if(\OCA\Forms\Mcp\Service\OriginReadAuthority::check())return$run();
+        if(\OCA\Forms\Mcp\Service\OriginReadAuthority::check())return$this->sources->verifiedRead($this->uid,$run);
         $frame=\OCA\Forms\Mcp\Service\OriginContext::transferSharingAuthority()['frame'];
-        return \OCA\Forms\Mcp\Service\OriginContext::verifiedRead($frame,$run);
+        return $this->sources->verifiedRead($this->uid,fn()=>\OCA\Forms\Mcp\Service\OriginContext::verifiedRead($frame,$run));
     }
     public function assertNoMetadataWrite():void {if($this->metadataReading)throw new \RuntimeException('Circle metadata read cannot write');}
     public function actorUid(): string {$this->assertActive();return $this->uid;}

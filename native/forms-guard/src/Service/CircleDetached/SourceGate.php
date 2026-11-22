@@ -7,10 +7,10 @@ final class SourceGate {
     private ?array $verifiedInputs=null;
     private ?array $readInputs=null;
     public function __construct() {$this->reads=new SourceReadFrame();}
-    /** Only the closed DTO reader may defer source rehashing; provider/effect leases never enter this lifetime. */
+    /** Only closed DTO or whitelisted metadata reads may defer source rehashing; effects stay outside. */
     public function verifiedRead(string $uid,\Closure $read):mixed {
         $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];
-        if(($caller['class']??null)!==Lease::class||($caller['function']??null)!=='readData')throw new \RuntimeException('Circle source read issuer is unqualified');
+        if(($caller['class']??null)!==Lease::class||!in_array($caller['function']??null,['readData','metadataRead'],true))throw new \RuntimeException('Circle source read issuer is unqualified');
         return $this->reads->within(fn()=>$this->assert($uid),function()use($read):mixed {
             $this->readInputs=$this->verifiedInputs;
             try{return $read();}finally{$this->readInputs=null;}
