@@ -48,7 +48,7 @@ final class Lease {
         $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];
         if(($caller['class']??null)!==Reader::class||($caller['function']??null)!=='read')throw new \RuntimeException('Circle data read issuer is unqualified');
         return $this->sources->verifiedRead($this->uid,function()use($read):mixed {
-            $this->checkpoint();$data=$read($this);\OCA\Forms\Mcp\Service\CircleReadData::page([['value'=>$data]]);$this->checkpoint();return $data;
+            return $this->closedTransferRead(function()use($read):mixed {$data=$read($this);\OCA\Forms\Mcp\Service\CircleReadData::page([['value'=>$data]]);return$data;});
         });
     }
     private bool $metadataReading=false;
@@ -60,17 +60,32 @@ final class Lease {
         if(!\OCA\Forms\Mcp\Service\OriginContext::active()||(\OCA\Forms\Mcp\Service\OriginContext::current()['verified']['tool']??null)!=='forms_transfer')return $read();
         if(\OCA\Forms\Mcp\Service\OriginContext::current()['verified']['uid']!==$this->uid)throw new \RuntimeException('Circle metadata actor changed');
         if($this->metadataReading)return $read();
-        $run=function()use($read):mixed {$this->metadataReading=true;try{$this->checkpoint();$result=$read();$this->checkpoint();return$result;}finally{$this->metadataReading=false;}};
+        $run=function()use($read):mixed {$this->metadataReading=true;try{return$this->closedTransferRead($read);}finally{$this->metadataReading=false;}};
         if(\OCA\Forms\Mcp\Service\OriginReadAuthority::check())return$this->sources->verifiedRead($this->uid,$run);
         $frame=\OCA\Forms\Mcp\Service\OriginContext::transferSharingAuthority()['frame'];
         return $this->sources->verifiedRead($this->uid,fn()=>\OCA\Forms\Mcp\Service\OriginContext::verifiedRead($frame,$run));
     }
-    public function assertNoMetadataWrite():void {if($this->metadataReading)throw new \RuntimeException('Circle metadata read cannot write');}
+    private bool $closedTransferReading=false;
+    /** Pure, unpublished transfer reads check guard/incarnation/config fully at both boundaries. */
+    private function closedTransferRead(\Closure $read):mixed {
+        $this->checkpoint();
+        $bound=\OCA\Forms\Mcp\Service\OriginContext::active()&&(\OCA\Forms\Mcp\Service\OriginContext::current()['verified']['tool']??null)==='forms_transfer'
+            &&(\OCA\Forms\Mcp\Service\OriginContext::current()['verified']['uid']??null)===$this->uid&&\OCA\Forms\Mcp\Service\OriginReadAuthority::check();
+        if(!$bound){$result=$read();$this->checkpoint();return$result;}
+        if($this->closedTransferReading)throw new \RuntimeException('Nested transfer read guard is unavailable');
+        $this->closedTransferReading=true;
+        try{return$read();}finally{$this->closedTransferReading=false;$this->checkpoint();}
+    }
+    public function assertNoMetadataWrite():void {if($this->metadataReading||$this->closedTransferReading)throw new \RuntimeException('Circle metadata read cannot write');}
     public function actorUid(): string {$this->assertActive();return $this->uid;}
     public function assertActive(): void {if(!$this->active||hrtime(true)-$this->started>$this->maxAgeNanos){throw new \RuntimeException('Circle request lease ended');}}
     public function checkpoint(): void {
         $this->assertActive();
         if(++$this->queries>128){throw new \RuntimeException('Circle query budget exceeded');}
+        if($this->closedTransferReading){
+            if(!\OCA\Forms\Mcp\Service\OriginReadAuthority::check())throw new \RuntimeException('Closed transfer origin frame ended');
+            $this->sources->assert($this->uid);return;
+        }
         ($this->assertAuthority)();$this->sources->assert($this->uid);
         $core=$this->connection instanceof FinalReadConnection?FinalReadCore::fresh($this->uid,$this->connection):new FreshCore($this->uid);
         if(!$core->apps()->isEnabledForUser('forms',$core->user())||!$core->apps()->isEnabledForUser('circles',$core->user())){throw new \RuntimeException('Circle actor application access changed');}
