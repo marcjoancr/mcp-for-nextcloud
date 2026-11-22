@@ -2,6 +2,11 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.9.2
+
+- Admit provisioned accounts from the qualified user_oidc 8.11.0 backend to all 65 Forms permission entries. Preserve explicit grants, native roles and connection selections.
+- Recheck OIDC account existence with an independent mapper cache and retain fresh account-disable, app-access and administrator checks. Unknown or modified backends remain unavailable.
+
 ## 2.9.0
 
 - Expand Forms authoring, responses, managed attachments, sharing, comments and result exports with separate MCP grants and current native permissions.

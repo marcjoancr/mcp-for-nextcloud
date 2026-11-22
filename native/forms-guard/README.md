@@ -248,3 +248,19 @@ The validator bounds complete native views and refuses overflow as a whole. It d
 The validator records the actual native query inputs consumed by both Files and sharing checks, then rechecks them in one bounded consistent read. Unqualified storage and mount permission paths refuse. Its last MCP read and final Core snapshot are separate bounded reads, not a global authorization lock. Runtime qualification must use the same assembled code and the recorded database/storage profiles; pure tests alone do not establish managed-transfer or database concurrency qualification.
 
 Linked export destinations additionally admit an exact native direct-user SharedMount over an already qualified backend. The original actor must be the recipient; grouped or expiring shares refuse. The native share row, destination identity and READ plus CREATE/UPDATE permissions are checked again at the storage sink, including under the write lock. Selected Files scope and native ACL checks still apply. This destination-specific admission does not open shared storage for attachment destruction or ownership transfer.
+
+## OIDC principal compatibility
+
+The reviewed user_oidc 8.11.0 Backend and UserMapper source hashes are pinned in
+`src/Service/FreshUserBackend.php`. Existing provisioned OIDC accounts use a cloned
+backend and mapper with a new account cache. Mapping deletion, local disable,
+app access and current native group/admin authority are checked again without
+changing the shared user/session caches. Native authentication remains responsible
+for login and token validation. Other backend builds fail closed. All 65 catalog
+entries still require their own grants and connection selection; this compatibility
+change grants no permissions.
+
+Run `tests/oidc-principal-integration.php` with `MCP_FORMS_CORE_ROOT` pointing to a
+qualified installation with user_oidc enabled. Its private fixture rows are
+transactional and always rolled back; no provider request or account provisioning
+is performed.

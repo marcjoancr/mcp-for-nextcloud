@@ -38,15 +38,11 @@ final class FreshCore {
         if ($original === null || $original::class !== \OC\User\User::class || $original->getUID() !== $uid) {
             throw new \RuntimeException('Forms principal is unavailable');
         }
-        $backend = $original->getBackend();
-        if ($backend === null || $backend::class !== \OC\User\Database::class || self::property($backend, 'table') !== 'users') {
+        $originalBackend = $original->getBackend();
+        if ($originalBackend === null) {
             throw new \RuntimeException('Forms user backend is unqualified');
         }
-        $backend = clone $backend;
-        self::set($backend, 'cache', new \OCP\Cache\CappedMemoryCache());
-        if (!$backend->userExists($uid)) {
-            throw new \RuntimeException('Forms principal is unavailable');
-        }
+        $backend = (new FreshUserBackend())->forUser($originalBackend, $uid);
         $this->user = clone $original;
         self::set($this->user, 'backend', $backend);
         self::set($this->user, 'enabled', null);
@@ -82,7 +78,8 @@ final class FreshCore {
     }
 
     public function assertPrincipal(bool $requiresAdmin = false, bool $requiresMcp = true): void {
-        if (!$this->apps->isEnabledForUser('forms', $this->user) || ($requiresMcp && !$this->apps->isEnabledForUser('mcp', $this->user))) {
+        if (($this->user->getBackend()::class === 'OCA\\UserOIDC\\User\\Backend' && !$this->apps->isEnabledForUser('user_oidc', $this->user))
+            || !$this->apps->isEnabledForUser('forms', $this->user) || ($requiresMcp && !$this->apps->isEnabledForUser('mcp', $this->user))) {
             throw new \RuntimeException('Forms principal app access is unavailable');
         }
         if ($requiresAdmin && !$this->groups->isAdmin($this->user->getUID())) {
