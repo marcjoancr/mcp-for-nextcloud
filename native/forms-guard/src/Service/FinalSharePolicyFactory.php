@@ -21,6 +21,13 @@ final class FinalSharePolicyFactory {
             ||!is_string($actor)||$actor===''||!is_string($target)||$target===''||!in_array($subject,[$actor,$target],true))throw new \RuntimeException('Final Circle read actor is unavailable');
         return$actor;
     }
+    /** Full audience replay is mandatory in FinalTransferShareCheck; this native receiver needs fresh existence only. */
+    private static function circleReceiverEvidence(string $subject,string $recipient,FinalReadConnection $readDb):string {
+        $actor=self::circleReadActor($subject);CircleRuntime::assertAvailable($actor);
+        $read=CircleReadRuntime::scoped($actor,true,$readDb);$circle=$read('getCircle',['circleId'=>$recipient]);
+        if(!$circle instanceof CircleDetached\CircleView||$circle->getSingleId()!==$recipient)throw new \RuntimeException('Final Circle receiver disappeared');
+        return$actor;
+    }
     public static function collect(string $subject,int $type,string $recipient,int $nodeId,\OC\Files\Node\Folder $home,\OC\Files\Node\Root $root,\OCP\Files\Node $node,array $actual,
         FinalShareBudget $budget,FinalReadConnection $readDb,\Closure $liveAuthority,\Closure $frame):FinalSharePolicy {
         $liveAuthority();
@@ -37,10 +44,10 @@ final class FinalSharePolicyFactory {
         }
         self::set($users,'backends',$backends);self::set($users,'cachedUsers',[$subject=>$core->user()]);
         self::set($users,'config',new SharingConfig($core));
-        $groups=$core->groups();self::set($groups,'userManager',$users);
+        $groups=$core->groups();self::set($groups,'userManager',$users);$circleReadActor=null;
         if($type===7){
             if((int)($actual['share_type']??-1)!==7||($actual['share_with']??null)!==$recipient||($actual['uid_owner']??null)!==$subject||(int)($actual['file_source']??0)!==$nodeId||(int)($actual['parent']??0)!==0||!isset($actual['id']))throw new \RuntimeException('Final Circle share tuple changed');
-            CircleRuntime::linkedAudienceEvidence(self::circleReadActor($subject),$recipient,(int)$actual['id'],$nodeId,$readDb);
+            $circleReadActor=self::circleReceiverEvidence($subject,$recipient,$readDb);
             $receiver=self::circleReceiver($recipient);
         }else{
             $receiver=$type===0?$users->get($recipient):$groups->get($recipient);
@@ -55,7 +62,7 @@ final class FinalSharePolicyFactory {
         foreach (['config'=>$config,'groupManager'=>$groups,'userManager'=>$users,'shareDisableChecker'=>new \OC\Share20\ShareDisableChecker($config,$users,$groups)] as $key=>$value) {self::set($manager,$key,$value);}
         $l10n=Server::get(\OCP\L10N\IFactory::class);
         if ($l10n::class!==\OC\L10N\Factory::class) {throw new \RuntimeException('Final sharing localization is unqualified');}
-        FinalShareNativeChecks::collect($manager,$users,$root,$core->user(),$node,$actual,$budget,$readDb,$liveAuthority,$frame);
+        FinalShareNativeChecks::collect($manager,$users,$root,$core->user(),$node,$actual,$budget,$readDb,$liveAuthority,$frame,$circleReadActor);
         $coreHandler=new \OC\Core\Listener\RestrictInteractionListener($manager,$groups,$l10n);
         $handlers=[];
         foreach (FinalShareProfile::resourceOrder() as $class) {

@@ -5,12 +5,16 @@ namespace OCA\Forms\Mcp\Service;
 /** Native duplicate/path checks on closed input DTOs; no create/update/dispatcher/hook method is invoked. */
 final class FinalShareNativeChecks {
     public static function collect(\OC\Share20\Manager $manager,\OCP\IUserManager $users,\OC\Files\Node\Root $root,\OCP\IUser $subject,\OCP\Files\Node $node,
-        array $actual,FinalShareBudget $budget,FinalReadConnection $readDb,\Closure $fresh,\Closure $frame):void {
+        array $actual,FinalShareBudget $budget,FinalReadConnection $readDb,\Closure $fresh,\Closure $frame,?string $circleReadActor=null):void {
         $fresh();$type=(int)$actual['share_type'];
         if (!in_array($type,[0,1,7],true) || (int)$actual['file_source']!==$node->getId()) {throw new \RuntimeException('Final sharing native check identity changed');}
         if($type===7){
             if(!is_string($actual['share_with']??null)||$actual['share_with']===''||!is_string($actual['uid_owner']??null)||$actual['uid_owner']==='')throw new \RuntimeException('Final Circle share identity is malformed');
-            CircleRuntime::assertCircleShareIdentity($subject->getUID(),$actual['share_with'],(int)$actual['id'],$node->getId(),$readDb);
+            $context=OriginContext::current();
+            if($circleReadActor===null||$circleReadActor===''||$circleReadActor!==($context['verified']['uid']??null)
+                ||($context['verified']['tool']??null)!=='forms_transfer'||($context['action']??null)!=='forms_transfer'
+                ||!in_array($subject->getUID(),[$circleReadActor,$context['input']['owner_id']??null],true))throw new \RuntimeException('Final Circle metadata actor is unavailable');
+            CircleRuntime::assertCircleShareIdentity($circleReadActor,$actual['share_with'],(int)$actual['id'],$node->getId(),$readDb);
             $mounts=FinalSharePathMounts::read($root,$subject,$node,$budget,$frame);
             $copy=clone $manager;(new \ReflectionProperty($copy,'mountManager'))->setValue($copy,$mounts);
             try{$fresh();(new \ReflectionMethod(\OC\Share20\Manager::class,'pathCreateChecks'))->invoke($copy,$node);$fresh();}
