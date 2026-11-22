@@ -10,7 +10,8 @@ use OCA\Forms\Db\{FormMapper, QuestionMapper, SubmissionMapper};
 use OCP\Server;
 final class Guard {
     public function __construct(private FormsRevisionFence $fence, private ApprovedFormsOperation $operations) {}
-    public function capabilities(): array {
+    /** Mandatory runtime qualification only; optional capability reporting is independent of principal authority. */
+    private function qualification():array {
         $identity = SourceIdentity::verify();
         $db = Server::get(\OCP\IDBConnection::class);
         $provider = $db->getDatabaseProvider(true);
@@ -23,6 +24,10 @@ final class Guard {
         $fileLocks=$config->getSystemValue('filelocking.enabled',true)===true && $config->getSystemValue('memcache.locking','')==='' && $config->getSystemValue('filelocking.excluded',[])===[] && $config->getSystemValue('filelocking.debug',false)===false;
         $schemaReady=$db->executeQuery('SELECT version FROM *PREFIX*migrations WHERE app = ? AND version = ?',['forms','050402Date20261113060000'])->fetchOne()!==false;
         $qualified = $schemaReady && $identity && \OCA\Forms\Mcp\Service\SharingIdentity::verify() && $runtimeQualified && $fileLocks && empty($config->getSystemValue('dbreplica', []));
+        return [$qualified,$provider];
+    }
+    public function capabilities(): array {
+        [$qualified,$provider]=$this->qualification();
         $circleUid=Service\OriginContext::active()?Service\OriginContext::current()['verified']['uid']:Server::get(\OCP\IUserSession::class)->getUser()?->getUID();
         $circle=$qualified&&is_string($circleUid)&&$circleUid!==''&&Service\CircleRuntime::available($circleUid);
         $comments=$qualified && \OCA\Forms\Mcp\Comments\CommentsRuntime::approved() && \OCA\Forms\Mcp\Comments\CommentsRuntime::available() && Server::get(\OCP\Comments\ICommentsManager::class) instanceof \OCA\Forms\Mcp\Comments\GuardedCommentsManager;
@@ -113,7 +118,7 @@ final class Guard {
     }
     /** Current native principal authority without borrowing a request or worker session. */
     public function assertPrincipal(string $uid, bool $requiresAdmin = false): void {
-        if (!$this->capabilities()['qualified']) {
+        if (!$this->qualification()[0]) {
             throw new \RuntimeException('Forms native guard is not qualified');
         }
         (new \OCA\Forms\Mcp\Service\FreshCore($uid))->assertPrincipal($requiresAdmin);
