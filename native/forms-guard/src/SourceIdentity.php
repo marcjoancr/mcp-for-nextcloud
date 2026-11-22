@@ -19,6 +19,11 @@ final class SourceIdentity {
             if (!self::verify()) {throw new \RuntimeException('Native source changed during final read');}
         }
     }
+    /** Reports only the live source lifetime; it never represents a permission decision. */
+    public static function verifiedReadActive():bool {
+        if(self::$verifiedReadFrame===null)return false;
+        (self::$verifiedReadFrame)();return true;
+    }
     public static function verify(): bool {
         if (self::$verifiedReadFrame!==null) {(self::$verifiedReadFrame)();return true;}
         $root=dirname(__DIR__,2);

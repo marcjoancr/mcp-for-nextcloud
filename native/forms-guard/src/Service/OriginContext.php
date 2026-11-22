@@ -191,12 +191,24 @@ final class OriginContext {
         }
         catch(\Throwable $e){throw new \RuntimeException('Original Forms authority changed',0,$e);}
     }
+    /** One pure authorization invocation only: decisions stay fresh; external callbacks are outside. */
+    private static function freshSharingSourceRead(\Closure $read):mixed {
+        $context=self::current();
+        if(self::$businessFrame===null||($context['verified']['tool']??null)!=='forms_transfer'||($context['file_action']??null)!=='forms_transfer'
+            ||($context['file_impact']['share_impact']['type']??null)!==7||\OCA\Forms\Mcp\SourceIdentity::verifiedReadActive())return$read();
+        $business=self::$businessFrame;$control=self::$frameBulkControl;
+        $frame=static function()use($context,$business,$control):void {
+            if(self::$current!==$context||self::$businessFrame!==$business||self::$frameBulkControl!==$control)throw new \RuntimeException('Circle authorization read frame changed');
+            BulkDeadline::check();
+        };
+        return \OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($frame,$read);
+    }
     public static function assertFiles(string $action,array $manifest): void {
         BulkDeadline::check();
         $context=self::current();
         if(self::$fileBoundary!==null){(self::$fileBoundary)($action,$manifest);}
         BulkDeadline::check();
-        try {Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assertFiles($context['origin'],$action,$manifest);}
+        try {self::freshSharingSourceRead(static fn()=>Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assertFiles($context['origin'],$action,$manifest));}
         catch(\Throwable $e){throw new \RuntimeException('Original Forms file authority changed',0,$e);}
         BulkDeadline::check();
     }
