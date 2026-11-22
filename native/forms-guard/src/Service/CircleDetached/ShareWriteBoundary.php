@@ -72,7 +72,8 @@ final class ShareWriteBoundary {
             if($store->one($job['id'],'share_recipients',$sourceId)!==$data||!hash_equals($digest,\OCA\Forms\Mcp\Service\BulkStore::digest($data)))throw new \RuntimeException('Circle transfer child activation digest changed');
             $stagedChild=$store->one($job['id'],'staged_recipients',$sourceId);
             $targetChild=$store->mapped($job['id'],'staged_recipients',$sourceId);
-            if((int)($stagedChild['id']??0)!==$targetChild||(int)($stagedChild['parent']??0)!==$targetParent||($stagedChild['share_type']??null)!==7
+            // recipientState deliberately excludes id; BulkStore::mapped is the sealed identity mapping.
+            if($targetChild<1||(int)($stagedChild['permissions']??-1)!==0||(int)($stagedChild['parent']??0)!==$targetParent||($stagedChild['share_type']??null)!==7
                 ||($stagedChild['share_with']??null)!==($data['share_with']??null)||(int)($data['permissions']??-1)!==1)throw new \RuntimeException('Circle transfer child activation mapping changed');
         }
         $db=\OCP\Server::get(\OCP\IDBConnection::class);
@@ -113,7 +114,7 @@ final class ShareWriteBoundary {
             $stagedChild=$this->store->one($this->job['id'],'staged_recipients',$this->sourceRowId);
             if(\OCA\Forms\Mcp\Service\CoreShareIdentity::id((string)$parent['files_share_id'],7)!==$this->targetParentId
                 ||$this->store->mapped($this->job['id'],'staged_recipients',$this->sourceRowId)!==$this->targetChildId
-                ||(int)($stagedChild['id']??0)!==$this->targetChildId||(int)($stagedChild['parent']??0)!==$this->targetParentId
+                ||(int)($stagedChild['permissions']??-1)!==0||($stagedChild['share_type']??null)!==7||(int)($stagedChild['parent']??0)!==$this->targetParentId
                 ||($stagedChild['share_with']??null)!==($this->child['share_with']??null))throw new \RuntimeException('Bulk transfer Circle child activation parent changed');
         }elseif($activation){
             if($binding!==null||self::id($share->getId())!==$this->targetParentId)throw new \RuntimeException('Bulk transfer Circle parent activation binding changed');
