@@ -36,7 +36,8 @@ final class CircleBoundaryProvider implements IPartialShareProvider,IShareProvid
     public function getShareById($id,$recipientId=null):IShare {
         ($this->assertFresh)();if((!is_int($id)&&!is_string($id))||!preg_match('/^[1-9][0-9]*$/D',(string)$id)||filter_var($id,FILTER_VALIDATE_INT)===false){throw new \RuntimeException('Native Circle share ID is malformed');}
         if($recipientId!==null){$this->recipient((string)$recipientId);}
-        $share=$this->invoke(null,$recipientId===null?null:(string)$recipientId,false,static fn($native)=>$native->getShareById($id,$recipientId));
+        $read=fn():IShare=>$this->invoke(null,$recipientId===null?null:(string)$recipientId,false,static fn($native)=>$native->getShareById($id,$recipientId));
+        $share=$this->transferCapability===null?$read():$this->transferCapability->readParent($read);
         $this->share($share);if($share->getId()!==(string)$id&&$share->getId()!==$id){throw new \RuntimeException('Native Circle share row changed');}
         if($this->transferCapability===null){if($share->getShareOwner()!==$this->uid){throw new \RuntimeException('Native Circle share owner changed');}}
         else{$this->transferCapability->assertTransferParent($this->uid,$share);}

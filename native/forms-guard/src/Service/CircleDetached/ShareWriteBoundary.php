@@ -80,6 +80,17 @@ final class ShareWriteBoundary {
         if(!$db->inTransaction())throw new \RuntimeException('Circle transfer activation transaction ended');
         return new self($store,$job,$kind,$sourceId,$digest,$sourceParent,$targetParent,$job['uid'],$job['input']['owner_id'],(int)$mapping['folder_id'],$source['approved_tuple']['recipient'],$child===null?null:$child['data'],$child===null?'activate-parent':'activate-child',$targetChild);
     }
+    /** Only the named provider lookup is pure; its write/restore methods cannot enter this scope. */
+    public function readParent(\Closure $read):mixed {
+        $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];
+        if(($caller['class']??null)!==\OCA\Forms\Mcp\Service\CircleBoundaryProvider::class||($caller['function']??null)!=='getShareById')throw new \RuntimeException('Circle parent read issuer is unavailable');
+        if(!in_array($this->mode,['activate-parent','activate-child'],true))return $read();
+        if(($this->job['phase']??null)!=='apply'||!\OCP\Server::get(\OCP\IDBConnection::class)->inTransaction())throw new \RuntimeException('Circle activation read transaction ended');
+        \OCA\Forms\Mcp\Service\OriginContext::assertJobInput($this->job);
+        if(\OCA\Forms\Mcp\Service\OriginReadAuthority::check())return $read();
+        $frame=\OCA\Forms\Mcp\Service\OriginContext::transferSharingAuthority()['frame'];
+        return \OCA\Forms\Mcp\Service\OriginContext::verifiedRead($frame,$read);
+    }
     public function consume(string $actorUid,string $action,\OCP\Share\IShare $share,bool $create,?array $binding):void {
         $activation=in_array($this->mode,['activate-parent','activate-child'],true);
         $expectedAction=match($this->mode){'insert-parent'=>'insert','insert-child'=>'insert-child','activate-parent'=>'update','activate-child'=>'update-child',default=>throw new \RuntimeException('Bulk transfer Circle capability mode is unknown')};
