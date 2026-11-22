@@ -176,6 +176,8 @@ final class BulkTransferShares {
   if(!is_string($singleId)||($child['share_type']??null)!==7||(int)($child['parent']??0)!==CoreShareIdentity::id($r['files_share_id'],7))throw new \RuntimeException('Original Circle child identity changed');
   $recipientUid=CircleRuntime::recipientUid($j['uid'],$circleId,$singleId);
   CircleRuntime::assertRecipientMember($j['uid'],$circleId,$recipientUid,$singleId);
+  $identity=CircleExistingIdentity::read($this->db,$recipientUid);if($identity['circle_id']!==$singleId)throw new \RuntimeException('Staged Circle canonical identity changed');
+  $this->store->putMapping($j,'circle_ids',$row['id'],['job_id'=>$j['id'],'source_child_id'=>$row['id'],'parent'=>(int)$child['parent'],'circle_id'=>$circleId,'single_id'=>$singleId,'identity'=>$identity]);
   $capability=\OCA\Forms\Mcp\Service\CircleDetached\ShareWriteBoundary::bulkTransferChild($this->store,$j,$row,$r,$mapped);
   $proof=function()use($j,$row,$child,$r,$mapped,$folder,$recipientUid,$circleId,$singleId):void {
    $this->authority($j,$r,$folder);$this->assertRecipientSource($child);OriginContext::assertFileEffect([(int)$r['folder_id']]);
@@ -242,12 +244,23 @@ final class BulkTransferShares {
   $this->assertCircleParentState($j,$r,$m,0);$parent=clone $stagedShare;self::stagedIdentity($parent,$m,0);self::assertMetadata($parent,$m['share_state']);$parent->setNode($folder);$this->authority($j,$r,$folder);$parent->setPermissions(1);$provider->update($parent);
   $this->assertCircleParentState($j,$r,$m,1);$active=clone $parent;self::stagedIdentity($active,$m,1);self::assertMetadata($active,$r['share_state']);
   $cursor=0;while($rows=$this->store->page($j['id'],'share_recipients',$cursor))foreach($rows as$row){$cursor=$row['id'];$child=$row['data'];if((int)$child['parent']!==$sourceParent)continue;BulkDeadline::check();$targetChild=$this->store->mapped($j['id'],'staged_recipients',$row['id']);$expectedExpiry=$child['expiration']??null;$parentExpiry=$r['share_state']['expiration']??null;if($parentExpiry!==null&&($expectedExpiry===null||(new \DateTime($expectedExpiry))>(new \DateTime($parentExpiry))))$expectedExpiry=$parentExpiry;
-   $recipientUid=CircleRuntime::recipientMemberUid($j['uid'],$circleId,(string)$child['share_with']);$this->assertRecipientSource($child);
+   $recipientUid=$this->stagedCircleRecipientUid($j,$r,$child,$row['id']);$this->assertRecipientSource($child);
    if((int)$child['permissions']===1){$childCapability=CircleDetached\ShareWriteBoundary::bulkTransferActivation($this->store,$j,$managedRow,$m,$row);$childBoundary=function(\OCP\Share\IShare $share,bool $create,?array $binding=null)use($j,$r,$m,$folder,$parentId,$recipientUid,$circleId,$child,$targetChild):void {OriginContext::assertFileEffect([(int)$r['folder_id']]);$this->authority($j,$r,$folder);$this->assertRecipientSource($child);CircleRuntime::assertRecipientMember($j['uid'],$circleId,$recipientUid,(string)$child['share_with']);$this->assertCircleParentState($j,$r,$m,1);if($create||$share->getShareType()!==7||$share->getSharedWith()!==$circleId||$share->getShareOwner()!==$j['input']['owner_id']||$share->getSharedBy()!==$j['uid']||(int)$share->getNodeId()!==(int)$folder->getId()||(int)$share->getId()!==$parentId||$share->getPermissions()!==1||$binding!==['child_id'=>$targetChild])throw new \RuntimeException('Circle recipient activation differs from its claim');};$recipientManager=ScopedShareManager::create($j['uid'],$childBoundary,null,null,$childCapability);$recipientProvider=ScopedShareManager::circleProvider($recipientManager);$this->assertCircleParentState($j,$r,$m,1);$recipientProvider->restore($active,$recipientUid);}
    elseif((int)$child['permissions']!==0)throw new \RuntimeException('Circle recipient permission decision changed');
    $actual=$this->recipientState($targetChild);foreach(['share_with','accepted','attributes']as$key)if($actual[$key]!==$child[$key])throw new \RuntimeException('Activated Circle recipient decision changed');if((int)$actual['permissions']!==(int)$child['permissions']||(int)$actual['parent']!==$parentId||(int)$actual['share_type']!==7||$actual['expiration']!==$expectedExpiry||$actual['uid_owner']!==$j['input']['owner_id']||$actual['uid_initiator']!==$j['uid']||(int)$actual['file_source']!==(int)$folder->getId())throw new \RuntimeException('Activated Circle recipient identity changed');
   }
   return$expiry;
+ }
+ /** Reuse only a sealed identifier; current identity and all effect-time membership decisions stay live. */
+ private function stagedCircleRecipientUid(array $j,array $r,array $child,int $sourceId):string {
+  if(!$this->db->inTransaction()||($j['action']??null)!=='forms_transfer'||($j['phase']??null)!=='apply'||($r['approved_tuple']['type']??null)!==7)throw new \RuntimeException('Staged Circle identity is outside activation');
+  OriginContext::assertJobInput($j);$binding=$this->store->one($j['id'],'circle_ids',$sourceId);
+  if(array_keys($binding)!==['job_id','source_child_id','parent','circle_id','single_id','identity']||$binding['job_id']!==$j['id']||$binding['source_child_id']!==$sourceId
+    ||$binding['parent']!==(int)$child['parent']||$binding['circle_id']!==$r['approved_tuple']['recipient']||$binding['single_id']!==$child['share_with']
+    ||!is_array($binding['identity'])||array_keys($binding['identity'])!==['uid','circle_id','member_id','creation','source']||!is_string($binding['identity']['uid'])||$binding['identity']['uid']==='')throw new \RuntimeException('Staged Circle identity binding changed');
+  $current=CircleExistingIdentity::read($this->db,$binding['identity']['uid']);
+  if($current!==$binding['identity']||$current['circle_id']!==$child['share_with'])throw new \RuntimeException('Staged Circle identity incarnation changed');
+  return$current['uid'];
  }
  /** The parent row is already FOR UPDATE-locked; reread identity and exact permissions at each native sink. */
  private function assertCircleParentState(array $j,array $r,array $m,int $permissions):void {
