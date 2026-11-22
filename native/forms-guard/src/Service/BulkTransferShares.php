@@ -67,9 +67,19 @@ final class BulkTransferShares {
  }
  private function authority(array $j,array $r,?Folder $folder=null):void {
   $frame=$this->authorityFrame($j,$r);
-  OriginContext::verifiedRead($frame,fn()=> $this->authorityRead($j,$r,$folder));
-  if($folder!==null){DestinationFiles::authorize($folder,true);}
+  if($folder!==null&&($r['approved_tuple']['type']??null)===7&&$this->finalAudienceScope!==null){
+   // The external boundary runs before the unpublished read; all native ACL decisions remain fresh.
+   OriginContext::assertFileEffect();
+   OriginContext::verifiedRead($frame,function()use($j,$r,$folder):void {$this->authorityRead($j,$r,$folder);$this->destinationAuthorityRead($folder);});
+  }else{
+   OriginContext::verifiedRead($frame,fn()=> $this->authorityRead($j,$r,$folder));
+   if($folder!==null){DestinationFiles::authorize($folder,true);}
+  }
   BulkDeadline::check();
+ }
+ private function destinationAuthorityRead(Folder $folder):void {
+  if($this->finalAudienceScope===null||!$this->db->inTransaction()||!OriginReadAuthority::check())throw new \RuntimeException('Final transfer destination scope ended');
+  DestinationFiles::transferAuthorityRead($folder);
  }
  /** Reuse only the live TYPE7 final context; verifiedRead still refreshes authority at both boundaries. */
  private function authorityFrame(array $j,array $r):\Closure {

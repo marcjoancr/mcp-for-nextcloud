@@ -9,6 +9,16 @@ use OCP\Server;
 final class DestinationFiles {
  public static function authorize(Folder $folder,bool $create):void {
   OriginContext::assertFileEffect();
+  self::authorizeNode($folder,$create);
+ }
+ /** Named final-transfer pure read only; the file callback has already run outside the read frame. */
+ public static function transferAuthorityRead(Folder $folder):void {
+  $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];
+  if(($caller['class']??null)!==BulkTransferShares::class||($caller['function']??null)!=='destinationAuthorityRead'
+   ||!OriginReadAuthority::check()||(OriginContext::current()['verified']['tool']??null)!=='forms_transfer')throw new \RuntimeException('Transfer destination read is unavailable');
+  self::authorizeNode($folder,true);
+ }
+ private static function authorizeNode(Folder $folder,bool $create):void {
   // Root::get constructs a fresh Node/FileInfo rather than retaining permissions
   // from the Folder object obtained before native lock/event waits.
   $fresh=Server::get(IRootFolder::class)->get($folder->getPath());
