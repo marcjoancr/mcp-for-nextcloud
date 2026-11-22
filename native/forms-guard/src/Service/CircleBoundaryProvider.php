@@ -58,7 +58,12 @@ final class CircleBoundaryProvider implements IPartialShareProvider,IShareProvid
     public function userDeletedFromGroup($uid,$gid){throw new \RuntimeException('Native Circle group cleanup is unavailable');}
     public function getAccessList($nodes,$currentAccess){throw new \RuntimeException('Native Circle access-list enumeration is unavailable');}
     public function getAllShares():iterable{throw new \RuntimeException('Native Circle full enumeration is unavailable');}
-    public function getChildren(IShare $parent){throw new \RuntimeException('Native Circle child enumeration requires detached recipient authority');}
+    /** Pinned Circles returns no Core reshares; its own guarded delete removes personal recipient rows. */
+    public function getChildren(IShare $parent):array {
+        $this->share($parent);($this->assertFresh)();
+        if($parent->getShareOwner()!==$this->uid||($parent->getParent()??0)!==0)throw new \RuntimeException('Native Circle parent owner changed');
+        return[];
+    }
     public function getSharedWithByPath(string $userId,int $shareType,string $path,bool $forChildren,int $limit,int $offset):iterable{throw new \RuntimeException('Native Circle recipient path enumeration is unavailable');}
     public function getUsersForShare(IShare $share):iterable{throw new \RuntimeException('Native Circle recipient enumeration is unavailable');}
     public function getAllSharesInFolder(Folder $node):array{throw new \RuntimeException('Native Circle folder-wide enumeration is unavailable');}
