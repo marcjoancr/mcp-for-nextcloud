@@ -17,7 +17,7 @@ namespace {
  use OCA\Forms\Mcp\Service\{CircleNativeShareWrapperService,NativeMembershipReached};
  final class CircleLocalRecipientBoundaryTest extends \PHPUnit\Framework\TestCase {
   private function invoke(bool $local):void {
-   $w=(new ReflectionClass(CircleNativeShareWrapperService::class))->newInstanceWithoutConstructor();foreach(['assertFresh'=>static function():void{},'actorUid'=>'actor','currentRecipient'=>'recipient']as$key=>$value)(new ReflectionProperty($w,$key))->setValue($w,$value);
+   $w=(new ReflectionClass(CircleNativeShareWrapperService::class))->newInstanceWithoutConstructor();foreach(['assertFresh'=>static function():void{},'actorUid'=>'actor','currentRecipient'=>'recipient','transferCapability'=>null]as$key=>$value)(new ReflectionProperty($w,$key))->setValue($w,$value);
    $s=$this->createMock(\OCP\Share\IShare::class);$s->method('getId')->willReturn('11');$s->method('getShareType')->willReturn(7);$s->method('getSharedWith')->willReturn('circle');$w->getChild($s,new \OCA\Circles\Model\FederatedUser($local));
   }
   public function testNativeCanonicalLocalInstanceStillRequiresMembership():void{$this->expectException(NativeMembershipReached::class);$this->invoke(true);}

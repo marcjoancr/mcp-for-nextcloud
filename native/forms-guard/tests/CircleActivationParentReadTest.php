@@ -5,6 +5,7 @@ namespace OCA\Forms\Mcp\Service {
  class BulkStore {}
  class OriginReadAuthority {public static bool $active=false;public static function check():bool{return self::$active;}}
  class OriginContext {public static int $reads=0;public static bool $match=true;public static function assertJobInput(array $job):void{if(!self::$match)throw new \RuntimeException('different input');}public static function transferSharingAuthority():array{return['frame'=>static fn()=>null];}public static function verifiedRead(\Closure $frame,\Closure $read):mixed{self::$reads++;OriginReadAuthority::$active=true;try{return$read();}finally{OriginReadAuthority::$active=false;}}}
+ final class CircleNativeShareWrapperService {public function getChild(CircleDetached\ShareWriteBoundary $cap,\Closure $read):mixed{return$cap->readChild($read);}}
  final class CircleBoundaryProvider {public function getShareById(CircleDetached\ShareWriteBoundary $cap,\Closure $read):mixed{return$cap->readParent($read);}}
 }
 namespace {
@@ -20,6 +21,9 @@ final class CircleActivationParentReadTest extends \PHPUnit\Framework\TestCase {
  public function testEndedTransactionCannotOpenRead():void{\OCP\Server::$transaction=false;$this->expectException(RuntimeException::class);$this->read($this->cap(),static fn()=>null);}
  public function testDifferentJobCannotBorrowRead():void{OriginContext::$match=false;$this->expectException(RuntimeException::class);$this->read($this->cap(),static fn()=>null);}
  public function testExistingClosedReadDoesNotNest():void{OriginReadAuthority::$active=true;self::assertSame(3,$this->read($this->cap(),static fn()=>3));self::assertSame(0,OriginContext::$reads);}
+ public function testActivationChildReadUsesItsNamedIssuer():void{self::assertSame(8,(new \OCA\Forms\Mcp\Service\CircleNativeShareWrapperService())->getChild($this->cap('activate-child'),static fn()=>8));self::assertSame(1,OriginContext::$reads);}
+ public function testChildCreateCapabilityKeepsFullChecks():void{(new \OCA\Forms\Mcp\Service\CircleNativeShareWrapperService())->getChild($this->cap('insert-child','stage_recipients'),static function():void{self::assertFalse(OriginReadAuthority::check());});self::assertSame(0,OriginContext::$reads);}
+ public function testChildScopeCannotBeIssuedDirectly():void{$this->expectException(RuntimeException::class);$this->cap('activate-child')->readChild(static fn()=>null);}
  public function testReadFailureClosesBeforeRethrow():void{$this->expectException(LogicException::class);try{$this->read($this->cap(),static function():never{throw new LogicException();});}finally{self::assertFalse(OriginReadAuthority::check());}}
 }
 }

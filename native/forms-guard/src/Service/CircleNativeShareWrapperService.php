@@ -24,10 +24,15 @@ final class CircleNativeShareWrapperService extends ShareWrapperService {
     public function searchShare(string $singleId,int $nodeId):ShareWrapper {($this->assertFresh)();return $this->request->searchShare($singleId,$nodeId);}
     public function getShareById(int $shareId,?FederatedUser $federatedUser=null):ShareWrapper {($this->assertFresh)();return $this->request->getShareById($shareId,$federatedUser);}
     public function getChild(IShare $share,FederatedUser $federatedUser):ShareWrapper {
+        if($this->childGrant===null&&$this->transferCapability!==null)return $this->transferCapability->readChild(fn():ShareWrapper=>$this->getChildRead($share,$federatedUser,false));
+        return $this->getChildRead($share,$federatedUser,true);
+    }
+    private function getChildRead(IShare $share,FederatedUser $federatedUser,bool $allowCreate):ShareWrapper {
         ($this->assertFresh)();$id=self::positiveId($share->getId());$recipient=$this->currentRecipient??$federatedUser->getUserId();
         if($recipient!==$federatedUser->getUserId()||$federatedUser->getUserType()!==\OCA\Circles\Model\Member::TYPE_USER||!$federatedUser->isLocal()||$share->getShareType()!==7){throw new \RuntimeException('Native Circle child actor is unqualified');}
         CircleRuntime::assertRecipientMember($this->actorUid,$share->getSharedWith(),$recipient,$federatedUser->getSingleId());
         if($this->childGrant!==null){
+            if(!$allowCreate)throw new \RuntimeException('Circle child creation cannot enter the pure read');
             $grant=$this->childGrant;$this->childGrant=null;$this->childGrantConsumed=true;
         if($grant['target_parent_id']!==$id||$grant['circle_id']!==$share->getSharedWith()||$grant['single_id']!==$federatedUser->getSingleId()||$grant['recipient_uid']!==$recipient||$grant['target_file_id']!==(int)$share->getNodeId()||$grant['parent_type']!==7){throw new \RuntimeException('Native Circle child-create grant changed');}
             try{$this->request->getChild($federatedUser,$id);throw new \RuntimeException('Native Circle child already exists');}

@@ -45,7 +45,7 @@ final class WriteQueryBuilder extends \OCA\Circles\Db\CoreQueryBuilder {
         if($this->action==='insert-child'){$this->setValue('accepted',$this->createNamedParameter($this->writeShare->getStatus(),\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT));}
         $childDecision=$this->action==='update-child'&&$this->transferCapability!==null?$this->transferCapability->childUpdateDecision($this->lease->actorUid(),$this->writeShare,$this->binding):null;
         $rowRecipient=$childDecision['recipient']??$this->circleId;
-        if($childDecision!==null){$this->set('accepted',$this->createNamedParameter($childDecision['accepted'],\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT));}
+        if($childDecision!==null){$this->replaceAcceptedDecision($childDecision['accepted']);}
         if($this->action!=='insert'){
             $this->andWhere($this->expr()->eq('share_type',$this->createNamedParameter(7)));
             $recipient=$this->expr()->eq('share_with',$this->createNamedParameter($rowRecipient));
@@ -84,6 +84,17 @@ final class WriteQueryBuilder extends \OCA\Circles\Db\CoreQueryBuilder {
         return $affected;
     }
 
+    /** Native update already assigns accepted; rebind it instead of appending a duplicate SET column. */
+    private function replaceAcceptedDecision(int $decision):void {
+        $parts=$this->getQueryPart('set');$names=[];
+        if(!is_array($parts))throw new \RuntimeException('Native Circle accepted assignment is unavailable');
+        foreach($parts as$part){
+            if(!is_string($part))throw new \RuntimeException('Native Circle SET projection is malformed');
+            if(preg_match('/^(?:"accepted"|`accepted`|accepted)\s*=\s*:([A-Za-z0-9_]+)$/D',$part,$match))$names[]=$match[1];
+        }
+        if(count($names)!==1||!array_key_exists($names[0],$this->getParameters()))throw new \RuntimeException('Native Circle accepted assignment is ambiguous');
+        $this->setParameter($names[0],$decision,\OCP\DB\QueryBuilder\IQueryBuilder::PARAM_INT);
+    }
     private function hasBinding(string $sql,array $parameters,string $column,mixed $expected):bool {
         $name=preg_quote($column,'/');
         if(!preg_match_all('/(?<![A-Za-z0-9_])(?:"'.$name.'"|`'.$name.'`|'.$name.'(?![A-Za-z0-9_]))\s*=\s*(:[A-Za-z0-9_]+|\?)/i',$sql,$matches)){return false;}

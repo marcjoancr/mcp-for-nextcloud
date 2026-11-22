@@ -84,6 +84,15 @@ final class ShareWriteBoundary {
     public function readParent(\Closure $read):mixed {
         $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];
         if(($caller['class']??null)!==\OCA\Forms\Mcp\Service\CircleBoundaryProvider::class||($caller['function']??null)!=='getShareById')throw new \RuntimeException('Circle parent read issuer is unavailable');
+        return $this->activationRead($read);
+    }
+    /** Existing child hydration only; the service forbids its creation branch in this scope. */
+    public function readChild(\Closure $read):mixed {
+        $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];
+        if(($caller['class']??null)!==\OCA\Forms\Mcp\Service\CircleNativeShareWrapperService::class||($caller['function']??null)!=='getChild')throw new \RuntimeException('Circle child read issuer is unavailable');
+        return $this->activationRead($read);
+    }
+    private function activationRead(\Closure $read):mixed {
         if(!in_array($this->mode,['activate-parent','activate-child'],true))return $read();
         if(($this->job['phase']??null)!=='apply'||!\OCP\Server::get(\OCP\IDBConnection::class)->inTransaction())throw new \RuntimeException('Circle activation read transaction ended');
         \OCA\Forms\Mcp\Service\OriginContext::assertJobInput($this->job);
