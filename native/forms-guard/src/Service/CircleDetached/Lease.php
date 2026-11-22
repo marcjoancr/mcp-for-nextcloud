@@ -34,8 +34,14 @@ final class Lease {
     ) {
         $this->started=hrtime(true);$this->maxAgeNanos=self::admittedMaxAge();
         ($this->assertAuthority)();$this->sources->assert($this->uid);
-        $core=$connection instanceof FinalReadConnection?FinalReadCore::fresh($uid,$connection):new FreshCore($uid);
-        if(!$core->apps()->isEnabledForUser('forms',$core->user())||!$core->apps()->isEnabledForUser('circles',$core->user())){throw new \RuntimeException('Circle actor application access is unavailable');}
+        // The final recorder is read-only. Its closed transfer readers always checkpoint before native data and again before return.
+        $dataCheckpoint=$connection instanceof FinalReadConnection&&\OCA\Forms\Mcp\Service\OriginReadAuthority::check()
+            &&(\OCA\Forms\Mcp\Service\OriginContext::current()['verified']['tool']??null)==='forms_transfer'
+            &&(\OCA\Forms\Mcp\Service\OriginContext::current()['verified']['uid']??null)===$uid;
+        if(!$dataCheckpoint){
+            $core=$connection instanceof FinalReadConnection?FinalReadCore::fresh($uid,$connection):new FreshCore($uid);
+            if(!$core->apps()->isEnabledForUser('forms',$core->user())||!$core->apps()->isEnabledForUser('circles',$core->user())){throw new \RuntimeException('Circle actor application access is unavailable');}
+        }
         $this->identity=CircleExistingIdentity::read($connection,$uid);
         [$this->configData,$this->keyhole]=$this->readConfig();
         $this->config=new Config($this,$this->configData,$this->keyhole);
