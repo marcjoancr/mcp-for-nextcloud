@@ -80,6 +80,8 @@ final class ShareWriteBoundary {
         if(!$db->inTransaction())throw new \RuntimeException('Circle transfer activation transaction ended');
         return new self($store,$job,$kind,$sourceId,$digest,$sourceParent,$targetParent,$job['uid'],$job['input']['owner_id'],(int)$mapping['folder_id'],$source['approved_tuple']['recipient'],$child===null?null:$child['data'],$child===null?'activate-parent':'activate-child',$targetChild);
     }
+    /** This flag only selects a stricter source-read/write-barrier scope; it grants no authority. */
+    public function activationReadActive():bool {return in_array($this->mode,['activate-parent','activate-child'],true)&&($this->job['phase']??null)==='apply'&&\OCP\Server::get(\OCP\IDBConnection::class)->inTransaction()&&\OCA\Forms\Mcp\Service\OriginReadAuthority::check();}
     /** Only the named provider lookup is pure; its write/restore methods cannot enter this scope. */
     public function readParent(\Closure $read):mixed {
         $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];

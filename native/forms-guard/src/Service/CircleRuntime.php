@@ -36,8 +36,8 @@ final class CircleRuntime {
             CircleRuntime::assertAvailable($uid);
             CircleExistingIdentity::read(Server::get(\OCP\IDBConnection::class),$uid);
         };
-        $run=static function(?\OCP\Share\IShare $share,?string $recipient,bool $event,\Closure $work)use($uid,$beforeWrite,$assert,$intentKey,$oneShotProof,$transferCapability):mixed {
-            return CircleReadRuntime::withProviderLease($uid,static function(\OCA\Forms\Mcp\Service\CircleDetached\Lease $lease,\Closure $guard,\Closure $open)use($uid,$beforeWrite,$assert,$intentKey,$oneShotProof,$transferCapability,$share,$recipient,$event,$work):mixed {
+        $run=static function(?\OCP\Share\IShare $share,?string $recipient,bool $event,\Closure $work,bool $readOnly=false)use($uid,$beforeWrite,$assert,$intentKey,$oneShotProof,$transferCapability):mixed {
+            return CircleReadRuntime::withProviderLease($uid,static function(\OCA\Forms\Mcp\Service\CircleDetached\Lease $lease,\Closure $guard,\Closure $open)use($uid,$beforeWrite,$assert,$intentKey,$oneShotProof,$transferCapability,$share,$recipient,$event,$work,$readOnly):mixed {
                 $reader=$lease->shareWrappers();
                 $writer=new \OCA\Forms\Mcp\Service\CircleDetached\WriteShareWrapperRequest($lease,$reader,$assert,$beforeWrite,$transferCapability);
                 $cacheOwner=Server::get(\OCA\Circles\Service\ShareWrapperService::class);
@@ -55,10 +55,17 @@ final class CircleRuntime {
                 if(!$l10n instanceof \OCP\IL10N){throw new \RuntimeException('Native Circle localization service is unavailable');}
                 $native=new \OCA\Circles\ShareByCircleProvider(Server::get(\OCP\IUserManager::class),Server::get(\OCP\Files\IRootFolder::class),$l10n,Server::get(\Psr\Log\LoggerInterface::class),Server::get(\OCP\IURLGenerator::class),$wrapper,Server::get(\OCA\Circles\Service\ShareTokenService::class),$actor,$federatedTransport,$circle,$eventService);
                 if($share!==null){$wrapper->current($share,$recipient);}
-                try{return$work($native,$wrapper);}finally{$transport?->close();}
+                $execute=static fn():mixed=>$work($native,$wrapper);
+                try{return $readOnly&&!$event&&$transferCapability?->activationReadActive()===true?self::readProviderParent($lease,$execute):$execute();}finally{$transport?->close();}
             });
         };
         return new CircleBoundaryProvider($uid,$run,$beforeWrite,$assert,$intentKey,$oneShotProof,$transferCapability);
+    }
+
+    /** The sole read-intent callback is native getShareById, already inside its sealed activation read. */
+    private static function readProviderParent(\OCA\Forms\Mcp\Service\CircleDetached\Lease $lease,\Closure $read):mixed {
+        if(!OriginReadAuthority::check())throw new \RuntimeException('Circle parent metadata frame is unavailable');
+        return $lease->metadataRead($read);
     }
 
     public static function assertRecipientMember(string $actorUid,string $circleId,string $recipientUid,string $singleId,?FinalReadConnection $readConnection=null):void {

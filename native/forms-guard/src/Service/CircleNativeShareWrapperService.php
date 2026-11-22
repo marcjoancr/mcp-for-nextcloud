@@ -41,7 +41,13 @@ final class CircleNativeShareWrapperService extends ShareWrapperService {
                 'source_file_id'=>$grant['source_file_id'],'target_parent_id'=>$id,'parent_type'=>7,'parent_share_with'=>$grant['circle_id'],'source_share_with'=>$grant['single_id'],
                 'recipient_uid'=>$grant['recipient_uid'],'target_file_id'=>$grant['target_file_id']];
             $child=$this->writeRequest->withinChild($id,$binding,$grant['source_child'],$grant['proof'],fn():ShareWrapper=>parent::getChild($share,$federatedUser));
-        }else{$child=$this->request->getChild($federatedUser,$id);}
+        }else{
+            $read=function()use($federatedUser,$id):ShareWrapper {if($this->childGrant!==null)throw new \RuntimeException('Circle child creation cannot enter the pure lookup');return $this->request->getChild($federatedUser,$id);};
+            if($this->transferCapability?->activationReadActive()===true){
+                if(!$this->request instanceof \OCA\Forms\Mcp\Service\CircleDetached\ShareWrapperRequest)throw new \RuntimeException('Circle child read request is unqualified');
+                $child=$this->request->readModel($read);
+            }else{$child=$read();}
+        }
         if($child->getParent()!==$id||$child->getShareType()!==7||$child->getSharedWith()!==$federatedUser->getSingleId()||$child->getFileSource()!==$share->getNodeId()||$child->getPermissions()<0||$child->getPermissions()>$share->getPermissions()) {throw new \RuntimeException('Native Circle child row binding changed');}
         $this->childSnapshots[$child->getId()]=['parent'=>$id,'recipient'=>$federatedUser->getSingleId(),'file_source'=>$child->getFileSource(),'share_owner'=>$child->getShareOwner(),'shared_by'=>$child->getSharedBy(),'share_type'=>$child->getShareType(),'permissions'=>$child->getPermissions(),'file_target'=>$child->getFileTarget(),'status'=>$child->getStatus(),'note'=>$child->getShareNote(),'expiration'=>$child->getExpirationDate()?->format('Y-m-d H:i:s')];
         return$child;

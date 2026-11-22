@@ -66,10 +66,19 @@ final class BulkTransferShares {
   return $row;
  }
  private function authority(array $j,array $r,?Folder $folder=null):void {
-  $frame=OriginContext::transferSharingAuthority()['frame'];
+  $frame=$this->authorityFrame($j,$r);
   OriginContext::verifiedRead($frame,fn()=> $this->authorityRead($j,$r,$folder));
   if($folder!==null){DestinationFiles::authorize($folder,true);}
   BulkDeadline::check();
+ }
+ /** Reuse only the live TYPE7 final context; verifiedRead still refreshes authority at both boundaries. */
+ private function authorityFrame(array $j,array $r):\Closure {
+  if(($r['approved_tuple']['type']??null)===7&&$this->finalAudienceScope!==null){
+   [$jobId,$frame]=$this->finalAudienceScope;
+   if($jobId!==($j['id']??null)||($j['phase']??null)!=='apply'||!$this->db->inTransaction())throw new \RuntimeException('Final Circle authority frame changed');
+   OriginContext::assertJobInput($j);$frame();return $frame;
+  }
+  return OriginContext::transferSharingAuthority()['frame'];
  }
  /** This fresh authority projection closes before the caller performs its native effect. */
  private function authorityRead(array $j,array $r,?Folder $folder=null):void {
