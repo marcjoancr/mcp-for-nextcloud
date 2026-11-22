@@ -50,7 +50,7 @@ final class CircleReadRuntime {
         return self::read($uid,ManagedSharePhase::circleReadAuthority($uid),$method,$arguments);
     }
     private static function read(string $uid,\Closure $assert,string $method,array $arguments,?FinalReadConnection $readConnection=null):mixed {
-        $shape=match($method){'isCirclesEnabled'=>[],'getCircle','getCircleUsers'=>['circleId'],'linkedAudience'=>['circleId','shareId','fileId'],'isUserInCircle'=>['circleId','userId'],'getUserTeamIds'=>['userId'],default=>throw new \LogicException('Unknown Circle adapter method')};
+        $shape=match($method){'isCirclesEnabled'=>[],'getCircle','getCircleUsers'=>['circleId'],'linkedAudience'=>['circleId','shareId','fileId'],'recipientUid'=>['singleId'],'isUserInCircle'=>['circleId','userId'],'getUserTeamIds'=>['userId'],default=>throw new \LogicException('Unknown Circle adapter method')};
         if(array_keys($arguments)!==$shape){throw new \LogicException('Malformed Circle adapter arguments');}
         foreach($arguments as$value){if(!is_string($value)){throw new \LogicException('Malformed Circle adapter argument');}}
         $generation=null;
@@ -74,6 +74,7 @@ final class CircleReadRuntime {
             try {
                 return match($method){
                     'getCircle'=>$reader->circleView($arguments['circleId']),
+                    'recipientUid'=>$reader->recipientUid($arguments['singleId']),
                     'isUserInCircle'=>$reader->memberLevel($arguments['circleId'],$arguments['userId'])>=\OCA\Circles\Model\Member::LEVEL_MEMBER,
                     'getCircleUsers'=>$reader->users($arguments['circleId']),
                     'linkedAudience'=>$reader->audience($arguments['circleId'],self::positive($arguments['shareId']),self::positive($arguments['fileId'])),
