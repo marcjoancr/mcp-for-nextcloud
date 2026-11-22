@@ -88,6 +88,12 @@ final class ShareWriteBoundary {
         if(($caller['class']??null)!==\OCA\Forms\Mcp\Service\CircleBoundaryProvider::class||($caller['function']??null)!=='getShareById')throw new \RuntimeException('Circle parent read issuer is unavailable');
         return $this->activationRead($read);
     }
+    /** Native restore/update rereads the parent model before its separate write. */
+    public function readNativeParent(\Closure $read):mixed {
+        $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];
+        if(($caller['class']??null)!==\OCA\Forms\Mcp\Service\CircleNativeShareWrapperService::class||($caller['function']??null)!=='getShareById')throw new \RuntimeException('Circle native parent read issuer is unavailable');
+        return $this->activationRead($read);
+    }
     /** Existing child hydration only; the service forbids its creation branch in this scope. */
     public function readChild(\Closure $read):mixed {
         $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];

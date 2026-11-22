@@ -11,10 +11,10 @@ final class ShareWrapperRequest extends \OCA\Circles\Db\ShareWrapperRequest {
         $this->lease->assertActive();
         return $this->lease->query();
     }
-    /** Only the service's existing-child hydration callback may enter this metadata scope. */
+    /** Only the service's existing-parent/child hydration callbacks may enter this metadata scope. */
     public function readModel(\Closure $read):mixed {
         $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];
-        if(($caller['class']??null)!==\OCA\Forms\Mcp\Service\CircleNativeShareWrapperService::class||($caller['function']??null)!=='getChildRead')throw new \RuntimeException('Circle child model read issuer is unavailable');
+        if(($caller['class']??null)!==\OCA\Forms\Mcp\Service\CircleNativeShareWrapperService::class||!in_array($caller['function']??null,['getChildRead','getParentRead'],true))throw new \RuntimeException('Circle model read issuer is unavailable');
         return $this->lease->metadataRead($read);
     }
     /** Exact native parent-share predicate with a sentinel row fetched before model hydration. */

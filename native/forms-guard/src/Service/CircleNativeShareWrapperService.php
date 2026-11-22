@@ -22,7 +22,18 @@ final class CircleNativeShareWrapperService extends ShareWrapperService {
     }
     public function current(IShare $share,?string $recipient=null):void {$this->currentShare=$share;$this->currentRecipient=$recipient;$this->childSnapshots=[];}
     public function searchShare(string $singleId,int $nodeId):ShareWrapper {($this->assertFresh)();return $this->request->searchShare($singleId,$nodeId);}
-    public function getShareById(int $shareId,?FederatedUser $federatedUser=null):ShareWrapper {($this->assertFresh)();return $this->request->getShareById($shareId,$federatedUser);}
+    public function getShareById(int $shareId,?FederatedUser $federatedUser=null):ShareWrapper {
+        $read=fn():ShareWrapper=>$this->getParentRead($shareId,$federatedUser);
+        return $this->transferCapability===null?$read():$this->transferCapability->readNativeParent($read);
+    }
+    private function getParentRead(int $shareId,?FederatedUser $federatedUser):ShareWrapper {
+            ($this->assertFresh)();
+            if($this->transferCapability?->activationReadActive()===true){
+                if(!$this->request instanceof \OCA\Forms\Mcp\Service\CircleDetached\ShareWrapperRequest)throw new \RuntimeException('Circle parent read request is unqualified');
+                return $this->request->readModel(fn():ShareWrapper=>$this->request->getShareById($shareId,$federatedUser));
+            }
+            return $this->request->getShareById($shareId,$federatedUser);
+    }
     public function getChild(IShare $share,FederatedUser $federatedUser):ShareWrapper {
         if($this->childGrant===null&&$this->transferCapability!==null)return $this->transferCapability->readChild(fn():ShareWrapper=>$this->getChildRead($share,$federatedUser,false));
         return $this->getChildRead($share,$federatedUser,true);
