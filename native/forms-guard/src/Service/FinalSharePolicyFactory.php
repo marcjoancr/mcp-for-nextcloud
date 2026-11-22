@@ -14,6 +14,13 @@ final class FinalSharePolicyFactory {
         if($receiver->getID()!==$circleId)throw new \RuntimeException('Final Circle receiver identity changed');
         return$receiver;
     }
+    /** Native policy subjects never replace the verified MCP actor used for Circle metadata reads. */
+    private static function circleReadActor(string $subject):string {
+        $context=OriginContext::current();$actor=$context['verified']['uid']??null;$target=$context['input']['owner_id']??null;
+        if(($context['action']??null)!=='forms_transfer'||($context['verified']['tool']??null)!=='forms_transfer'
+            ||!is_string($actor)||$actor===''||!is_string($target)||$target===''||!in_array($subject,[$actor,$target],true))throw new \RuntimeException('Final Circle read actor is unavailable');
+        return$actor;
+    }
     public static function collect(string $subject,int $type,string $recipient,int $nodeId,\OC\Files\Node\Folder $home,\OC\Files\Node\Root $root,\OCP\Files\Node $node,array $actual,
         FinalShareBudget $budget,FinalReadConnection $readDb,\Closure $liveAuthority,\Closure $frame):FinalSharePolicy {
         $liveAuthority();
@@ -33,7 +40,7 @@ final class FinalSharePolicyFactory {
         $groups=$core->groups();self::set($groups,'userManager',$users);
         if($type===7){
             if((int)($actual['share_type']??-1)!==7||($actual['share_with']??null)!==$recipient||($actual['uid_owner']??null)!==$subject||(int)($actual['file_source']??0)!==$nodeId||(int)($actual['parent']??0)!==0||!isset($actual['id']))throw new \RuntimeException('Final Circle share tuple changed');
-            CircleRuntime::linkedAudienceEvidence($subject,$recipient,(int)$actual['id'],$nodeId,$readDb);
+            CircleRuntime::linkedAudienceEvidence(self::circleReadActor($subject),$recipient,(int)$actual['id'],$nodeId,$readDb);
             $receiver=self::circleReceiver($recipient);
         }else{
             $receiver=$type===0?$users->get($recipient):$groups->get($recipient);
