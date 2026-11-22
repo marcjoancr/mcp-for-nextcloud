@@ -95,12 +95,20 @@ final class OriginContext {
         $input=$context['input'];$target=$input['owner_id']??null;$formId=$input['id']??null;
         if($frame===null||$context['action']!=='forms_transfer'||$context['verified']['tool']!=='forms_transfer'||!is_string($target)||$target===''||!is_int($formId)||$formId<1||$formId!==($context['verified']['references']['form_id']??null))throw new \RuntimeException('Transfer business frame is unavailable');
         self::assertFresh();$original=$context['origin'];$control=self::$frameBulkControl;$boundary=self::$fileBoundary;
-        return static function(array $manifest,array $copies,array $parents,\Closure $resolve)use($frame,$original,$control,$boundary,$input,$target):void {
+        $assert=static function()use($frame,$original,$control,$input):void {
             if(self::$businessFrame!==$frame||self::$current===null||self::$current['origin']!==$original||self::$frameBulkControl!==$control||self::$current['input']!==$input||!Server::get(FormsRevisionFence::class)->active())throw new \RuntimeException('Transfer business frame changed');
             BulkDeadline::check();
+        };
+        return static function(array $manifest,array $copies,array $parents,\Closure $resolve)use($assert,$original,$control,$boundary,$target):void {
+            $assert();
             foreach([...$copies,...$parents] as $node)if(!$node instanceof \OCP\Files\Node||$node->getOwner()?->getUID()!==$target)throw new \RuntimeException('Transfer destination owner changed');
             if($boundary!==null)foreach(array_chunk($manifest['files'],100) as $page)$boundary('forms_transfer',['files'=>$page]);
-            Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assertTransferFiles($original,$control,$manifest,$copies,$parents,$resolve);
+            $read=static fn()=>Server::get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class)->assertTransferFiles($original,$control,$manifest,$copies,$parents,$resolve);
+            $caller=debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS,2)[1]??[];
+            // Only the compiled final-file resolver is pure; arbitrary callbacks retain the original path.
+            if(($caller['class']??null)===TransferFinalFiles::class&&($caller['function']??null)==='admitted'&&!\OCA\Forms\Mcp\SourceIdentity::verifiedReadActive()){
+                \OCA\Forms\Mcp\SourceIdentity::withinVerifiedReadFrame($assert,$read);
+            }else{$read();}
             BulkDeadline::check();
         };
     }
