@@ -102,10 +102,10 @@ final class CircleRuntime {
             return $call('recipientUid',['singleId'=>$singleId]);
         });
     }
-    public static function recipientMemberUid(string $actorUid,string $circleId,string $singleId):string {
+    public static function recipientMemberUid(string $actorUid,string $circleId,string $singleId,?FinalReadConnection $readConnection=null):string {
         if(!preg_match('/^[A-Za-z0-9]{31}$/D',$circleId)||!preg_match('/^[A-Za-z0-9]{31}$/D',$singleId))throw new \RuntimeException('Native Circle recipient identity is malformed');
-        return self::recipientRead(static function()use($actorUid,$circleId,$singleId):string {
-            $call=CircleReadRuntime::scoped($actorUid,true);
+        return self::recipientRead(static function()use($actorUid,$circleId,$singleId,$readConnection):string {
+            $call=CircleReadRuntime::scoped($actorUid,true,$readConnection);
             return$call('recipientMemberUid',['circleId'=>$circleId,'singleId'=>$singleId]);
         });
     }

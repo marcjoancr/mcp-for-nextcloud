@@ -9,7 +9,7 @@ final class FinalReadSet {
     private bool $used=false;
     private int $bytes=0;
     private int $rows=0;
-    public const TABLES=['appconfig','preferences','users','groups','group_user','share','filecache','mounts','storages','circles_circle','circles_member','circles_membership','circles_remote','forms_v2_forms','forms_v2_shares','forms_mcp_file_shares','forms_mcp_folders','forms_mcp_group_history','forms_mcp_group_epoch'];
+    public const TABLES=['appconfig','preferences','users','groups','group_user','share','filecache','mounts','storages','circles_circle','circles_member','circles_membership','circles_remote','circles_invitations','forms_v2_forms','forms_v2_shares','forms_mcp_file_shares','forms_mcp_folders','forms_mcp_group_history','forms_mcp_group_epoch'];
     public function __construct(private readonly \Closure $deadline,private readonly string $prefix='*PREFIX*') {}
     private function open():void {($this->deadline)();if($this->sealed||$this->used)throw new \RuntimeException('Final read snapshot escaped or repeated');}
     public function tablesFor(string $sql):array {

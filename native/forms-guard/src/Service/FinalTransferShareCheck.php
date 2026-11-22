@@ -131,8 +131,7 @@ final class FinalTransferShareCheck {
                         if($r['approved_tuple']['type']===7){
                             $circleId=$r['approved_tuple']['recipient'];$singleId=$child['share_with'];
                             if((int)$child['share_type']!==7||!is_string($singleId))throw new \RuntimeException('Final Circle recipient child identity changed');
-                            $recipientUid=CircleRuntime::recipientUid($j['uid'],$circleId,$singleId,$this->readDb);
-                            CircleRuntime::assertRecipientMember($j['uid'],$circleId,$recipientUid,$singleId,$this->readDb);
+                            CircleRuntime::recipientMemberUid($j['uid'],$circleId,$singleId,$this->readDb);
                         }else{
                             $memberUid=$child['share_with'];$member=FinalReadCore::fresh($memberUid,$this->readDb);$memberKey='uid:'.$memberUid;
                             if(isset($checkedGroupMembers[$memberKey])){$group=(FinalReadCore::fresh($j['uid'],$this->readDb))->groups()->get($r['approved_tuple']['recipient']);}
