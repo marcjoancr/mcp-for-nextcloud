@@ -677,7 +677,12 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Forms\Access\FormsNativeAuthorization::class), $c->get(GrantPolicy::class)
         ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedAudience::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedAudience(
-            $c->get(IRootFolder::class),$c->get(\OCP\IDBConnection::class),static fn():int=>$c->get(\OCP\AppFramework\Utility\ITimeFactory::class)->getTime()
+            $c->get(IRootFolder::class),$c->get(\OCP\IDBConnection::class),static fn():int=>$c->get(\OCP\AppFramework\Utility\ITimeFactory::class)->getTime(),
+            static fn(string $uid,string $circleId,int $shareId,int $fileId):array => class_exists(\OCA\Forms\Mcp\Service\CircleRuntime::class)
+                ? \OCA\Forms\Mcp\Service\CircleRuntime::linkedAudienceEvidence($uid,$circleId,$shareId,$fileId)
+                : throw new \RuntimeException('Native Circle provider is unavailable.'),
+            static fn(array $origin,string $uid,string $circleId,int $shareId,int $fileId):array => $c->get('OCA\\Forms\\Mcp\\Guard')->linkedCircleAudience($origin,$circleId,$shareId,$fileId),
+            static fn(string $uid,string $path,?array $origin):array => $c->get('OCA\\Forms\\Mcp\\Guard')->linkedSharedAudience($uid,$path,$origin)
         ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedRecovery::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedRecovery(
             $c->get(IRootFolder::class),$c->get(IUserManager::class),static fn():object=>$c->get('OCA\\Files_Versions\\Versions\\IVersionManager'),

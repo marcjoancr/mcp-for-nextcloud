@@ -32,6 +32,7 @@ final class NextcloudApiUsage {
     /** Custom dependency markers: qualified native source/native integration, never upstream API fixtures. */
     public const QUALIFIED_NATIVE_CLASSES = [
         'OCA\\Forms\\Mcp\\Guard' => ['AppInfo/Application.php'],
+        'OCA\\Forms\\Mcp\\Service\\CircleRuntime' => ['AppInfo/Application.php'],
         'OCA\\Forms\\Mcp\\BeforeEffect' => ['Modules/Forms/Integration/FormsNativeGateway.php'],
         'OCA\\Mail\\Db\\PgDirectConnection' => ['Modules/Mail/Integration/MailDraftStorage.php','Modules/Mail/Integration/MailCredentialStorage.php'],
         'OCA\\Mail\\Transmission\\BeforeWireBlock' => ['Modules/Mail/Integration/MailServices.php'],

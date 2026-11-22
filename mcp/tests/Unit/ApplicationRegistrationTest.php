@@ -69,6 +69,30 @@ final class ApplicationRegistrationTest extends TestCase {
             $container->get(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class));
     }
 
+    public function testFormsAudienceResolvesNativeServicesOnlyThroughRegisteredCallbacks(): void {
+        $native = new class {
+            public array $calls = [];
+            public function linkedCircleAudience(array $origin,string $circle,int $share,int $file):array {
+                return $this->calls[] = [$origin,$circle,$share,$file];
+            }
+            public function linkedSharedAudience(string $uid,string $path,?array $origin):array {
+                return $this->calls[] = [$uid,$path,$origin];
+            }
+        };
+        $built = ['OCA\\Forms\\Mcp\\Guard' => $native];
+        $service = $this->sharedContainer($built)->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedAudience::class);
+        self::assertSame([],$native->calls);
+        foreach (['circleAudience','originCircleAudience','sharedAudience'] as $name) {
+            self::assertInstanceOf(\Closure::class,(new \ReflectionProperty($service,$name))->getValue($service));
+        }
+        $origin = ['uid'=>'alice','tool'=>'forms_link_results_file','connection'=>8,'references'=>['form_id'=>4,'owner_id'=>'alice']];
+        $circle = (new \ReflectionProperty($service,'originCircleAudience'))->getValue($service);
+        self::assertSame([$origin,'circle-a',11,2],$circle($origin,'alice','circle-a',11,2));
+        $shared = (new \ReflectionProperty($service,'sharedAudience'))->getValue($service);
+        self::assertSame(['alice','/exports/results.csv',$origin],$shared('alice','/exports/results.csv',$origin));
+        self::assertCount(2,$native->calls);
+    }
+
     public function testSharedPolicyFactoriesPreserveInstanceIdentity(): void {
         $config = new InMemoryConfig();
         $built = [IConfig::class => $config->mock($this),

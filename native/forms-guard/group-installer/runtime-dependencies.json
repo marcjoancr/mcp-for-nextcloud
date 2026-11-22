@@ -1,5 +1,5 @@
 {
-  "bundle_manifest": "4a678a728c2f6497f7c15f0bf170b3f7e29ad0882934c39d4d3f6a2fb680f585",
+  "bundle_manifest": "e2e074212d96ab42da7c65dc97b61ad3dd92c8e8aa55e15162fd8d15919b6563",
   "native_pins": {
     "3rdparty/doctrine/dbal/src/ArrayParameterType.php": "86b5afcbdda6d9e6f6c7ce1b1515a5edc610e65a619f6650ab37f29a2eed0f4b",
     "3rdparty/doctrine/dbal/src/Connection.php": "cbee5e960211459f655d71eb3f8c3a07f800d293c22958924b01c385a704c384",
@@ -33,7 +33,7 @@
     "core/Command/Db/Migrations/MigrateCommand.php": "dc99e9dead3dd55d013e216f0d0acc35484d143c643bf4a0e03cf3d115a26375",
     "core/Listener/RestrictInteractionListener.php": "8380e04081faa32875db1aac4c561294317338609020efd38d449978ba06bab2",
     "core/Sharing/Recipient/GroupShareRecipientType.php": "5cd0fdebd66dcc069e90d78ebaaaa7599718ddadde736bcc007bfa240b5795c0",
-    "custom_apps/mcp/lib/AppInfo/Application.php": "6459fa821886b5558575ce535afe0594cbec814a1166592159022f05d699a2d7",
+    "custom_apps/mcp/lib/AppInfo/Application.php": "2862194e0f89497e9ccf3bd05fdccea0939d0b33ef7a6dc130e079a046fec220",
     "custom_apps/mcp/lib/Listener/GroupLifecycleListener.php": "07b8543ce71728bc525d6ca4629b302f947433749fd8fffa0d503c8bc7eeeb31",
     "lib/OC.php": "24053d5edb03c34e186ddd9d41ea8cd26b5b91ec59392c3c8f5847616fd90047",
     "lib/base.php": "2225732960bd3d09a12d5bd618a754cbe426f26c94b1e351d66803499d17bc6d",

@@ -18,7 +18,7 @@ final class LegacyCatalogContractTest extends TestCase {
         $expected['deck'] = [...$expected['deck'], 'read_comments', 'comment', 'search'];
         $expected['calendar'] = [...$expected['calendar'], 'availability'];
         $expected['talk'] = [...$expected['talk'], 'publish_summary', 'search'];
-        self::assertSame($baseline, LegacyCatalogContract::baseline($baseline, [...$expected, 'mail' => \OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['mail'], 'forms' => ['read', 'read_responses', 'summarize_responses', 'export_responses']]));
+        self::assertSame($baseline, LegacyCatalogContract::baseline($baseline, [...$expected, 'mail' => \OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['mail'], 'forms' => \OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['forms']]));
         foreach ([$baseline, ['files' => ['read'], 'logs' => ['read'], 'mail' => ['read']],
             [...$baseline, 'mail' => ['read', 'write']], [...$baseline, 'unknown' => ['read']],
             ['mail' => ['read']]] as $current) {
@@ -36,7 +36,7 @@ final class LegacyCatalogContractTest extends TestCase {
         $files = ['description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link'];
         $branch['1']['matrix']['alice']['grants']['files'] += array_fill_keys($files, false);
         $branch['1']['matrix']['alice']['grants']['mail'] = array_fill_keys(\OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['mail'],false);
-        $branch['1']['matrix']['alice']['grants']['forms'] = ['read' => false, 'read_responses' => false, 'summarize_responses' => false, 'export_responses' => false];
+        $branch['1']['matrix']['alice']['grants']['forms'] = array_fill_keys(\OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['forms'],false);
         $branch['1']['matrix']['alice']['grants']['talk'] += ['publish_summary' => false, 'search' => false];
         $branch['1']['matrix']['alice']['grants']['deck'] += ['read_comments' => false, 'comment' => false, 'search' => false];
         $branch['1']['matrix']['alice']['grants']['calendar'] += ['availability' => false];
@@ -72,6 +72,13 @@ final class LegacyCatalogContractTest extends TestCase {
                 $bad=$branch;$bad['1']['matrix']['alice']['grants']['mail']=array_fill_keys(\OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['mail'],false);
                 if($invalid===null)unset($bad['1']['matrix']['alice']['grants']['mail'][$operation]);else $bad['1']['matrix']['alice']['grants']['mail'][$operation]=$invalid;
                 try{LegacyCatalogContract::answers($bad);self::fail('New Mail capability must be explicitly denied');}catch(\UnexpectedValueException){self::assertTrue(true);}
+            }
+        }
+        foreach(\OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['forms']as$operation){
+            foreach([true,0,null]as$invalid){
+                $bad=$branch;
+                if($invalid===null)unset($bad['1']['matrix']['alice']['grants']['forms'][$operation]);else $bad['1']['matrix']['alice']['grants']['forms'][$operation]=$invalid;
+                try{LegacyCatalogContract::answers($bad);self::fail('New Forms capability must be explicitly denied');}catch(\UnexpectedValueException){self::assertTrue(true);}
             }
         }
         unset($branch['1']['matrix']['alice']['grants']['mail']);

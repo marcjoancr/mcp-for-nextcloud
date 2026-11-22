@@ -27,7 +27,6 @@ final class FormsLinkedAudience {
         if($nodeOwner!==$uid){
             $resolver=$this->sharedAudience;
             if($resolver!==null){$shared=$resolver($uid,$path,$origin);}
-            elseif(class_exists('OCA\\Forms\\Mcp\\Guard')){$shared=\OCP\Server::get(\OCA\Forms\Mcp\Guard::class)->linkedSharedAudience($uid,$path,$origin);}
             else{throw new \RuntimeException('Native Forms shared audience provider is unavailable.');}
             $shared=$this->sharedEvidence($shared,$uid,$path,$nodeOwner);
         }
@@ -145,11 +144,11 @@ final class FormsLinkedAudience {
                 throw new \RuntimeException('Original linked Forms authority does not match');
             $resolver=$this->originCircleAudience;
             $evidence=$resolver!==null?$resolver($origin,$uid,$circleId,$shareId,$fileId)
-                :\OCP\Server::get('OCA\\Forms\\Mcp\\Guard')->linkedCircleAudience($origin,$circleId,$shareId,$fileId);
+                :throw new \RuntimeException('Native Forms Circle audience provider is unavailable.');
         }else{
             $resolver=$this->circleAudience;
             $evidence=$resolver!==null?$resolver($uid,$circleId,$shareId,$fileId)
-                :(class_exists(\OCA\Forms\Mcp\Service\CircleRuntime::class)?\OCA\Forms\Mcp\Service\CircleRuntime::linkedAudienceEvidence($uid,$circleId,$shareId,$fileId):throw new \RuntimeException('Native Circle provider is unavailable.'));
+                :throw new \RuntimeException('Native Circle provider is unavailable.');
         }
         $keys=['circle_id','parent_share_id','file_id','files_share_provider','share_type','circle_incarnation_digest','native_membership_digest','native_recipient_projection_digest','recipient_count'];
         if(!is_array($evidence)||array_keys($evidence)!==$keys||$evidence['circle_id']!==$circleId||$evidence['parent_share_id']!==$shareId||$evidence['file_id']!==$fileId
