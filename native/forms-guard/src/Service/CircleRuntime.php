@@ -63,6 +63,14 @@ final class CircleRuntime {
 
     public static function assertRecipientMember(string $actorUid,string $circleId,string $recipientUid,string $singleId,?FinalReadConnection $readConnection=null):void {
         if(!preg_match('/^[A-Za-z0-9]{31}$/D',$circleId)||!preg_match('/^[A-Za-z0-9]{31}$/D',$singleId)||$recipientUid===''||strlen($recipientUid)>255)throw new \RuntimeException('Native Circle recipient tuple is malformed');
+        if(!self::transferRecipientRead()){
+        $connection=Server::get(\OCP\IDBConnection::class);if($readConnection!==null){$readConnection->assertPrimary($connection);$connection=$readConnection;}
+        $identity=CircleExistingIdentity::read($connection,$recipientUid);
+        if($identity['circle_id']!==$singleId){throw new \RuntimeException('Native Circle recipient identity changed');}
+        $level=CircleReadRuntime::withProviderLease($actorUid,static fn(\OCA\Forms\Mcp\Service\CircleDetached\Lease $lease):int=>$lease->memberLevel($circleId,$recipientUid),$readConnection);
+        if($level<\OCA\Circles\Model\Member::LEVEL_MEMBER){throw new \RuntimeException('Native Circle recipient membership is unavailable');}
+            return;
+        }
         self::recipientRead(static function()use($actorUid,$circleId,$recipientUid,$singleId,$readConnection):void {
             $connection=Server::get(\OCP\IDBConnection::class);if($readConnection!==null){$readConnection->assertPrimary($connection);$connection=$readConnection;}
             $identity=CircleExistingIdentity::read($connection,$recipientUid);
@@ -74,14 +82,22 @@ final class CircleRuntime {
     /** Resolve a persisted provider canonical ID through the native local-user request; it is never a UID alias. */
     public static function recipientUid(string $actorUid,string $circleId,string $singleId,?FinalReadConnection $readConnection=null):string {
         if(!preg_match('/^[A-Za-z0-9]{31}$/D',$circleId)||!preg_match('/^[A-Za-z0-9]{31}$/D',$singleId))throw new \RuntimeException('Native Circle recipient identity is malformed');
+        if(!self::transferRecipientRead()){
+        return CircleReadRuntime::withProviderLease($actorUid,static function(\OCA\Forms\Mcp\Service\CircleDetached\Lease $lease)use($singleId):string {
+            $user=$lease->circles()->getFederatedUserBySingleId($singleId);
+            $uid=$user->getUserId();
+            if($uid===''||strlen($uid)>255||$user->getUserType()!==\OCA\Circles\Model\Member::TYPE_USER||!$lease->config()->isLocalInstance($user->getInstance()))throw new \RuntimeException('Native Circle recipient is not a local user');
+            return$uid;
+        },$readConnection);
+        }
         return self::recipientRead(static function()use($actorUid,$singleId,$readConnection):string {
             $call=CircleReadRuntime::scoped($actorUid,true,$readConnection);
             return $call('recipientUid',['singleId'=>$singleId]);
         });
     }
+    private static function transferRecipientRead():bool {return OriginContext::active()&&(OriginContext::current()['verified']['tool']??null)==='forms_transfer';}
     /** Only the two closed scalar recipient reads use this scope; all provider effects remain outside. */
     private static function recipientRead(\Closure $read):mixed {
-        if(!OriginContext::active()||(OriginContext::current()['verified']['tool']??null)!=='forms_transfer')return $read();
         if(OriginReadAuthority::check())return $read();
         $frame=OriginContext::transferSharingAuthority()['frame'];
         return OriginContext::verifiedRead($frame,$read);
