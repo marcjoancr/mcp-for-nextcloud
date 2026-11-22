@@ -65,17 +65,26 @@ final class BulkTransferShares {
   if($row['approved_tuple']['type']===7){$row['circle_audience']=CircleRuntime::linkedAudienceEvidence($j['uid'],$row['approved_tuple']['recipient'],CoreShareIdentity::id($row['files_share_id'],7),(int)$row['folder_id']);}
   return $row;
  }
- private function authority(array $j,array $r,?Folder $folder=null):void {
+ private function authority(array $j,array $r,?Folder $folder=null,?array $recipient=null,?string $recipientUid=null):void {
+  if(($recipient===null)!==($recipientUid===null)||($recipient!==null&&($folder===null||($r['approved_tuple']['type']??null)!==7||$this->finalAudienceScope===null)))throw new \RuntimeException('Circle recipient authority scope is unavailable');
   $frame=$this->authorityFrame($j,$r);
   if($folder!==null&&($r['approved_tuple']['type']??null)===7&&$this->finalAudienceScope!==null){
    // The external boundary runs before the unpublished read; all native ACL decisions remain fresh.
    OriginContext::assertFileEffect();
-   OriginContext::verifiedRead($frame,function()use($j,$r,$folder):void {$this->authorityRead($j,$r,$folder);$this->destinationAuthorityRead($folder);});
+   OriginContext::verifiedRead($frame,function()use($j,$r,$folder,$recipient,$recipientUid):void {$this->authorityRead($j,$r,$folder);$this->destinationAuthorityRead($folder);if($recipient!==null)$this->recipientAuthorityRead($j,$r,$recipient,(string)$recipientUid);});
   }else{
    OriginContext::verifiedRead($frame,fn()=> $this->authorityRead($j,$r,$folder));
    if($folder!==null){DestinationFiles::authorize($folder,true);}
   }
   BulkDeadline::check();
+ }
+ /** Same unpublished authority read; the exact original decision and native membership are never cached. */
+ private function recipientAuthorityRead(array $j,array $r,array $child,string $uid):void {
+  if(!OriginReadAuthority::check()||$this->finalAudienceScope===null||$this->finalAudienceScope[0]!==($j['id']??null)||!$this->db->inTransaction()
+   ||($j['phase']??null)!=='apply'||($r['approved_tuple']['type']??null)!==7||(int)($child['share_type']??-1)!==7
+   ||(int)($child['parent']??0)!==CoreShareIdentity::id($r['files_share_id'],7)||$uid==='')throw new \RuntimeException('Circle recipient read authority changed');
+  OriginContext::assertJobInput($j);$this->assertRecipientSource($child);
+  CircleRuntime::assertRecipientMember($j['uid'],$r['approved_tuple']['recipient'],$uid,$child['share_with']);
  }
  private function destinationAuthorityRead(Folder $folder):void {
   if($this->finalAudienceScope===null||!$this->db->inTransaction()||!OriginReadAuthority::check())throw new \RuntimeException('Final transfer destination scope ended');
@@ -243,13 +252,13 @@ final class BulkTransferShares {
   return $expiry??throw new \RuntimeException('Transfer activation inputs were not recorded');
  }
  /** The final TYPE7 authority path already performs this exact file boundary before its pure read. */
- private function circleWriteAuthority(array $j,array $r,Folder $folder):void {
+ private function circleWriteAuthority(array $j,array $r,Folder $folder,?array $recipient=null,?string $recipientUid=null):void {
   $impact=OriginContext::current();$share=$impact['file_impact']['share_impact']??null;
   if($this->finalAudienceScope===null||$this->finalAudienceScope[0]!==($j['id']??null)||!$this->db->inTransaction()
    ||($j['phase']??null)!=='apply'||($r['approved_tuple']['type']??null)!==7||($impact['file_action']??null)!=='forms_transfer'
    ||!is_array($share)||($share['type']??null)!==7||($share['recipient']??null)!==$r['approved_tuple']['recipient']
    ||($share['parent']['file_id']??null)!==(int)$r['folder_id']||($share['folder_ids']??null)!==[(int)$r['folder_id']])throw new \RuntimeException('Final Circle file boundary changed');
-  $this->authority($j,$r,$folder);
+  $this->authority($j,$r,$folder,$recipient,$recipientUid);
  }
  private function activateCircle(array $j,array $r,array $m,Folder $folder,array $managedRow,int $sourceParent,int $targetParent,\OCP\Share\IShare $stagedShare):array {
   $source=Server::get(IRootFolder::class)->getUserFolder($j['uid'])->getById((int)$r['folder_id'])[0]??null;if(!$source instanceof Folder)throw new \RuntimeException('Circle activation source folder unavailable');
@@ -264,7 +273,7 @@ final class BulkTransferShares {
   $this->assertCircleParentState($j,$r,$m,1);$active=clone $parent;self::stagedIdentity($active,$m,1);self::assertMetadata($active,$r['share_state']);
   $cursor=0;while($rows=$this->store->page($j['id'],'share_recipients',$cursor))foreach($rows as$row){$cursor=$row['id'];$child=$row['data'];if((int)$child['parent']!==$sourceParent)continue;BulkDeadline::check();$targetChild=$this->store->mapped($j['id'],'staged_recipients',$row['id']);$expectedExpiry=$child['expiration']??null;$parentExpiry=$r['share_state']['expiration']??null;if($parentExpiry!==null&&($expectedExpiry===null||(new \DateTime($expectedExpiry))>(new \DateTime($parentExpiry))))$expectedExpiry=$parentExpiry;
    $recipientUid=$this->stagedCircleRecipientUid($j,$r,$child,$row['id']);$this->assertRecipientSource($child);
-   if((int)$child['permissions']===1){$childCapability=CircleDetached\ShareWriteBoundary::bulkTransferActivation($this->store,$j,$managedRow,$m,$row);$childBoundary=function(\OCP\Share\IShare $share,bool $create,?array $binding=null)use($j,$r,$m,$folder,$parentId,$recipientUid,$circleId,$child,$targetChild):void {$this->circleWriteAuthority($j,$r,$folder);$this->assertRecipientSource($child);CircleRuntime::assertRecipientMember($j['uid'],$circleId,$recipientUid,(string)$child['share_with']);$this->assertCircleParentState($j,$r,$m,1);if($create||$share->getShareType()!==7||$share->getSharedWith()!==$circleId||$share->getShareOwner()!==$j['input']['owner_id']||$share->getSharedBy()!==$j['uid']||(int)$share->getNodeId()!==(int)$folder->getId()||(int)$share->getId()!==$parentId||$share->getPermissions()!==1||$binding!==['child_id'=>$targetChild])throw new \RuntimeException('Circle recipient activation differs from its claim');};$recipientManager=ScopedShareManager::create($j['uid'],$childBoundary,null,null,$childCapability);$recipientProvider=ScopedShareManager::circleProvider($recipientManager);$this->assertCircleParentState($j,$r,$m,1);$recipientProvider->restore($active,$recipientUid);}
+   if((int)$child['permissions']===1){$childCapability=CircleDetached\ShareWriteBoundary::bulkTransferActivation($this->store,$j,$managedRow,$m,$row);$childBoundary=function(\OCP\Share\IShare $share,bool $create,?array $binding=null)use($j,$r,$m,$folder,$parentId,$recipientUid,$circleId,$child,$targetChild):void {$this->circleWriteAuthority($j,$r,$folder,$child,$recipientUid);$this->assertCircleParentState($j,$r,$m,1);if($create||$share->getShareType()!==7||$share->getSharedWith()!==$circleId||$share->getShareOwner()!==$j['input']['owner_id']||$share->getSharedBy()!==$j['uid']||(int)$share->getNodeId()!==(int)$folder->getId()||(int)$share->getId()!==$parentId||$share->getPermissions()!==1||$binding!==['child_id'=>$targetChild])throw new \RuntimeException('Circle recipient activation differs from its claim');};$recipientManager=ScopedShareManager::create($j['uid'],$childBoundary,null,null,$childCapability);$recipientProvider=ScopedShareManager::circleProvider($recipientManager);$this->assertCircleParentState($j,$r,$m,1);$recipientProvider->restore($active,$recipientUid);}
    elseif((int)$child['permissions']!==0)throw new \RuntimeException('Circle recipient permission decision changed');
    $actual=$this->recipientState($targetChild);foreach(['share_with','accepted','attributes']as$key)if($actual[$key]!==$child[$key])throw new \RuntimeException('Activated Circle recipient decision changed');if((int)$actual['permissions']!==(int)$child['permissions']||(int)$actual['parent']!==$parentId||(int)$actual['share_type']!==7||$actual['expiration']!==$expectedExpiry||$actual['uid_owner']!==$j['input']['owner_id']||$actual['uid_initiator']!==$j['uid']||(int)$actual['file_source']!==(int)$folder->getId())throw new \RuntimeException('Activated Circle recipient identity changed');
   }
