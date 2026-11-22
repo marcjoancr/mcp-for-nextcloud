@@ -159,3 +159,17 @@ path = [
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 MCP for Nextcloud contributors"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+# Fork-owned Forms implementation, immutable inputs and qualification fixtures.
+[[annotations]]
+path = ["native/forms-guard/**", "mcp/tests/Integration/ci/forms-*/**", "mcp/tests/Unit/Modules/Forms/FormsDestinationChainTest.php"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 MCP for Nextcloud contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+# Keep inline native source bytes and their complete attribution unchanged.
+[[annotations]]
+path = ["native/forms-guard/src/Service/CircleDetached/FileShare.php", "native/forms-guard/src/Service/CircleDetached/FileUnshare.php"]
+precedence = "override"
+SPDX-FileCopyrightText = ["Nextcloud GmbH and Nextcloud contributors", "2026 MCP for Nextcloud contributors"]
+SPDX-License-Identifier = "AGPL-3.0-or-later"
