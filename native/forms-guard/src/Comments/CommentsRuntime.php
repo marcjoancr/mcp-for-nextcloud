@@ -28,8 +28,9 @@ final class CommentsRuntime {
             $directory=rtrim(\OC::$configDir,'/');
             $path=$directory.'/mcp_forms_comments_install.json';
             $config=Server::get(\OCP\IConfig::class);
-            if (!is_file($path) || is_link($path) || !is_writable($path) || !is_writable($directory)
-                || $config->getSystemValueBool('config_is_read_only',false)
+            // Approval follows the explicitly activated, exact-source artifacts.
+            // Runtime filesystem writability is not authority to activate them.
+            if (!is_file($path) || is_link($path)
                 || $config->getSystemValue('comments.managerFactory')!=='McpFormsServerExtension\\CommentsFactory') {return false;}
             $metadata=json_decode(file_get_contents($path),true,32,JSON_THROW_ON_ERROR);
             if (($metadata['active']??false)!==true || !hash_equals($metadata['native_manifest']??'',hash_file('sha256',dirname(__DIR__,3).'/mcp-guard-installed.json'))) {return false;}
