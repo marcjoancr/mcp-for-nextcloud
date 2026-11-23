@@ -182,3 +182,9 @@ The reviewed comparison preserves all existing tool order and other schemas,
 the default tool selection and synthetic results, and the unrelated guides.
 The exact Calendar appointment and optional Circles capabilities continue to
 have separate version and discovery tests.
+
+The 2.10.3 translation update changes the Spanish and Brazilian Portuguese
+titles for updating Calendar attendees by email address wherever publication
+shows that tool. The patch substitutes nine occurrences per locale, including
+titles and rendered guide text. Reversing those two substitutions restores
+the previous publication capture byte for byte.
