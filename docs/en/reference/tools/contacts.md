@@ -12,6 +12,28 @@
 
 See the live `mcp_guide` for the authoritative schema and available operations.
 
+## Groups, fields and vCard exchange
+
+`contacts_list_groups` lists categories in a visible address book. Pass `group` to `contacts_search_contacts` for an exact category match. Create and edit support structured names and addresses, categories, a birthday and a preferred email. Contact fields follow the stored vCard version.
+
+`contacts_export_vcf` returns the selected cards as a vCard document. Save the payload as a `.vcf` file. Use `contacts_import_vcf` with a file you can read in Files or with the backup path returned after deleting a contact. The plan lists which cards will be created or skipped. Repeating an import with a fresh plan skips UIDs already present in the book.
+
+`contacts_find_duplicates` finds candidates by matching normalized emails or phone numbers. A shared name and organization is a weaker hint for review. Review the references and ETags before deciding which cards to consolidate.
+
+Use `contacts_merge_contacts` with up to five disjoint groups. Each group contains two to ten cards in one writable address book. Pick the card to keep and review the proposed values for each conflict. After approval, repeat with the ETags and `plan_state` from the preview. The tool verifies the original backups and the consolidated card before deleting sources. It reports any groups that still need review and their backup paths.
+
+## Address books and contact transfers
+
+Use `contacts_create_addressbook` for a new personal book and `contacts_list_addressbook_shares` to inspect sharing on a book you own. `contacts_share_addressbook` manages direct sharing with local users. Set read or write access or remove a current share, then review the change in the preview.
+
+`contacts_copy_contact` creates a distinct contact in a writable destination and leaves the source in place. `contacts_move_contact` keeps the contact UID, verifies the destination and saves a backup before deleting the source. Confirm the transfer with the plan’s `plan_state`. Include the source ETag for a move and check the reported state of both copies if a step fails. Shared books require separate approval for each affected collection.
+
 [Operational guides](../../guides/README.md).
+
+## Batch maintenance
+
+`contacts_update_categories` adds, removes or renames one category on selected cards in one writable address book. Supply the cards' ETags. The preview shows the categories before and after, and the result reports each card's outcome.
+
+`contacts_reconcile_vcf` updates cards with an exact, unique UID match in a VCF visible in Files. Review the current, proposed and preserved values. Each update requires a verified full backup. Cards without a unique match remain for review. Confirm each operation with its `plan_state` and acknowledge writes on shared address books separately.
 
 English · [Español](../../../es/reference/tools/contacts.md) · [Català](../../../ca/reference/tools/contacts.md) · [Português (Brasil)](../../../pt-BR/reference/tools/contacts.md) · [Português (Portugal)](../../../pt-PT/reference/tools/contacts.md)
