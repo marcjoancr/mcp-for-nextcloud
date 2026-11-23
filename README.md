@@ -49,7 +49,7 @@ The catalogs cover **eleven modules**, plus guide and status tools. Discovery sh
 | [Deck](docs/en/reference/tools/deck.md) | Search and manage cards, comments, completion, assignees, labels, native file links and supported dependencies. |
 | [Talk](docs/en/reference/tools/talk.md) | Read, search and inspect message context; send messages or caller-prepared summaries, share files and create group conversations. |
 | [People](docs/en/reference/tools/people.md) | Look up people and groups before sharing or messaging. |
-| [Mail](docs/en/reference/tools/mail.md) | Search owned mail, read messages/threads/attachments without marking them read, save attachments to Files and manage local unsent drafts. No sending. |
+| [Mail](docs/en/reference/tools/mail.md) | Search owned mail, read messages/threads/attachments without marking them read, save attachments to Files and manage local unsent drafts. Qualified sending requires its separate permissions and the operator switch. |
 | [Forms](docs/en/reference/tools/forms.md) | Manage forms, questions, sharing, responses, files, complete exports and recoverable operations through a qualified native companion; legacy page reads and CSV export retain their contracts. |
 | [Server logs](docs/en/reference/tools/logs.md) | Bounded, read-only diagnostics for administrators and authorized IT groups; disabled by default. |
 
