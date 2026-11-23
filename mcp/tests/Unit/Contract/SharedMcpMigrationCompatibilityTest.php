@@ -193,8 +193,11 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
 
     public static function captureLocales(): array { return ['English' => ['en'], 'Portuguese' => ['pt_BR'], 'Spanish' => ['es']]; }
     #[\PHPUnit\Framework\Attributes\DataProvider('captureLocales')]
+    #[\PHPUnit\Framework\Attributes\RunInSeparateProcess]
+    #[\PHPUnit\Framework\Attributes\PreserveGlobalState(false)]
     public function testFrozenSharedContracts(string $locale): void {
-        // Each locale is a separate case so PHPUnit releases invocation/config histories between captures.
+        // Isolate each locale so the large fixture starts with a fresh heap instead of the
+        // classes and data accumulated by the earlier contract cases in the full suite.
         // This capture also creates short-lived SQLite query stubs whose callbacks form cycles. PHPUnit normally
         // pauses PHP's automatic cycle collection and collects only between tests, too late for this one large test.
         $garbageCollectionWasEnabled = gc_enabled();
@@ -206,10 +209,11 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
                 $expected = file_get_contents(dirname(__DIR__, 2).'/Support/Mcp/Compatibility/'.$name.'.json');
                 if ($name !== 'protocol') { $decoded = json_decode($expected, false, 512, JSON_THROW_ON_ERROR); $expected = json_encode([$locale => $decoded->{$locale}], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n"; }
                 $actual = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n";
-                if ($expected !== $actual) {
-                    self::fail($name . ' differs at ' . self::firstDifference(json_decode($expected), json_decode($actual)));
-                }
-                self::assertSame($expected, $actual);
+                // PHPUnit exports the assertion operands even on success. Keep the exact byte
+                // comparison and report only the first difference instead of exporting the snapshots.
+                $matches = $expected === $actual;
+                self::assertTrue($matches, $matches ? '' : $name . ' differs at '
+                    . self::firstDifference(json_decode($expected), json_decode($actual)));
             }
         } finally {
             if (!$garbageCollectionWasEnabled) {
