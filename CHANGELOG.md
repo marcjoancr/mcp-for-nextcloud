@@ -2,6 +2,11 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.10.2
+
+- Qualify all five appointment tools on Calendar 6.6.4 and pin the official archive in the Nextcloud 35 integration matrix.
+- Update the Forms final sharing fixture to verify the current PostgreSQL projection and native contracts.
+
 ## 2.10.1
 
 - Rebuild the guarded Forms companion and group observer profile against the exact MCP source shipped with the groupware workflows.
