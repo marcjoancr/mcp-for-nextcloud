@@ -11,7 +11,7 @@ $denied=static function(Closure $run,string $message)use($check):void{$error=nul
 $make=static fn()=>new FinalReadSet(static function():void{});
 // Exact previously consumed rows are rechecked; SQL predicates/absence are retained.
 $s=$make();$s->add('SELECT configkey,configvalue FROM *PREFIX*appconfig WHERE appid = ?',['core'],[],[['configkey'=>'shareapi_enabled','configvalue'=>'yes']]);
-$s->seal();$plan=$s->statement('pgsql');$check(substr_count($plan['sql'],'SELECT')===3);$check(str_contains($plan['sql'],'row_to_json'));$check($plan['params']===['f0p0'=>'core']);
+$s->seal();$plan=$s->statement('pgsql');$check(substr_count($plan['sql'],'SELECT')===3);$check(str_contains($plan['sql'],'jsonb_build_object'));$check(str_contains($plan['sql'],'CAST(t."configkey" AS TEXT)'));$check(str_contains($plan['sql'],'CAST(t."configvalue" AS TEXT)'));$check($plan['params']===['f0p0'=>'core']);
 $s->verify([['q'=>'0','row'=>'{"configkey":"shareapi_enabled","configvalue":"yes"}']]);
 $denied(fn()=>$s->verify([]),'Final read snapshot escaped or repeated');
 foreach(['config','membership','duplicate','view','permission']as$kind){

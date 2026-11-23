@@ -4,8 +4,12 @@
 declare(strict_types=1);
 // Pure one-shot state/exception fixture: all graph lookups are traps and no constructor runs.
 eval('namespace OCP; final class Server {public static int $calls=0;public static function get(string $id):never{++self::$calls;throw new \\RuntimeException("root trap");}}');
+eval('class OC {public static string $SERVERROOT;}');
+\OC::$SERVERROOT=dirname(__DIR__).'/native-root';
 require dirname(__DIR__).'/src/FinalTransferShareCheck.php';
 require dirname(__DIR__).'/src/FinalShareBudget.php';
+require dirname(__DIR__).'/src/FinalNativeAcl.php';
+require dirname(__DIR__).'/src/FinalShareProfile.php';
 use OCA\Forms\Mcp\Service\{FinalTransferShareCheck as Check,FinalShareBudget as Budget};
 $n=0;
 function check(bool $ok):void {global $n;if(!$ok)throw new RuntimeException('test failed');++$n;}
