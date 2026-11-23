@@ -38,6 +38,8 @@ Persistence converts to UTC before calling Deck. Responses retain day-based
 `duedate`, overdue and `dueBefore`, and add `dueAt` with the account offset.
 Unrelated edits preserve the existing instant.
 
+For a repeated midnight, approval shows its time zone and UTC offset. On 3 November 2024 in `America/Havana`, `2024-11-03T00:00-04:00` and `2024-11-03T00:00-05:00` referred to instants one hour apart. Date-only input follows the server’s local midnight rules. The server applies its time zone rules to adjust a skipped midnight.
+
 Earlier affected MCP writes may have stored the wrong day. Review those cards
 against the intended date and correct them explicitly in Deck or through a new
 confirmed edit. Do not shift every existing deadline: dates entered by other

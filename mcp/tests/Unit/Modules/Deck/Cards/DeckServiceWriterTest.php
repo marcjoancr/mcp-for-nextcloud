@@ -51,7 +51,7 @@ final class DeckServiceWriterTest extends TestCase {
             'Com o cliente',
             '2026-03-01T00:00:00Z',
         )->willReturn($card);
-        self::assertSame($card, $this->capabilities->writer->createCard('alice', 10, 'Fechar', 'Com o cliente', '2026-03-01'));
+        self::assertSame($card, $this->capabilities->writer->createCard('alice', 10, 'Fechar', 'Com o cliente', '2026-03-01T00:00:00Z'));
     }
 
     public function testDayWrittenByTheToolsIsMidnightInTheCallerTimezone(): void {

@@ -31,8 +31,8 @@ final class CardDueDateTest extends TestCase {
 		yield 'New York summer' => ['2026-07-15', 'America/New_York', '2026-07-15T04:00:00Z'];
 		yield 'Berlin winter' => ['2026-01-15', 'Europe/Berlin', '2026-01-14T23:00:00Z'];
 		yield 'Berlin summer' => ['2026-07-15', 'Europe/Berlin', '2026-07-14T22:00:00Z'];
-		yield 'Santiago missing midnight' => ['2026-09-06', 'America/Santiago', '2026-09-06T04:00:00Z'];
-		yield 'Havana repeated midnight' => ['2026-11-01', 'America/Havana', '2026-11-01T04:00:00Z'];
+		yield 'Santiago missing midnight' => ['2024-09-08', 'America/Santiago', '2024-09-08T04:00:00Z'];
+		yield 'Havana repeated midnight' => ['2024-11-03', 'America/Havana', '2024-11-03T04:00:00Z'];
 		yield 'Far east' => ['2026-10-01', 'Pacific/Kiritimati', '2026-09-30T10:00:00Z'];
 	}
 
@@ -53,18 +53,17 @@ final class CardDueDateTest extends TestCase {
 	}
 
 	/**
-	 * Confirm the container tzdata gap and overlap, including the native occurrence selected at midnight.
+	 * Use historical transitions so future changes in timezone rules cannot erase the gap or overlap.
 	 *
 	 * @return void
 	 */
 	public function testNativeMidnightTransitionPolicy(): void {
-		$santiago = CardDueDate::midnight('2026-09-06', new DateTimeZone('America/Santiago'));
-		$havana = CardDueDate::midnight('2026-11-01', new DateTimeZone('America/Havana'));
-		self::assertSame('2026-09-06T01:00:00-03:00', $santiago->format(\DateTimeInterface::ATOM));
-		self::assertSame('2026-11-01T00:00:00-04:00', $havana->format(\DateTimeInterface::ATOM));
-		$later = new \DateTimeImmutable('2026-11-01T05:00:00Z');
-		self::assertSame('2026-11-01T00:00:00-05:00', $later->setTimezone(new DateTimeZone('America/Havana'))->format(\DateTimeInterface::ATOM));
-		fwrite(STDERR, sprintf("Midnight tzdata=%s Santiago=%s Havana=%s later=%s\n", timezone_version_get(), $santiago->format(\DateTimeInterface::ATOM), $havana->format(\DateTimeInterface::ATOM), $later->format(\DateTimeInterface::ATOM)));
+		$santiago = CardDueDate::midnight('2024-09-08', new DateTimeZone('America/Santiago'));
+		$havana = CardDueDate::midnight('2024-11-03', new DateTimeZone('America/Havana'));
+		self::assertSame('2024-09-08T01:00:00-03:00', $santiago->format(\DateTimeInterface::ATOM));
+		self::assertSame('2024-11-03T00:00:00-04:00', $havana->format(\DateTimeInterface::ATOM));
+		$later = new \DateTimeImmutable('2024-11-03T05:00:00Z');
+		self::assertSame('2024-11-03T00:00:00-05:00', $later->setTimezone(new DateTimeZone('America/Havana'))->format(\DateTimeInterface::ATOM));
 	}
 
 	/**
@@ -98,7 +97,7 @@ final class CardDueDateTest extends TestCase {
             ['2026-10-01T10:00-00:00', 'Asia/Tokyo', '2026-10-01T10:00:00Z'],
             ['2026-11-01T01:30', 'America/New_York', '2026-11-01T05:30:00Z'],
             ['2026-11-01T01:30-05:00', 'America/New_York', '2026-11-01T06:30:00Z'],
-            ['2026-11-01T00:00', 'America/Havana', '2026-11-01T04:00:00Z'],
+            ['2024-11-03T00:00', 'America/Havana', '2024-11-03T04:00:00Z'],
             ['2026-04-05T01:45', 'Australia/Lord_Howe', '2026-04-04T14:45:00Z'],
         ];
     }
@@ -110,7 +109,7 @@ final class CardDueDateTest extends TestCase {
     public static function invalidTimes(): array {
         return [
             ['2026-03-08T02:30', 'America/New_York'],
-            ['2026-09-06T00:00', 'America/Santiago'],
+            ['2024-09-08T00:00', 'America/Santiago'],
             ['2026-10-01T24:00', 'UTC'],
             ['2026-02-30T12:00Z', 'UTC'],
             ['2026-10-01T12:00:60Z', 'UTC'],
@@ -126,7 +125,8 @@ final class CardDueDateTest extends TestCase {
     }
     public function testPlanDisambiguatesRepeatedMidnightAndShowsSecondsAndZone(): void {
         $view = \OCA\Mcp\Modules\Deck\Presentation\CardDueDateView::class;
-        self::assertSame('2026-11-01 00:00 (America/Havana, UTC-04:00)', $view::formatPlan('2026-11-01T00:00-04:00', new DateTimeZone('America/Havana')));
+        self::assertSame('2024-11-03 00:00 (America/Havana, UTC-04:00)', $view::formatPlan('2024-11-03T00:00-04:00', new DateTimeZone('America/Havana')));
+        self::assertSame('2024-11-03 00:00 (America/Havana, UTC-05:00)', $view::formatPlan('2024-11-03T00:00-05:00', new DateTimeZone('America/Havana')));
         self::assertStringContainsString('15:30:19', $view::formatPlan('2026-10-01T15:30:19', new DateTimeZone('UTC')));
         self::assertSame('2026-10-01', $view::formatPlan('2026-10-01', new DateTimeZone('UTC')));
     }
