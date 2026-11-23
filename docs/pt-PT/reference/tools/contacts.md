@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/contacts.md -->
-<!-- translation-source-revision: c5ff622fac628b942d9945fe50aa21a4b7a49262 -->
+<!-- translation-source-revision: 43eaec06ad2748a8e6f546fbe8ebf9cd04ba8f52 -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../../../en/reference/tools/contacts.md).
@@ -18,6 +18,13 @@
 Consulte `mcp_guide` para o esquema e as operações disponíveis.
 
 [Guias de operação](../../guides/README.md).
+
+## Procurar e manter fichas de contacto
+
+- Use `contacts_list_addressbooks` para localizar os livros de endereços pessoais e partilhados e, quando a administração o disponibilizar, o diretório de contas de leitura apenas.
+- Pesquise com `contacts_search_contacts` e consulte a ficha escolhida com `contacts_read_contact`. Se precisar de uma conta do Nextcloud para um convite, use o `accountId` devolvido quando estiver disponível.
+- Use `contacts_create_contact` para adicionar uma ficha ou `contacts_edit_contact` para a alterar num livro de endereços com permissão de escrita. `contacts_delete_contact` verifica uma cópia de segurança vCard antes de eliminar a ficha e devolve o caminho dessa cópia.
+- Reveja a pré-visualização e confirme a mesma alteração. Para editar ou eliminar uma ficha, inclua o ETag do plano. Se o livro de endereços estiver partilhado, confirme também a alteração no livro partilhado com `confirm_shared: true`.
 
 ## Grupos, livros de endereços e vCard
 

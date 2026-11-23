@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/calendar.md -->
-<!-- translation-source-revision: c5ff622fac628b942d9945fe50aa21a4b7a49262 -->
+<!-- translation-source-revision: 43eaec06ad2748a8e6f546fbe8ebf9cd04ba8f52 -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../../en/reference/tools/calendar.md).
@@ -55,9 +55,19 @@ Fes servir `calendar_list_resources` per descobrir les sales i els equips que te
 
 ## Enllaços de reserva
 
-Fes servir `calendar_list_appointments` per trobar configuracions de reserva als teus calendaris visibles. Crea, edita o retira una configuració amb `calendar_create_appointment`, `calendar_update_appointment` i `calendar_delete_appointment`. Revisa la zona horària, l'horari setmanal, la durada de les cites, el període de reserva i la visibilitat. Les franges setmanals fan servir l'hora local HH:mm; les durades i els marges són en minuts, i l'horitzó de reserva és en dies. Repeteix l'escriptura aprovada amb el `plan_state` del pla.
+MCP admet les eines de cites amb Calendar 6.6.2, 6.6.3 i 6.6.4. La compatibilitat amb 6.6.4 comença amb MCP 2.10.2. Aquestes eines treballen amb configuracions de cites dels teus calendaris accessibles des de MCP.
 
-La visibilitat privada manté l'enllaç fora del perfil públic, però qualsevol persona que tingui l'URL pot reservar. La visibilitat pública també el mostra al perfil. En eliminar la configuració, es retira l'enllaç. Calendar 6.6.2, 6.6.3 i 6.6.4 ofereixen aquestes eines quan l'administrador les concedeix i la connexió les selecciona.
+| Eina | Operació | Què fa |
+| --- | --- | --- |
+| `calendar_list_appointments` | `calendar.read` | Llista les teves configuracions de cites i els enllaços de reserva. |
+| `calendar_create_appointment` | `calendar.create` | Crea un enllaç de reserva amb disponibilitat, durada i visibilitat pròpies. |
+| `calendar_update_appointment` | `calendar.edit` | Modifica una configuració i en conserva l’enllaç de reserva. |
+| `calendar_delete_appointment` | `calendar.delete` | Retira l’enllaç. Els esdeveniments que ja s’han reservat es mantenen al calendari. |
+| `calendar_list_appointment_bookings` | `calendar.read` | Llista les reserves pendents i confirmades entre `from` i `to`, opcionalment per a un `appointment_id`. L’interval màxim és de 93 dies. Mostra el nom de la persona convidada i la franja horària. Les adreces electròniques i els tokens de confirmació són privats. |
+
+La persona administradora assigna cada eina a **Administració → Nextcloud MCP → Accés i permisos**. Selecciona les eines assignades per al client a **Configuració personal → Nextcloud MCP** o quan autoritzis la connexió OAuth. Si falta una eina, comprova la versió de Calendar, l’assignació del compte i la selecció de la connexió. Després, consulta la [guia d’eines](../tools.md) des d’aquella connexió. Consulta [Accés i permisos](../../guides/permissions.md) per configurar l’assignació i la selecció.
+
+Revisa el fus horari, l’horari setmanal, la durada, el període de reserva i la visibilitat a la previsualització. Un cop aprovada l’operació, repeteix-la amb `confirm: true` i el seu `plan_state`. Les franges setmanals fan servir l’hora local en format HH:mm. Les durades i els marges s’expressen en minuts, i l’horitzó de reserva en dies. La visibilitat privada amaga l’enllaç del perfil públic. Qualsevol persona amb l’URL pot reservar. La visibilitat pública també mostra l’enllaç al perfil.
 
 ## Invitacions, recuperació i intercanvi
 
@@ -65,7 +75,6 @@ La visibilitat privada manté l'enllaç fora del perfil públic, però qualsevol
 - Fes servir `calendar_list_trashed_events` per trobar l'ID d'un esdeveniment suprimit i `calendar_restore_trashed_event` per restaurar-lo al calendari original. La recuperació depèn de la retenció i de l'abast dels calendaris propis. La restauració nativa conserva les dades sense enviar invitacions.
 - `calendar_create_calendar` crea un calendari personal quan l'abast de calendaris no està restringit. `calendar_list_calendar_shares` i `calendar_share_calendar` llisten i gestionen l'accés directe de comptes locals als calendaris propis: lectura, escriptura o retirada.
 - `calendar_import_ics` llegeix un document visible a Files i copia fins a 100 esdeveniments o 1 MiB en un calendari propi. La vista prèvia identifica duplicats i conflictes. La importació omet organitzadors, participants, alarmes i adjunts. `calendar_export_ics` retorna un document iCalendar dels UID seleccionats d'un calendari, incloses les excepcions de sèrie completament visibles.
-- `calendar_list_appointment_bookings` llista les reserves pendents i confirmades dels enllaços visibles de Calendar 6.6.2, 6.6.3 o 6.6.4. Filtra per data i, opcionalment, per configuració. El resultat inclou el nom de la persona i la franja, i manté privats el correu i els tokens de confirmació.
 - `calendar_set_event_reminders` substitueix les alarmes de visualització relatives a l'inici d'un esdeveniment o sèrie. Indica de zero a cinc antelacions en minuts. Es conserven les alarmes personalitzades, de correu, absolutes, repetides i específiques d'ocurrències.
 
 Les escriptures d'aquests fluxos requereixen `confirm: true` i el `plan_state` de la vista prèvia.

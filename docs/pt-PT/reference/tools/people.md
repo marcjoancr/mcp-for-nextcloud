@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/people.md -->
-<!-- translation-source-revision: c5ff622fac628b942d9945fe50aa21a4b7a49262 -->
+<!-- translation-source-revision: 43eaec06ad2748a8e6f546fbe8ebf9cd04ba8f52 -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../../../en/reference/tools/people.md).
@@ -21,7 +21,7 @@ Consulte `mcp_guide` para o esquema e as operações disponíveis.
 
 ## Identificação de pessoas e equipas
 
-Use `users_resolve` para consultar um lote de nomes, endereços de e-mail ou IDs de conta. O resultado separa correspondências exatas nativas de sugestões e assinala resultados ambíguos ou incompletos. Os campos de perfil seguem a visibilidade do Nextcloud.
+Use `users_search` para procurar contas ou grupos. Use `users_resolve` se já tiver uma lista de nomes, endereços de correio eletrónico ou identificadores de conta. O resultado distingue as correspondências exatas das sugestões e assinala casos ambíguos ou incompletos. Se corresponder mais de uma conta, peça ao utilizador para escolher e use o UID dessa conta. Os campos do perfil respeitam a visibilidade do Nextcloud.
 
 `users_list_teams` e `users_list_team_members` requerem o Circles. A associação às equipas é consultada como o utilizador com sessão iniciada. O resultado distingue contas locais de outros tipos de membro. Use o UID de um membro local ao convidá-lo para um evento.
 

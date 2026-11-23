@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/contacts.md -->
-<!-- translation-source-revision: c5ff622fac628b942d9945fe50aa21a4b7a49262 -->
+<!-- translation-source-revision: 43eaec06ad2748a8e6f546fbe8ebf9cd04ba8f52 -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../../en/reference/tools/contacts.md).
@@ -24,6 +24,13 @@ Consulta `mcp_guide` per obtenir l'esquema autoritatiu i les operacions disponib
 Les eines de Contactes requereixen que l'aplicació Contacts estigui activada per a l'usuari. La lectura s'autoritza inicialment; l'administrador ha de concedir els permisos de creació, edició i supressió.
 
 [Guies operatives](../../guides/README.md).
+
+## Cercar i mantenir fitxes de contacte
+
+- Fes servir `contacts_list_addressbooks` per localitzar les llibretes personals i compartides i, si l’administració el fa visible, el directori de comptes de només lectura.
+- Cerca amb `contacts_search_contacts` i consulta la fitxa triada amb `contacts_read_contact`. Si necessites un compte de Nextcloud per convidar algú, fes servir l’`accountId` retornat quan estigui disponible.
+- Fes servir `contacts_create_contact` per afegir una fitxa o `contacts_edit_contact` per modificar-la en una llibreta amb permís d’escriptura. `contacts_delete_contact` verifica una còpia vCard abans de suprimir la fitxa i retorna el camí de la còpia.
+- Revisa la previsualització i confirma el mateix canvi. Per editar o suprimir una fitxa, inclou l’ETag del pla. Si la llibreta és compartida, confirma també el canvi a la llibreta compartida amb `confirm_shared: true`.
 
 ## Grups, llibretes i vCard
 

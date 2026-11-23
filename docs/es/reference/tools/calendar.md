@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/calendar.md -->
-<!-- translation-source-revision: c5ff622fac628b942d9945fe50aa21a4b7a49262 -->
+<!-- translation-source-revision: 43eaec06ad2748a8e6f546fbe8ebf9cd04ba8f52 -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../../../en/reference/tools/calendar.md).
@@ -47,9 +47,19 @@ Usa `calendar_list_resources` para encontrar las salas y el equipamiento que pue
 
 ## Enlaces de reserva
 
-Usa `calendar_list_appointments` para encontrar las configuraciones de reserva de tus calendarios visibles. Puedes crearlas, editarlas y retirarlas con `calendar_create_appointment`, `calendar_update_appointment` y `calendar_delete_appointment`. Revisa la zona horaria, el horario semanal, la duración, el periodo disponible y la visibilidad. Indica el horario semanal en HH:mm de la zona elegida. Las duraciones y los márgenes se expresan en minutos, y el horizonte de reserva en días. Repite la escritura aprobada con el `plan_state` de la vista previa.
+MCP admite las herramientas de citas con Calendar 6.6.2, 6.6.3 y 6.6.4. La compatibilidad con 6.6.4 empieza en MCP 2.10.2. Estas herramientas trabajan con configuraciones de citas en calendarios de los que eres titular y a los que puedes acceder a través de MCP.
 
-La visibilidad privada oculta el enlace de tu perfil público. Cualquiera que tenga la URL puede reservar. La visibilidad pública también muestra el enlace en tu perfil. Eliminar la configuración retira el enlace. Calendar 6.6.2, 6.6.3 y 6.6.4 ofrecen estas herramientas cuando el administrador las concede y la conexión las selecciona.
+| Herramienta | Operación | Qué hace |
+| --- | --- | --- |
+| `calendar_list_appointments` | `calendar.read` | Lista tus configuraciones de citas y sus enlaces de reserva. |
+| `calendar_create_appointment` | `calendar.create` | Crea un enlace de reserva con su propia disponibilidad, duración y visibilidad. |
+| `calendar_update_appointment` | `calendar.edit` | Modifica una configuración sin cambiar su enlace de reserva. |
+| `calendar_delete_appointment` | `calendar.delete` | Retira el enlace. Los eventos ya reservados permanecen en el calendario. |
+| `calendar_list_appointment_bookings` | `calendar.read` | Lista las reservas pendientes y confirmadas entre `from` y `to`, opcionalmente para un `appointment_id`. El intervalo máximo es de 93 días. Muestra el nombre del invitado y la franja horaria. Las direcciones de correo y los tokens de confirmación quedan protegidos. |
+
+La persona administradora asigna cada herramienta en **Administración → Nextcloud MCP → Acceso y permisos**. Selecciona las herramientas asignadas para el cliente en **Ajustes personales → Nextcloud MCP** o al autorizar la conexión OAuth. Si falta una herramienta, comprueba la versión de Calendar, la asignación de la cuenta y la selección de la conexión. Después, consulta la [guía de herramientas](../tools.md) desde esa conexión. Consulta [Acceso y permisos](../../guides/permissions.md) para configurar la asignación y la selección.
+
+Revisa la zona horaria, el horario semanal, la duración, el periodo de reserva y la visibilidad en la vista previa. Tras aprobar la operación, repítela con `confirm: true` y su `plan_state`. Las franjas semanales usan la hora local en formato HH:mm. Las duraciones y los márgenes se expresan en minutos, y el horizonte de reserva en días. La visibilidad privada oculta el enlace en tu perfil público. Cualquiera que tenga la URL puede reservar. La visibilidad pública también muestra el enlace en tu perfil.
 
 ## Invitaciones, recuperación e intercambio
 
@@ -57,7 +67,6 @@ La visibilidad privada oculta el enlace de tu perfil público. Cualquiera que te
 - Usa `calendar_list_trashed_events` para obtener el identificador de un evento eliminado y `calendar_restore_trashed_event` para restaurarlo en su calendario original. La recuperación está sujeta a retención y al alcance de calendarios propios. La restauración nativa conserva los datos de la cita sin enviar invitaciones.
 - `calendar_create_calendar` crea un calendario personal con alcance de calendarios sin restricciones. `calendar_list_calendar_shares` y `calendar_share_calendar` consultan y gestionan accesos directos de cuentas locales a calendarios propios, con opciones de lectura, escritura y retirada.
 - `calendar_import_ics` lee un archivo visible en Files y copia hasta 100 eventos o 1 MiB a un calendario propio. La vista previa identifica duplicados y conflictos. La importación excluye organizadores, asistentes, alarmas y adjuntos. `calendar_export_ics` devuelve un documento con los UID seleccionados de un calendario, incluidos los casos de recurrencia que puedes ver por completo.
-- `calendar_list_appointment_bookings` consulta las reservas pendientes y confirmadas de tus enlaces visibles de Calendar 6.6.2, 6.6.3 o 6.6.4, por fecha y, opcionalmente, por configuración de cita. Devuelve el nombre de la persona y la franja. Las direcciones y los tokens de confirmación quedan protegidos.
 - `calendar_set_event_reminders` sustituye los avisos de visualización relativos al inicio del evento o serie. Introduce de cero a cinco tiempos en minutos de antelación. Se conservan las alarmas personalizadas, de correo, absolutas, repetidas y específicas de ocurrencias.
 
 Las escrituras de estos flujos requieren `confirm: true` y el `plan_state` de la vista previa.

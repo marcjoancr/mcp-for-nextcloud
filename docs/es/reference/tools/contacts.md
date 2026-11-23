@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/contacts.md -->
-<!-- translation-source-revision: c5ff622fac628b942d9945fe50aa21a4b7a49262 -->
+<!-- translation-source-revision: 43eaec06ad2748a8e6f546fbe8ebf9cd04ba8f52 -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../../../en/reference/tools/contacts.md).
@@ -18,6 +18,13 @@
 Consulta la guía `mcp_guide` activa para obtener el esquema y las operaciones disponibles como referencia definitiva.
 
 [Guías operativas](../../guides/README.md).
+
+## Buscar y mantener fichas de contacto
+
+- Usa `contacts_list_addressbooks` para localizar las libretas personales y compartidas y, si la administración lo habilita, el directorio de cuentas de solo lectura.
+- Busca con `contacts_search_contacts` y consulta la ficha elegida con `contacts_read_contact`. Si necesitas una cuenta de Nextcloud para invitar a alguien, usa el `accountId` devuelto cuando esté disponible.
+- Usa `contacts_create_contact` para añadir una ficha o `contacts_edit_contact` para modificarla en una libreta con permiso de escritura. `contacts_delete_contact` verifica una copia vCard antes de eliminar la ficha y devuelve la ruta de esa copia.
+- Revisa la vista previa y confirma el mismo cambio. Para editar o eliminar una ficha, incluye el ETag del plan. Si la libreta es compartida, confirma también el cambio en la libreta compartida con `confirm_shared: true`.
 
 ## Grupos, fichas e intercambio vCard
 
