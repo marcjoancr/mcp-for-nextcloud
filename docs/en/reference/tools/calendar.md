@@ -44,7 +44,7 @@ Use `calendar_list_resources` to discover rooms and equipment visible to you. Us
 
 Use `calendar_list_appointments` to find booking configurations on your own visible calendars. Create, edit or retire a configuration with `calendar_create_appointment`, `calendar_update_appointment` and `calendar_delete_appointment`. Review the time zone, weekly schedule, appointment length, booking window and visibility in the plan. Weekly slots use local HH:mm times. Durations and buffers are in minutes, and the booking horizon is in days. Repeat the approved write with the plan's `plan_state`.
 
-Private visibility keeps the link off your public profile. Anyone with the URL can still book. Public visibility also lists it on your profile. Deleting the configuration retires its booking link. Calendar 6.6.2 and 6.6.3 expose these tools when the administrator grants them and the connection selects them.
+Private visibility keeps the link off your public profile. Anyone with the URL can still book. Public visibility also lists it on your profile. Deleting the configuration retires its booking link. Calendar 6.6.2, 6.6.3 and 6.6.4 expose these tools when the administrator grants them and the connection selects them.
 
 ## Invitations, recovery and exchange
 
@@ -52,7 +52,7 @@ Private visibility keeps the link off your public profile. Anyone with the URL c
 - Use `calendar_list_trashed_events` to find a deleted event's ID and `calendar_restore_trashed_event` to restore it to its original calendar. Recovery follows retention and the scope of calendars you own. Native restore keeps the event data without sending invitations.
 - `calendar_create_calendar` creates a personal calendar under unrestricted calendar scope. `calendar_list_calendar_shares` and `calendar_share_calendar` list and manage direct local-account access on calendars you own. Access can be read-only, writable or removed.
 - `calendar_import_ics` reads a visible Files document and copies up to 100 events or 1 MiB into a calendar you own. Preview identifies duplicates and conflicts. Import omits organizers, attendees, alarms and attachments. `calendar_export_ics` returns an iCalendar document of selected UIDs from one calendar, including fully visible series exceptions.
-- `calendar_list_appointment_bookings` lists pending and confirmed bookings from your visible Calendar 6.6.2 or 6.6.3 appointment links. Filter by date and optionally by appointment configuration. The result includes the guest name and time slot and keeps email and confirmation tokens private.
+- `calendar_list_appointment_bookings` lists pending and confirmed bookings from your visible Calendar 6.6.2, 6.6.3 or 6.6.4 appointment links. Filter by date and optionally by appointment configuration. The result includes the guest name and time slot and keeps email and confirmation tokens private.
 - `calendar_set_event_reminders` replaces display alarms relative to the start of an event or series. Enter zero to five lead times in minutes. Custom, email, absolute, repeated and occurrence-specific alarms are preserved.
 
 Writes in these workflows require `confirm: true` and the preview's `plan_state`.

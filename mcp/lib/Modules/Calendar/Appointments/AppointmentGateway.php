@@ -20,7 +20,7 @@ use Throwable;
 /** Actor-bound adapter for the Calendar app's native appointment configuration service. */
 final class AppointmentGateway
 {
-    private const VERIFIED_VERSIONS = ['6.6.2', '6.6.3'];
+    private const VERIFIED_VERSIONS = ['6.6.2', '6.6.3', '6.6.4'];
 
     /**
      * @param \Closure(): object $nativeServiceFactory lazily resolves Calendar's AppointmentConfigService

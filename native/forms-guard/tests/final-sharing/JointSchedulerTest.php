@@ -9,7 +9,7 @@ use OCA\Forms\Mcp\Service\TransferFinalFiles;
 eval('namespace OCA\\Forms\\Mcp\\Service; final class FinalTransferShareCheck {
  public bool $closed=false; public ?bool $permissions=null; private FinalReadSet $set;private array $kinds=[];
  public function __construct(public object $state,public ?string $mutation=null){$this->set=new FinalReadSet(static function():void{});}
- private function input(string $kind,array $row):void {$this->set->add("SELECT value FROM *PREFIX*appconfig WHERE appid = ?",[$kind],[],[$row]);$this->kinds[]=$kind;}
+ private function input(string $kind,array $row):void {$this->set->add("SELECT value FROM *PREFIX*appconfig WHERE appid = ?",[$kind],[],[$row]);if(!in_array($kind,$this->kinds,true))$this->kinds[]=$kind;}
  public function collect(FinalShareBudget $budget):array {$this->state->events[]="share.read";$this->input("coreEnabled",["value"=>$this->state->coreEnabled]);$this->input("member",["value"=>$this->state->member]);if($this->mutation==="scope")$this->state->revoke=true;if($this->mutation==="acl")$this->state->readable=false;return [];}
  public function captureFile(\\OCP\\Files\\Node $node,FinalShareBudget $budget):void {$this->input("readable",["value"=>$node->isReadable()]);if($node instanceof \\OCP\\Files\\Folder)$this->input("creatable",["value"=>$node->isCreatable()]);}
  public function renewViews(FinalShareBudget $budget):void {$this->state->events[]="share.views";foreach(["late-read"=>"readable","late-create"=>"creatable","late-config"=>"coreEnabled","late-member"=>"member"]as$case=>$field)if($this->mutation===$case)$this->state->$field=false;$this->permissions=$this->state->sharingReadable;$this->input("sharingReadable",["value"=>$this->permissions]);}

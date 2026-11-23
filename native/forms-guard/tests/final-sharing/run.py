@@ -81,7 +81,7 @@ def verified_native_inputs(root, pins):
         if total > 16 * 1024 * 1024:
             raise RuntimeError("Native source input budget exceeded")
         # Retain the verified read; never reopen a source after checking its hash.
-        output[name.replace("/", "__")] = data
+        output[name] = data
     return output
 
 
@@ -120,12 +120,13 @@ def prepare_fixture(repository, native_root, pins, layout, tests):
     parent = repository / "mcp/build/forms-native/tests/final-sharing"
     private_directory(parent)
     run = Path(tempfile.mkdtemp(prefix="run-", dir=parent))
-    for folder in ["src", "adapters", "standalone", "migration", "references", "tests"]:
+    for folder in ["src", "adapters", "standalone", "migration", "references", "native-root", "tests"]:
         private_directory(run / folder)
     for target, data in owned.items():
         private_write(run / target, data)
     for name, data in native.items():
-        private_write(run / "references" / name, data)
+        private_write(run / "references" / name.replace("/", "__"), data)
+        private_write(run / "native-root" / name, data)
     for name, data in tests.items():
         private_write(run / "tests" / name, data)
     php_root = str(repository).replace("\\", "\\\\").replace("'", "\\'")
@@ -138,7 +139,7 @@ def prepare_fixture(repository, native_root, pins, layout, tests):
 
 def fixture_inputs(run):
     inputs = {}
-    for folder in ["src", "adapters", "standalone", "migration", "references", "tests"]:
+    for folder in ["src", "adapters", "standalone", "migration", "references", "native-root", "tests"]:
         for path in (run / folder).rglob("*"):
             if path.is_symlink():
                 raise RuntimeError("Unexpected symlink in executable fixture")

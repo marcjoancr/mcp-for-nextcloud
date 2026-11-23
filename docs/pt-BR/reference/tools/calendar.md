@@ -58,7 +58,7 @@ Use `calendar_list_resources` para descobrir salas e equipamentos visíveis para
 
 Use `calendar_list_appointments` para encontrar configurações de agendamento nos seus calendários visíveis. Crie, edite ou retire uma configuração com `calendar_create_appointment`, `calendar_update_appointment` e `calendar_delete_appointment`. Revise o fuso horário, a programação semanal, a duração, o período de agendamento e a visibilidade. Os horários semanais usam HH:mm local; durações e intervalos são em minutos, e o horizonte de agendamento é em dias. Repita a escrita aprovada com o `plan_state` da prévia.
 
-A visibilidade privada mantém o link fora do perfil público, mas qualquer pessoa com a URL pode agendar. A visibilidade pública também o lista no perfil. Excluir a configuração desativa o link. O Calendar 6.6.2 e 6.6.3 oferecem essas ferramentas quando o administrador as concede e a conexão as seleciona.
+A visibilidade privada mantém o link fora do perfil público, mas qualquer pessoa com a URL pode agendar. A visibilidade pública também o lista no perfil. Excluir a configuração desativa o link. O Calendar 6.6.2, 6.6.3 e 6.6.4 oferecem essas ferramentas quando o administrador as concede e a conexão as seleciona.
 
 ## Convites, recuperação e intercâmbio
 
@@ -66,7 +66,7 @@ A visibilidade privada mantém o link fora do perfil público, mas qualquer pess
 - Use `calendar_list_trashed_events` para localizar o ID de um evento excluído e `calendar_restore_trashed_event` para restaurá-lo ao calendário original. A recuperação depende da retenção e do escopo dos calendários próprios. A restauração nativa mantém os dados do evento sem enviar convites.
 - `calendar_create_calendar` cria um calendário pessoal quando o escopo de calendários não é restrito. `calendar_list_calendar_shares` e `calendar_share_calendar` listam e gerenciam o acesso direto de contas locais aos calendários próprios, com acesso de leitura, escrita ou remoção.
 - `calendar_import_ics` lê um documento visível no Files e copia até 100 eventos ou 1 MiB para um calendário próprio. A prévia identifica duplicatas e conflitos. A importação omite organizadores, participantes, alarmes e anexos. `calendar_export_ics` retorna um documento iCalendar dos UIDs selecionados de um calendário, incluindo exceções de séries totalmente visíveis.
-- `calendar_list_appointment_bookings` lista reservas pendentes e confirmadas dos links visíveis de agendamento do Calendar 6.6.2 ou 6.6.3. Filtre por data e, opcionalmente, por configuração. O resultado inclui o nome do convidado e o horário; e-mail e tokens de confirmação permanecem privados.
+- `calendar_list_appointment_bookings` lista reservas pendentes e confirmadas dos links visíveis de agendamento do Calendar 6.6.2, 6.6.3 ou 6.6.4. Filtre por data e, opcionalmente, por configuração. O resultado inclui o nome do convidado e o horário; e-mail e tokens de confirmação permanecem privados.
 - `calendar_set_event_reminders` substitui alarmes de exibição relativos ao início de um evento ou série. Informe de zero a cinco antecedências em minutos. Alarmes personalizados, de e-mail, absolutos, repetidos e específicos de ocorrências são preservados.
 
 As escritas desses fluxos exigem `confirm: true` e o `plan_state` da prévia.

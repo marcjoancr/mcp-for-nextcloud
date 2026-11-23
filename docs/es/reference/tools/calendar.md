@@ -49,7 +49,7 @@ Usa `calendar_list_resources` para encontrar las salas y el equipamiento que pue
 
 Usa `calendar_list_appointments` para encontrar las configuraciones de reserva de tus calendarios visibles. Puedes crearlas, editarlas y retirarlas con `calendar_create_appointment`, `calendar_update_appointment` y `calendar_delete_appointment`. Revisa la zona horaria, el horario semanal, la duración, el periodo disponible y la visibilidad. Indica el horario semanal en HH:mm de la zona elegida. Las duraciones y los márgenes se expresan en minutos, y el horizonte de reserva en días. Repite la escritura aprobada con el `plan_state` de la vista previa.
 
-La visibilidad privada oculta el enlace de tu perfil público. Cualquiera que tenga la URL puede reservar. La visibilidad pública también muestra el enlace en tu perfil. Eliminar la configuración retira el enlace. Calendar 6.6.2 y 6.6.3 ofrecen estas herramientas cuando el administrador las concede y la conexión las selecciona.
+La visibilidad privada oculta el enlace de tu perfil público. Cualquiera que tenga la URL puede reservar. La visibilidad pública también muestra el enlace en tu perfil. Eliminar la configuración retira el enlace. Calendar 6.6.2, 6.6.3 y 6.6.4 ofrecen estas herramientas cuando el administrador las concede y la conexión las selecciona.
 
 ## Invitaciones, recuperación e intercambio
 
@@ -57,7 +57,7 @@ La visibilidad privada oculta el enlace de tu perfil público. Cualquiera que te
 - Usa `calendar_list_trashed_events` para obtener el identificador de un evento eliminado y `calendar_restore_trashed_event` para restaurarlo en su calendario original. La recuperación está sujeta a retención y al alcance de calendarios propios. La restauración nativa conserva los datos de la cita sin enviar invitaciones.
 - `calendar_create_calendar` crea un calendario personal con alcance de calendarios sin restricciones. `calendar_list_calendar_shares` y `calendar_share_calendar` consultan y gestionan accesos directos de cuentas locales a calendarios propios, con opciones de lectura, escritura y retirada.
 - `calendar_import_ics` lee un archivo visible en Files y copia hasta 100 eventos o 1 MiB a un calendario propio. La vista previa identifica duplicados y conflictos. La importación excluye organizadores, asistentes, alarmas y adjuntos. `calendar_export_ics` devuelve un documento con los UID seleccionados de un calendario, incluidos los casos de recurrencia que puedes ver por completo.
-- `calendar_list_appointment_bookings` consulta las reservas pendientes y confirmadas de tus enlaces visibles de Calendar 6.6.2 o 6.6.3, por fecha y, opcionalmente, por configuración de cita. Devuelve el nombre de la persona y la franja. Las direcciones y los tokens de confirmación quedan protegidos.
+- `calendar_list_appointment_bookings` consulta las reservas pendientes y confirmadas de tus enlaces visibles de Calendar 6.6.2, 6.6.3 o 6.6.4, por fecha y, opcionalmente, por configuración de cita. Devuelve el nombre de la persona y la franja. Las direcciones y los tokens de confirmación quedan protegidos.
 - `calendar_set_event_reminders` sustituye los avisos de visualización relativos al inicio del evento o serie. Introduce de cero a cinco tiempos en minutos de antelación. Se conservan las alarmas personalizadas, de correo, absolutas, repetidas y específicas de ocurrencias.
 
 Las escrituras de estos flujos requieren `confirm: true` y el `plan_state` de la vista previa.
