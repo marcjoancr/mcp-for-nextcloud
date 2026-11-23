@@ -95,7 +95,7 @@ final class SqliteDatabase {
                 return $qb;
             });
         };
-        foreach (['select', 'from', 'insert', 'update', 'delete', 'where', 'andWhere', 'set', 'setValue', 'setMaxResults', 'setFirstResult', 'orderBy', 'addOrderBy', 'leftJoin', 'groupBy'] as $method) {
+        foreach (['select', 'from', 'insert', 'update', 'delete', 'where', 'andWhere', 'set', 'setValue', 'setMaxResults', 'setFirstResult', 'orderBy', 'addOrderBy', 'leftJoin', 'innerJoin', 'groupBy'] as $method) {
             $chain($method);
         }
         $qb->method('getSQL')->willReturnCallback(fn (): string => $inner->getSQL());
@@ -125,7 +125,12 @@ final class SqliteDatabase {
         });
         $qb->method('createNamedParameter')->willReturnCallback(function ($value, $type = IQueryBuilder::PARAM_STR, $placeHolder = null) use ($inner): IParameter {
             $parameter = $this->stub(IParameter::class);
-            $parameter->method('__toString')->willReturn($inner->createNamedParameter($value, $type, $placeHolder));
+            $doctrineType = match ($type) {
+                IQueryBuilder::PARAM_STR_ARRAY => \Doctrine\DBAL\ArrayParameterType::STRING,
+                IQueryBuilder::PARAM_INT_ARRAY => \Doctrine\DBAL\ArrayParameterType::INTEGER,
+                default => $type,
+            };
+            $parameter->method('__toString')->willReturn($inner->createNamedParameter($value, $doctrineType, $placeHolder));
             return $parameter;
         });
         $qb->method('createFunction')->willReturnCallback(function (string $expression) {

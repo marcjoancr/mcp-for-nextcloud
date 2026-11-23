@@ -39,6 +39,23 @@ final class CalendarModuleTest extends CalendarTestCase {
             'calendar_move_event' => 'move',
             'calendar_delete_event' => 'delete',
             'calendar_transfer_event' => 'transfer',
+            'calendar_create_event_with_external_attendees' => 'create',
+            'calendar_update_event_with_external_attendees' => 'edit',
+            'calendar_search_events' => 'read',
+            'calendar_read_event' => 'read',
+            'calendar_find_slots' => 'availability',
+            'calendar_respond_to_invitation' => 'edit',
+            'calendar_list_resources' => 'read',
+            'calendar_check_resource_availability' => 'availability',
+            'calendar_reserve_resource' => 'edit',
+            'calendar_import_ics' => 'create',
+            'calendar_export_ics' => 'read',
+            'calendar_set_event_reminders' => 'edit',
+            'calendar_create_calendar' => 'create',
+            'calendar_list_calendar_shares' => 'read',
+            'calendar_share_calendar' => 'share',
+            'calendar_list_trashed_events' => 'read',
+            'calendar_restore_trashed_event' => 'restore',
         ], $operations);
     }
 

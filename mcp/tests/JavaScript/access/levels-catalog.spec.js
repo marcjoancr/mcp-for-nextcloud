@@ -34,7 +34,7 @@ test('levels are None, Read, Edit and Full, or None and Read for a module with o
 	for (const module of ['files', 'notes', 'deck', 'calendar', 'contacts', 'tasks', 'talk']) {
 		assert.deepEqual(plain(Levels.levels(module, modules[module])), ['none', 'read', 'edit', 'full'], module)
 	}
-	assert.deepEqual(plain(Levels.levels('people', modules.people)), ['none', 'read'])
+	assert.deepEqual(plain(Levels.levels('people', modules.people)), ['none', 'read', 'full'])
 	assert.deepEqual(plain(Levels.levels('logs', modules.logs)), ['none', 'read'])
 })
 

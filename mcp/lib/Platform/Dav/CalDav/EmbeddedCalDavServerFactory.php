@@ -30,8 +30,11 @@ final class EmbeddedCalDavServerFactory
     public const LEGACY = 'OCA\DAV\CalDAV\InvitationResponse\InvitationResponseServer';
     /** Nextcloud plugin that sends the iMIP e-mails of a scheduling message. */
     public const IMIP_PLUGIN = 'OCA\DAV\CalDAV\Schedule\IMipPlugin';
+    /** Native Nextcloud plugin that handles calendar share POST requests. */
+    public const SHARING_PLUGIN = 'OCA\DAV\DAV\Sharing\Plugin';
     /** Sabre name of that plugin, the one `Server::getPlugin()` answers to. */
     private const IMIP_NAME = 'imip';
+    private const SHARING_NAME = 'sharing';
     /** App and key of the switch both Nextcloud servers read before loading the IMipPlugin. */
     private const DAV_APP = 'dav';
     private const SEND_INVITATIONS_KEY = 'sendInvitations';
@@ -46,6 +49,7 @@ final class EmbeddedCalDavServerFactory
         private \Closure $imipProvider,
         private string $embedded = self::EMBEDDED,
         private string $legacy = self::LEGACY,
+        private ?\Closure $sharingProvider = null,
     )
     {
     }
@@ -53,10 +57,11 @@ final class EmbeddedCalDavServerFactory
      * @return Server a fresh non-public embedded server, the one that takes a principal from CustomPrincipalPlugin
      * @throws \RuntimeException when the DAV app provides neither server
      */
-    public function create(): Server
+    public function create(bool $withSharing = false): Server
     {
         if (class_exists($this->embedded)) {
-            return (new $this->embedded(false))->getServer();
+            $server = (new $this->embedded(false))->getServer();
+            return $withSharing ? $this->ensureSharingPlugin($server) : $server;
         }
         if (!class_exists($this->legacy)) {
             throw new \RuntimeException(CalDavMessages::DAV_FAILURE);
@@ -64,6 +69,13 @@ final class EmbeddedCalDavServerFactory
         $server = (new $this->legacy(false))->getServer();
         if ($server->getPlugin(self::IMIP_NAME) === null && $this->invitationsOn()) {
             $server->addPlugin(($this->imipProvider)());
+        }
+        return $withSharing ? $this->ensureSharingPlugin($server) : $server;
+    }
+    private function ensureSharingPlugin(Server $server): Server
+    {
+        if ($server->getPlugin(self::SHARING_NAME) === null && $this->sharingProvider !== null) {
+            $server->addPlugin(($this->sharingProvider)());
         }
         return $server;
     }

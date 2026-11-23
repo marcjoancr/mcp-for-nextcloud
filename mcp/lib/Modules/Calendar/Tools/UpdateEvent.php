@@ -19,7 +19,7 @@ final class UpdateEvent implements \OCA\Mcp\Mcp\Tools\WriteTool
             name: 'calendar_update_event',
             module: 'calendar',
             operation: 'edit',
-            description: 'Updates title, location, description, dates, or attendees (account IDs; call users_search first if unsure) of an event. Recurrent series dates cannot be changed. This call may send invitations to other people. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.',
+            description: 'Updates title, location, description, dates, or attendees (account IDs; call users_search first if unsure) of an event. Series dates require recurrence_id to edit one occurrence; without it only the full series text can be changed. This call may send invitations to other people. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.',
             inputSchema: [
                 'type' => 'object',
                 'properties' => (object) [
@@ -53,6 +53,7 @@ final class UpdateEvent implements \OCA\Mcp\Mcp\Tools\WriteTool
                         'description' => 'true delivers the invitation to Nextcloud scheduling; email depends on server settings and does not confirm receipt',
                     ],
                     'etag' => DavCollectionSchema::etag(),
+                    'recurrence_id' => DavCollectionSchema::text('original occurrence start as ISO date or timestamp', 10, 40),
                     'confirm_shared' => [
                         'type' => 'boolean',
                         'description' => 'set to true only after the user confirms changing a calendar that belongs to someone else',

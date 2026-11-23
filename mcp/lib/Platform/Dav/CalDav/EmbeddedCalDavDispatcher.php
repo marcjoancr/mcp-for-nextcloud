@@ -49,7 +49,7 @@ use Sabre\HTTP\Response;
  * `createFromString` is deliberately not used: it calls `Server::createFile()` on a private server,
  * skipping `beforeMethod`, the method ACL and the request headers (apps/dav/lib/CalDAV/CalendarImpl.php:182-222).
  */
-class EmbeddedCalDavDispatcher implements CalendarDav, CalendarAdministration, CalendarAclProbe
+class EmbeddedCalDavDispatcher implements ResourceAwareCalDavWriter, CalendarAdministration, CalendarAclProbe
 {
     /** App that owns the event size limit and the sendInvitations switch. */
     private const DAV_APP = 'dav';
@@ -66,7 +66,7 @@ class EmbeddedCalDavDispatcher implements CalendarDav, CalendarAdministration, C
     /** Sabre name of the CalDAV schedule plugin, the Nextcloud one included. */
     private const SCHEDULE_PLUGIN = 'caldav-schedule';
     /**
-     * @param \Closure(): Server $serverFactory builds one embedded CalDAV server per operation
+     * @param \Closure(bool=): Server $serverFactory builds one embedded CalDAV server per operation; sharing requests opt in
      * @param Session $session session the DAV plugins read the sender from
      * @param IConfig $config Nextcloud configuration, for dav/event_size_limit
      * @param LoggerInterface $logger receives the exception class and code only, never event content
@@ -134,6 +134,34 @@ class EmbeddedCalDavDispatcher implements CalendarDav, CalendarAdministration, C
             $acceptedStatuses
         );
     }
+    /** RFC 6638 free/busy request through the authenticated actor's native scheduling outbox. */
+    public function resourceFreeBusy(string $userId, string $ics): DavResult
+    {
+        return $this->dispatch(
+            'POST', 'calendars/' . rawurlencode($userId) . '/outbox', $userId,
+            ['Content-Type' => 'text/calendar; charset=utf-8'], $ics, [200], null, true
+        );
+    }
+
+    /** Updates an event while allowing the embedded ACL plugin to resolve native room/resource principals. */
+    public function updateWithResourcePrincipals(
+        string $userId,
+        string $calendarUri,
+        string $objectUri,
+        string $etag,
+        string $ics,
+        bool $scheduling = false,
+        ?int $sizeLimit = null,
+        array $acceptedStatuses = [204],
+    ): DavResult {
+        $path = DavPathBuilder::objectPath($userId, $calendarUri, $objectUri);
+        $this->assertWithinSizeLimit($ics, $sizeLimit);
+        return $this->dispatch(
+            'PUT', $path, $userId,
+            ['Content-Type' => 'text/calendar; charset=utf-8', 'If-Match' => $etag] + $this->schedulingHeaders($scheduling),
+            $ics, $acceptedStatuses, null, true
+        );
+    }
     /**
      * @inheritDoc
      */
@@ -157,6 +185,21 @@ class EmbeddedCalDavDispatcher implements CalendarDav, CalendarAdministration, C
             $acceptedStatuses
         );
     }
+    public function deleteWithResourcePrincipals(
+        string $userId,
+        string $calendarUri,
+        string $objectUri,
+        ?string $etag = null,
+        bool $scheduling = false,
+        array $acceptedStatuses = [204],
+    ): DavResult {
+        $headers = $etag === null ? [] : ['If-Match' => $etag];
+        return $this->dispatch(
+            'DELETE', DavPathBuilder::objectPath($userId, $calendarUri, $objectUri), $userId,
+            $headers + $this->schedulingHeaders($scheduling), null, $acceptedStatuses, null, true,
+        );
+    }
+
     /**
      * @inheritDoc
      */
@@ -205,6 +248,24 @@ class EmbeddedCalDavDispatcher implements CalendarDav, CalendarAdministration, C
             $body,
             [201]
         );
+    }
+    /** Posts the native DAV share request for one local calendar user. */
+    public function shareCalendar(string $userId, string $calendarUri, string $shareeId, string $displayName, ?bool $readOnly): DavResult
+    {
+        foreach ([$userId, $calendarUri, $shareeId] as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..' || preg_match('/[\x00-\x1f\x7f]/', $segment)
+                || str_contains($segment, '/') || str_contains($segment, '\\')) {
+                throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure(\OCA\Mcp\Platform\FileAccess\FileAccessMessages::notFound());
+            }
+        }
+        $href = htmlspecialchars('principal:principals/users/' . rawurlencode($shareeId), ENT_QUOTES | ENT_XML1, 'UTF-8');
+        $name = htmlspecialchars($displayName, ENT_QUOTES | ENT_XML1, 'UTF-8');
+        $action = $readOnly === null
+            ? '<oc:remove><d:href>' . $href . '</d:href></oc:remove>'
+            : '<oc:set><d:href>' . $href . '</d:href><oc:common-name>' . $name . '</oc:common-name>' . ($readOnly ? '' : '<oc:read-write/>') . '</oc:set>';
+        $body = '<?xml version="1.0" encoding="utf-8"?><oc:share xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">' . $action . '</oc:share>';
+        return $this->dispatch('POST', DavPathBuilder::calendarPath($userId, $calendarUri), $userId,
+            ['Content-Type' => 'application/xml; charset=utf-8'], $body, [200], null, false, true);
     }
     /**
      * @inheritDoc
@@ -283,11 +344,22 @@ class EmbeddedCalDavDispatcher implements CalendarDav, CalendarAdministration, C
         ?string $body,
         array $acceptedStatuses,
         ?string $destination = null,
+        bool $resourcePrincipals = false,
+        bool $calendarSharing = false,
     ): DavResult
     {
         $this->assertSessionMatches($userId);
         CapturingSapi::reset();
-        $server = ($this->serverFactory)();
+        $server = ($this->serverFactory)($calendarSharing);
+        if ($resourcePrincipals) {
+            $acl = $server->getPlugin('acl');
+            if ($acl === null || !property_exists($acl, 'principalCollectionSet') || !is_array($acl->principalCollectionSet)) {
+                throw new \RuntimeException(CalDavMessages::DAV_FAILURE);
+            }
+            $acl->principalCollectionSet[] = 'principals/calendar-rooms';
+            $acl->principalCollectionSet[] = 'principals/calendar-resources';
+            $acl->principalCollectionSet = array_values(array_unique($acl->principalCollectionSet));
+        }
         $this->pinPrincipal($server, $userId);
         if ($method === 'DELETE' && ($headers[self::SCHEDULING_HEADER] ?? null) === self::SCHEDULING_OFF) {
             $this->detachUnbindScheduling($server);
@@ -400,7 +472,8 @@ class EmbeddedCalDavDispatcher implements CalendarDav, CalendarAdministration, C
             $this->logger->error('MCP calendar: unexpected DAV status', ['app' => 'mcp', 'method' => $method, 'status' => $status]);
             throw new \RuntimeException(CalDavMessages::DAV_FAILURE);
         }
-        return new DavResult($status, $response->getHeader('ETag'));
+        $body = $method === 'POST' ? $response->getBody() : null;
+        return new DavResult($status, $response->getHeader('ETag'), is_string($body) && strlen($body) <= 262144 ? $body : null);
     }
     /**
      * Maps a Sabre exception to a user-facing calendar failure, never leaking its message or XML.

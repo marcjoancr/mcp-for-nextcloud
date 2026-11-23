@@ -37,8 +37,13 @@ final class Scheduling
     {
     }
     /**
-     * @return bool whether the server would try to send invitations by e-mail
+     * Whether the administrator permits external attendees on events.
      */
+    public function externalAttendeesEnabled(): bool
+    {
+        return !$this->config->getValueBool('dav', 'caldav_external_attendees_disabled', false);
+    }
+
     public function imipEnabled(): bool
     {
         return $this->config->getValueString(self::DAV_APP, self::SEND_INVITATIONS_KEY, self::SEND_INVITATIONS_ON) === self::SEND_INVITATIONS_ON;

@@ -34,6 +34,8 @@ A exclusão "apenas quando vazia" não é atómica: o Deck não consulta o `dele
 
 A criação e a edição de cartões aceitam `duedate` como `YYYY-MM-DD` ou `YYYY-MM-DDTHH:MM[:SS]`, com `Z` ou desvio numérico opcionais. Sem desvio, usa-se o fuso horário da conta; uma data sem hora corresponde à meia-noite local desse dia. Horas locais explícitas inexistentes numa mudança de fuso horário são recusadas. Uma hora repetida seleciona o primeiro instante, salvo se o desvio fornecido resolver a ambiguidade. A persistência converte para UTC antes de chamar o Deck. As respostas mantêm `duedate` baseado no dia, a indicação de atraso e `dueBefore`, acrescentando `dueAt` com o desvio da conta. Edições não relacionadas preservam o instante existente.
 
+Quando a meia-noite se repete, a confirmação apresenta o fuso horário e o desvio em relação ao UTC. A 3 de novembro de 2024, em `America/Havana`, `2024-11-03T00:00-04:00` e `2024-11-03T00:00-05:00` correspondiam a instantes separados por uma hora. As datas sem hora seguem as regras do servidor para a meia-noite local. O servidor aplica as regras do fuso horário para ajustar uma meia-noite inexistente.
+
 Escritas MCP anteriores afetadas podem ter guardado o dia errado. Reveja esses cartões face à data pretendida e corrija-os explicitamente no Deck ou com uma nova edição confirmada. Não desloque todos os prazos existentes: datas introduzidas por outros clientes podem já estar corretas. Nenhuma data histórica é reescrita automaticamente.
 
 ## Etiquetas e ficheiros visíveis dos cartões

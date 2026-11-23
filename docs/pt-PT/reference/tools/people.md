@@ -19,4 +19,16 @@ Consulte `mcp_guide` para o esquema e as operações disponíveis.
 
 [Guias de operação](../../guides/README.md).
 
+## Identificação de pessoas e equipas
+
+Use `users_resolve` para consultar um lote de nomes, endereços de e-mail ou IDs de conta. O resultado separa correspondências exatas nativas de sugestões e assinala resultados ambíguos ou incompletos. Os campos de perfil seguem a visibilidade do Nextcloud.
+
+`users_list_teams` e `users_list_team_members` requerem o Circles. A associação às equipas é consultada como o utilizador com sessão iniciada. O resultado distingue contas locais de outros tipos de membro. Use o UID de um membro local ao convidá-lo para um evento.
+
+## Encontrar perfis e gerir membros
+
+`users_filter_team_members` filtra membros locais visíveis de uma equipa por função profissional ou organização. A função profissional e o papel de membro da equipa são campos distintos. O resultado assinala quando a pesquisa foi truncada.
+
+`users_add_team_member` e `users_remove_team_member` atuam sobre uma conta local e aplicam as permissões nativas do Circles. A pré-visualização identifica a conta, a equipa e a possível alteração de acesso a recursos partilhados. Repita a chamada aprovada com `confirm: true` e o `plan_state` da pré-visualização. As novas associações usam o papel de membro.
+
 [English](../../../en/reference/tools/people.md) · [Español](../../../es/reference/tools/people.md) · [Català](../../../ca/reference/tools/people.md) · [Português (Brasil)](../../../pt-BR/reference/tools/people.md) · Português (Portugal)

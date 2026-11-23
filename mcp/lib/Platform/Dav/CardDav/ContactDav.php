@@ -14,6 +14,30 @@ use RuntimeException;
 interface ContactDav
 {
     /**
+     * Creates an address book through native CardDAV extended MKCOL.
+     *
+     * @param string $userId authenticated user UID
+     * @param string $uri address-book URI in the acting user's home
+     * @param string $displayName human-readable address-book name
+     * @return DavResult
+     * @throws ToolFailure when native DAV rejects the path, ACL, metadata or precondition
+     * @throws RuntimeException when the authenticated session or native response is unexpected
+     */
+    public function createAddressBook(string $userId, string $uri, string $displayName): DavResult;
+    /**
+     * Adds or updates a local user share through Nextcloud's native CardDAV sharing POST.
+     *
+     * @param string $userId authenticated user UID
+     * @param string $bookUri address-book URI in the acting user's home
+     * @param string $shareeId local Nextcloud user ID
+     * @param string $displayName sharee display name for the native invite
+     * @param bool|null $readOnly whether the share is read-only, or null to remove the share
+     * @return DavResult
+     * @throws ToolFailure when native DAV refuses the share or ACL
+     * @throws RuntimeException when the session or native response is unexpected
+     */
+    public function shareAddressBook(string $userId, string $bookUri, string $shareeId, string $displayName, ?bool $readOnly): DavResult;
+    /**
      * Creates a contact through native CardDAV without overwriting an existing object.
      *
      * @param string $userId authenticated user UID
@@ -66,4 +90,5 @@ interface ContactDav
         string $uri,
         string $etag,
     ): DavResult;
+
 }

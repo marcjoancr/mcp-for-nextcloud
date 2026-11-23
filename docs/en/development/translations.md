@@ -76,8 +76,7 @@ unknown tools; it does not translate a registered tool whose title is missing.
 
 `ToolPresentationTest::testEveryCatalogToolHasATranslatedTitleInEveryShippedLocale`
 reads every module catalog and checks the rendered titles against each language
-file. The current catalog has 226 tools across 11 modules, including 65 Forms
-tools. The Forms submission-form reader and single-own-response reader must have
+file. The Forms submission-form reader and single-own-response reader must have
 separate titles from the general form reader and full-result reader.
 
 After changing UI catalogs, build the assets and run the focused checks from

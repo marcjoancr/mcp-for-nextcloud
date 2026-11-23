@@ -16,6 +16,18 @@ final class ContactsToolCatalog
     {
         return [
             Tools\ListAddressBooks::class,
+            Tools\ListContactGroups::class,
+            Tools\UpdateContactCategories::class,
+            Tools\CreateAddressBook::class,
+            Tools\CopyContact::class,
+            Tools\MoveContact::class,
+            Tools\ListAddressBookShares::class,
+            Tools\ShareAddressBook::class,
+            Tools\FindContactDuplicates::class,
+            Tools\ExportVcf::class,
+            Tools\ImportVcf::class,
+            Tools\ReconcileVcf::class,
+            Tools\MergeContacts::class,
             Tools\SearchContacts::class,
             Tools\ReadContact::class,
             Tools\CreateContact::class,
@@ -48,6 +60,9 @@ final class ContactsToolCatalog
             ];
             if ($d->destructiveHint !== null) {
                 $raw['destructiveHint'] = $d->destructiveHint;
+            }
+            if ($d->grantAllOf !== null) {
+                $raw['grantAllOf'] = $d->grantAllOf;
             }
             $result[$d->name] = $raw;
         }

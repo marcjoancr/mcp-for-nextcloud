@@ -166,7 +166,112 @@ final class ContactsPlanRendererTest extends TestCase {
             'contacts_create_contact' => $module->preview('contacts_create_contact', ['addressbook' => self::BOOK, 'name' => 'Ana Silva'], 'alice'),
             'contacts_edit_contact' => $module->preview('contacts_edit_contact', ['addressbook' => self::BOOK, 'uri' => 'c1.vcf', 'name' => 'New Name'], 'alice'),
             'contacts_delete_contact' => $module->preview('contacts_delete_contact', ['addressbook' => self::BOOK, 'uri' => 'c1.vcf'], 'alice'),
+            'contacts_create_addressbook' => $module->preview('contacts_create_addressbook', ['displayName' => 'Family'], 'alice'),
+            'contacts_copy_contact' => $module->preview('contacts_copy_contact', [
+                'sourceAddressbook' => self::BOOK,
+                'sourceUri' => 'c1.vcf',
+                'targetAddressbook' => '/remote.php/dav/addressbooks/users/alice/team/',
+            ], 'alice'),
+            'contacts_move_contact' => $module->preview('contacts_move_contact', [
+                'sourceAddressbook' => self::BOOK,
+                'sourceUri' => 'c1.vcf',
+                'targetAddressbook' => '/remote.php/dav/addressbooks/users/alice/team/',
+            ], 'alice'),
+            'contacts_share_addressbook' => $module->preview('contacts_share_addressbook', [
+                'addressbook' => self::BOOK,
+                'shareWith' => 'bob',
+                'access' => 'read',
+            ], 'alice'),
+            'contacts_import_vcf' => [
+                'addressbook' => 'Personal',
+                'source' => '/Imports/people.vcf',
+                'contacts' => [['index' => 1, 'name' => 'Ana', 'status' => 'create']],
+                'shared' => [],
+            ],
+            'contacts_reconcile_vcf' => [
+                'addressbook' => 'Personal',
+                'source' => '/Imports/people.vcf',
+                'contacts' => [[
+                    'index' => 1, 'name' => 'Ana', 'uid' => 'ana-uid', 'status' => 'update', 'uri' => 'ana.vcf',
+                    'changes' => ['name' => ['before' => 'Ana', 'after' => 'Ana Silva']],
+                    'unchangedFields' => ['title'],
+                ]],
+                'backup' => ['required' => true, 'verifiedBeforeUpdate' => true],
+                'shared' => [],
+            ],
+            'contacts_update_categories' => [
+                'addressbook' => ['name' => 'Personal'],
+                'operation' => ['action' => 'add', 'category' => 'Work'],
+                'contacts' => [[
+                    'uri' => 'ana.vcf', 'etag' => 'etag-1', 'name' => 'Ana', 'status' => 'update',
+                    'before' => ['categories' => ['Family']], 'after' => ['categories' => ['Family', 'Work']],
+                ]],
+                'shared' => [],
+            ],
+            'contacts_merge_contacts' => [
+                'groups' => [[
+                    'addressbook' => ['name' => 'Personal'],
+                    'keepUri' => 'primary.vcf',
+                    'contacts' => [
+                        ['uri' => 'primary.vcf', 'name' => 'Ana'],
+                        ['uri' => 'other.vcf', 'name' => 'Ann'],
+                    ],
+                    'conflicts' => [[
+                        'field' => 'name',
+                        'choice' => 'other.vcf',
+                        'resolved' => true,
+                        'candidates' => [
+                            ['uri' => 'primary.vcf', 'value' => 'Ana'],
+                            ['uri' => 'other.vcf', 'value' => 'Ann'],
+                        ],
+                    ]],
+                    'ready' => true,
+                    'shared' => [],
+                ]],
+            ],
         ]);
+    }
+
+    public function testCategoriesPlanRendersOperationAndPerContactDiffSafely(): void
+    {
+        $rendered = (new \OCA\Mcp\Modules\Contacts\Presentation\ContactsPlanRenderer())->render('contacts_update_categories', [
+            'addressbook' => ['name' => 'Personal'],
+            'operation' => ['action' => 'rename', 'category' => 'Friends', 'replacement' => 'Family'],
+            'contacts' => [[
+                'uri' => 'a.vcf', 'etag' => 'etag-a', 'name' => 'Ana', 'status' => 'update',
+                'before' => ['categories' => ['Friends', 'VIP']], 'after' => ['categories' => ['Family', 'VIP']],
+            ]],
+            'shared' => [],
+        ]);
+        self::assertNotNull($rendered);
+        self::assertStringContainsString('Personal', $rendered);
+        self::assertStringContainsString('Friends', $rendered);
+        self::assertStringContainsString('Family', $rendered);
+        self::assertStringContainsString('etag-a', $rendered);
+    }
+
+    public function testVcfReconciliationPlanRendersTargetedAndUnchangedFieldsWithoutRawVcard(): void
+    {
+        $rendered = (new \OCA\Mcp\Modules\Contacts\Presentation\ContactsPlanRenderer())->render('contacts_reconcile_vcf', [
+            'addressbook' => 'Personal',
+            'source' => '/Imports/people.vcf',
+            'contacts' => [[
+                'index' => 1, 'name' => 'Ana', 'status' => 'update', 'uri' => 'a.vcf',
+                'changes' => ['name' => ['before' => 'Ana', 'after' => 'Ana Silva']],
+                'unchangedFields' => ['title'],
+                'targetedFields' => ['name', 'title'],
+            ], ['index' => 2, 'name' => 'Missing', 'status' => 'missing']],
+            'backup' => ['required' => true, 'verifiedBeforeUpdate' => true],
+            'shared' => [],
+        ]);
+        self::assertNotNull($rendered);
+        self::assertStringContainsString('Ana', $rendered);
+        self::assertStringContainsString('Name', $rendered);
+        self::assertStringContainsString('Ana Silva', $rendered);
+        self::assertStringContainsString('Job title', $rendered);
+        self::assertStringContainsString('missing', strtolower($rendered));
+        self::assertStringContainsString('backup is saved and verified', strtolower($rendered));
+        self::assertStringNotContainsString('BEGIN:VCARD', $rendered);
     }
 
     private function render(string $tool, array $arguments): ?string {
@@ -201,11 +306,15 @@ final class ContactsPlanRendererTest extends TestCase {
         $users->method('get')->willReturnCallback(function (string $uid) use ($displayName): ?IUser {
             $user = $this->createMock(IUser::class);
             $user->method('getDisplayName')->willReturn($uid === 'bob' ? 'Bob' : $displayName);
+            $user->method('getUID')->willReturn($uid);
+            $user->method('isEnabled')->willReturn(true);
 
             return $user;
         });
         $backup = $this->createMock(ContactBackup::class);
         $backup->method('directory')->willReturn('/MCP backups/Contacts/Personal');
+        $shareSearch = $this->createMock(\OCP\Collaboration\Collaborators\ISearch::class);
+        $shareSearch->method('search')->willReturn([['exact' => ['users' => [['value' => ['shareWith' => 'bob']]]]], false]);
 
         return \OCA\Mcp\Tests\Support\Contacts\ContactsModuleFactory::create(
             new ContactAccess($store),
@@ -215,8 +324,18 @@ final class ContactsPlanRendererTest extends TestCase {
             new SharedGuard($users),
             $backup,
             // The read-only account directory is not part of what a plan describes, so it stays empty here.
-            $this->createMock(SystemContacts::class)
+            $this->createMock(SystemContacts::class),
+            $users,
+            $shareSearch,
+            $this->testPlanState()
         );
+    }
+
+    private function testPlanState(): \OCA\Mcp\Mcp\Confirmation\PlanState
+    {
+        $config = $this->createMock(\OCP\IConfig::class);
+        $config->method('getSystemValueString')->with('secret', '')->willReturn('contacts-test-secret');
+        return new \OCA\Mcp\Mcp\Confirmation\PlanState($config);
     }
 
     public function testAMultilineNoteAndAMarkdownNameCannotForgeTheRestOfThePlan(): void {

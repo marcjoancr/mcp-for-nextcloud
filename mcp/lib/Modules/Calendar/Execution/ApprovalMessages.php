@@ -34,6 +34,14 @@ final class ApprovalMessages
     {
         return Translator::t('No invitations or cancellations will be scheduled in this change.');
     }
+    public static function previewCancelOccurrence(): string
+    {
+        return Translator::t('After approval, this date will be excluded from the series.');
+    }
+    public static function previewOccurrenceScheduling(): string
+    {
+        return Translator::t('Nextcloud may send attendees a REQUEST update containing this EXDATE. The server does not prove e-mail delivery.');
+    }
     public static function previewTrash(): string
     {
         return Translator::t('After approval, the event will go to the recoverable Calendar trash bin.');

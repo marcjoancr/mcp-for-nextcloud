@@ -10,6 +10,7 @@ namespace OCA\Mcp\Tests\Unit\Mcp\Tools\Discovery;
 use OCA\Mcp\L10n\Translator;
 use OCA\Mcp\Tests\Unit\L10n\JsonL10n;
 use OCA\Mcp\Mcp\Tools\Discovery\ToolPresentation;
+use OCA\Mcp\Modules\People\PeopleToolCatalog;
 use PHPUnit\Framework\TestCase;
 
 final class ToolPresentationTest extends TestCase {
@@ -104,7 +105,10 @@ final class ToolPresentationTest extends TestCase {
             foreach ($catalogs as $file) {
                 $module = basename(dirname($file));
                 $class = 'OCA\\Mcp\\Modules\\' . $module . '\\' . basename($file, '.php');
-                foreach ($class::definitions() as $definition) {
+                $definitions = $class === PeopleToolCatalog::class
+                    ? PeopleToolCatalog::definitions(circlesAvailable: true)
+                    : $class::definitions();
+                foreach ($definitions as $definition) {
                     Translator::reset();
                     $english = ToolPresentation::title($definition['name']);
                     Translator::use(new JsonL10n($locale));

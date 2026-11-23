@@ -51,6 +51,7 @@ final class ToolsListContractTest extends TestCase {
         if ($class === \OCA\Mcp\Modules\People\PeopleModule::class) {
             return new \OCA\Mcp\Modules\People\PeopleModule([
                 'users_search' => fn () => $this->build(\OCA\Mcp\Modules\People\Tools\SearchUsers::class),
+                'users_resolve' => fn () => $this->build(\OCA\Mcp\Modules\People\Tools\ResolveUsers::class),
             ]);
         }
         if ($class === \OCA\Mcp\Modules\Notes\NotesModule::class) {
@@ -375,7 +376,7 @@ final class ToolsListContractTest extends TestCase {
             ['forms', 'read_responses', ['forms_read_responses']],
             ['forms', 'summarize_responses', ['forms_summarize_responses']],
             ['deck', 'search', ['deck_search_cards']],
-            ['calendar', 'availability', ['calendar_check_availability']],
+            ['calendar', 'availability', ['calendar_check_availability', 'calendar_check_resource_availability', 'calendar_find_slots']],
             ['talk', 'publish_summary', ['talk_publish_summary']],
         ] as [$module, $operation, $expected]) {
             $response = $this->handle('{"jsonrpc":"2.0","id":1,"method":"tools/list"}',

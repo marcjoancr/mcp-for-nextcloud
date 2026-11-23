@@ -18,7 +18,7 @@ use Throwable;
  * The store exposes no write method of its own: the only way an object changes here is a dispatched
  * DAV request, which is what makes "nothing was dispatched" a meaningful assertion.
  */
-final class FakeCalendarStore implements CalendarStore, \OCA\Mcp\Platform\Dav\CalDav\CollectionStore, \OCA\Mcp\Modules\Calendar\Reading\EventRangeQuery {
+final class FakeCalendarStore implements CalendarStore, \OCA\Mcp\Platform\Dav\CalDav\CollectionStore, \OCA\Mcp\Platform\Dav\CalDav\CalendarTrashStore, \OCA\Mcp\Modules\Calendar\Reading\EventRangeQuery {
     /** @var array<string, list<array{id:int, uri:string, displayName:string, ownerPrincipal:string, readOnly:bool, components:list<string>, deleted:bool}>> calendars by principal */
     public array $calendars = [];
     /** @var array<int, array<string, array{id:int, uri:string, etag:string, data:string, deleted:bool}>> objects by calendar id and URI */
@@ -64,6 +64,46 @@ final class FakeCalendarStore implements CalendarStore, \OCA\Mcp\Platform\Dav\Ca
      */
     public function addShare(int $calendarId, string $principal, bool $readOnly = false): void {
         $this->shares[$calendarId][] = ['principal' => $principal, 'readOnly' => $readOnly];
+    }
+
+    public function deletedForPrincipal(string $principalUri): array {
+        $this->fail();
+        $rows = [];
+        foreach ($this->calendars[$principalUri] ?? [] as $calendar) {
+            foreach ($this->objects[$calendar['id']] ?? [] as $object) {
+                if (!$object['deleted']) continue;
+                $component = preg_match('/^BEGIN:(VEVENT|VTODO|VJOURNAL)\r?$/m', $object['data'], $match) === 1 ? strtolower($match[1]) : '';
+                $rows[] = ['id'=>$object['id'],'uri'=>$object['uri'],'etag'=>$object['etag'],'calendarid'=>$calendar['id'],'calendaruri'=>$calendar['uri'],'component'=>$component,'deleted_at'=>1770000000];
+            }
+        }
+        return $rows;
+    }
+
+    public function deletedByIdForPrincipal(int $objectId, string $principalUri): ?array {
+        $this->fail();
+        foreach ($this->calendars[$principalUri] ?? [] as $calendar) {
+            foreach ($this->objects[$calendar['id']] ?? [] as $object) {
+                if ($object['id'] === $objectId && $object['deleted']) {
+                    return $object + ['calendarid'=>$calendar['id'],'calendaruri'=>$calendar['uri'],'calendardata'=>$object['data'],'component'=>'vevent','deleted_at'=>1770000000];
+                }
+            }
+        }
+        return null;
+    }
+
+    public function restoreByIdForPrincipal(int $objectId, string $principalUri): void {
+        $object = $this->deletedByIdForPrincipal($objectId, $principalUri);
+        if ($object === null) throw new \RuntimeException('trash entry disappeared');
+        $this->fail();
+        $calendarId = (int)$object['calendarid'];
+        $trashedUri = (string)$object['uri'];
+        $target = preg_replace('/-deleted\\.ics$/', '.ics', $trashedUri) ?? '';
+        if ($target === '' || isset($this->objects[$calendarId][$target]) && !$this->objects[$calendarId][$target]['deleted']) throw new \RuntimeException('restore collision');
+        $row = $this->objects[$calendarId][$trashedUri];
+        unset($this->objects[$calendarId][$trashedUri]);
+        $row['uri'] = $target;
+        $row['deleted'] = false;
+        $this->objects[$calendarId][$target] = $row;
     }
 
     /**

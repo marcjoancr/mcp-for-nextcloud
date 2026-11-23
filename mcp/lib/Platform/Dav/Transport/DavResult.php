@@ -19,7 +19,7 @@ final class DavResult
      * @param int $status HTTP status the pipeline answered with
      * @param string|null $etag ETag reported in the response, quoted as the backend returns it
      */
-    public function __construct(public readonly int $status, public readonly ?string $etag = null)
+    public function __construct(public readonly int $status, public readonly ?string $etag = null, public readonly ?string $body = null)
     {
     }
 }

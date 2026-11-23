@@ -164,3 +164,21 @@ while retaining html input compatibility. A guarded patch verified that removing
 those additions and restoring the former description recovers each old definition
 exactly. Other publication, protocol and result bytes are preserved. Behavioral
 tests cover native user quote position, selected identity signatures and MIME mode.
+
+The 2026-11-23 People, Calendar and Contacts changes add the tools visible in
+this fixture and extend only the recurrence inputs of Calendar create, edit and
+delete and the structured contact inputs of Contacts search, create and edit.
+A guarded comparison verified that the prior tools keep their order, all other
+schemas, modules and grants are identical, and the synthetic result fixture is
+unchanged. The protocol matrix receives the same definitions in its twelve tool
+list responses. Guide changes are limited to Calendar, Contacts and People.
+Circles and the precisely versioned appointment API have their own capability
+tests. The synthetic protocol matrix always resets the translator, so it runs
+once while publication and result comparisons continue in all three locales.
+
+The second 2026-11-23 groupware update adds ten tools to the full-access
+capture. Calendar search gains the optional participation status filter.
+The reviewed comparison preserves all existing tool order and other schemas,
+the default tool selection and synthetic results, and the unrelated guides.
+The exact Calendar appointment and optional Circles capabilities continue to
+have separate version and discovery tests.

@@ -88,7 +88,8 @@ final class EventReader
                         $occurrence['start'],
                         $occurrence['end'],
                         $calendar,
-                        $visibility
+                        $visibility,
+                        $occurrence['recurrenceId'] ?? null,
                     );
                 }
             }

@@ -9,7 +9,7 @@ namespace OCA\Mcp\Tests\Unit\Contract;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 final class DavCatalogTest extends TestCase {
-    public static function modules(): array { return [['Calendar',8], ['Contacts',6], ['Tasks',7]]; }
+    public static function modules(): array { return [['Calendar',25], ['Contacts',18], ['Tasks',7]]; }
     #[DataProvider('modules')]
     public function testMetadataGuideAndSavedPlanRenderingDoNotResolveAnyTool(string $feature, int $count): void {
         \OCA\Mcp\L10n\Translator::reset();
@@ -30,6 +30,21 @@ final class DavCatalogTest extends TestCase {
             catch (\InvalidArgumentException $e) { self::assertSame('Unknown tool', $e->getMessage()); }
         }
     }
+    public function testAppointmentCatalogRequiresACalendarCapabilityWithoutResolvingNativeServices(): void {
+        $catalog = \OCA\Mcp\Modules\Calendar\CalendarToolCatalog::definitions();
+        $factories = array_fill_keys(array_keys($catalog), static fn () => throw new \LogicException('Tool resolved during discovery'));
+        $supported = false;
+        $module = new \OCA\Mcp\Modules\Calendar\CalendarModule(
+            $factories,
+            static fn () => null,
+            static function () use (&$supported): bool { return $supported; },
+        );
+        $appointmentNames = array_keys(\OCA\Mcp\Modules\Calendar\CalendarModule::APPOINTMENT_TOOLS);
+        self::assertSame([], array_values(array_intersect($appointmentNames, array_column($module->definitions(), 'name'))));
+        $supported = true;
+        self::assertSame($appointmentNames, array_values(array_intersect($appointmentNames, array_column($module->definitions(), 'name'))));
+    }
+
     #[DataProvider('modules')]
     public function testCatalogRejectsDuplicatesAndAnUngatedWrite(string $feature): void {
         $catalog = 'OCA\Mcp\Modules\\'.$feature.'\\'.$feature.'ToolCatalog';

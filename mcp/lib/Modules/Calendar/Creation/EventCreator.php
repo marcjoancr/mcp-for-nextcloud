@@ -8,6 +8,7 @@ declare (strict_types=1);
 namespace OCA\Mcp\Modules\Calendar\Creation;
 
 use OCA\Mcp\Modules\Calendar\Scheduling\AttendeeResolver;
+use OCA\Mcp\Modules\Calendar\Scheduling\EmailAttendeeChanges;
 use OCA\Mcp\Platform\Dav\CalDav\ScopedCollectionAccess as CalendarAccess;
 use OCA\Mcp\Modules\Calendar\Execution\CalendarArgumentException;
 use OCA\Mcp\Platform\Dav\CalDav\CalDavWriter as CalendarDav;
@@ -23,7 +24,7 @@ use OCA\Mcp\Mcp\Confirmation\SharedCollectionNotice as SharedGuard;
 use OCA\Mcp\Modules\Calendar\Presentation\CalendarResult as ToolSchema;
 use OCP\AppFramework\Utility\ITimeFactory;
 /**
- * calendar_create_event: creates a single, non-recurring event in a writable calendar.
+ * calendar_create_event: creates a simple event, optionally recurring in a writable calendar.
  *
  * The write itself goes through the CalDAV pipeline (CalendarDav), so the event lands exactly as it
  * would if the user had created it in the Calendar app: same ACL, same validation, same trash, same
@@ -60,7 +61,7 @@ final class EventCreator implements \OCA\Mcp\Modules\Calendar\Execution\EventWri
     {
     }
     /**
-     * @param array{calendar: string, summary: string, start: string, end: string, allDay?: bool, timeZone?: string, location?: string, description?: string, attendees?: list<string>, send_invitations?: bool, confirm_shared?: bool} $arguments
+     * @param array{calendar: string, summary: string, start: string, end: string, allDay?: bool, timeZone?: string, location?: string, description?: string, attendees?: list<string>, external_attendees?: list<string>, recurrence?: array<string,mixed>, send_invitations?: bool, confirm_shared?: bool} $arguments
      * @param string $userId authenticated UID
      * @return array{content: list<array{type:string, text:string}>} created event item plus etag and scheduling
      * @throws CalendarException when the calendar is not visible, not writable, the UID is taken or the pipeline refuses
@@ -91,7 +92,8 @@ final class EventCreator implements \OCA\Mcp\Modules\Calendar\Execution\EventWri
             $arguments['timeZone'] ?? null
         );
         $guests = $this->attendees->resolve($arguments['attendees'] ?? [], $userId);
-        $organizer = $guests === [] ? null : $this->attendees->organizer($userId);
+        $external = $arguments['external_attendees'] ?? [];
+        $organizer = $guests === [] && $external === [] ? null : $this->attendees->organizer($userId);
         $uid = $this->newUid();
         $uri = $uid . '.ics';
         $this->events->assertFree($calendar, $uid, $uri);
@@ -100,7 +102,8 @@ final class EventCreator implements \OCA\Mcp\Modules\Calendar\Execution\EventWri
             $uid,
             $text,
             $timing,
-            $this->time->now()
+            $this->time->now(),
+            $arguments['recurrence'] ?? null,
         );
         if ($organizer !== null) {
             $this->builder->setAttendees(
@@ -109,6 +112,9 @@ final class EventCreator implements \OCA\Mcp\Modules\Calendar\Execution\EventWri
                 $organizer['email'],
                 $organizer['displayName']
             );
+            if ($external !== []) {
+                EmailAttendeeChanges::apply($vcalendar->VEVENT, $external, [], $organizer['email'], $organizer['displayName']);
+            }
         }
         $notify = (bool) ($arguments['send_invitations'] ?? false);
         return new \OCA\Mcp\Modules\Calendar\Execution\PreparedEventWrite(

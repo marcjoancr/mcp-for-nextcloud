@@ -89,6 +89,9 @@ final class VisibilityContractTest extends TestCase {
         'notes_delete' => 'notes_delete',
         'talk_attach_file' => 'talk_attach',
         'talk_quote_file' => 'talk_quote',
+        'contacts_import_vcf' => 'contacts_import',
+        'contacts_reconcile_vcf' => 'contacts_reconcile',
+        'calendar_import_ics' => 'calendar_import',
     ];
 
     /** Native tag creation mutates global taxonomy and accepts no file or path; it does not touch a Files resource. */
@@ -154,6 +157,7 @@ final class VisibilityContractTest extends TestCase {
         if ($class === \OCA\Mcp\Modules\People\PeopleModule::class) {
             return new \OCA\Mcp\Modules\People\PeopleModule([
                 'users_search' => fn () => $this->build(\OCA\Mcp\Modules\People\Tools\SearchUsers::class),
+                'users_resolve' => fn () => $this->build(\OCA\Mcp\Modules\People\Tools\ResolveUsers::class),
             ]);
         }
         if ($class === NotesModule::class) {
@@ -350,6 +354,7 @@ final class VisibilityContractTest extends TestCase {
                 $isFilesModule = ($mod === 'files');
                 $isNotesModule = ($mod === 'notes');
                 $isTalkFileTool = in_array($name, ['talk_attach_file', 'talk_quote_file'], true);
+                $isGroupwareFileInput = in_array($name, ['contacts_import_vcf', 'contacts_reconcile_vcf', 'calendar_import_ics'], true);
 
                 if ($isFilesModule && isset(self::GLOBAL_FILE_TAXONOMY_TOOLS[$name])) {
                     self::assertArrayNotHasKey($name, self::FILE_TOUCHING_TOOLS);
@@ -359,7 +364,7 @@ final class VisibilityContractTest extends TestCase {
                     continue;
                 }
 
-                if ($isFilesModule || $isNotesModule || $isTalkFileTool) {
+                if ($isFilesModule || $isNotesModule || $isTalkFileTool || $isGroupwareFileInput) {
                     $fileTouchingDiscovered[$name] = true;
                 }
             }
@@ -381,6 +386,32 @@ final class VisibilityContractTest extends TestCase {
         sort($discoveredKeys);
 
         $this->assertSame($discoveredKeys, $matrixKeys, 'Audit matrix and discovered file tools must have 100% parity.');
+    }
+
+    public function testCalendarIcsPlansDenyFilesUnderHiddenFoldersBeforeParsing(): void {
+        $id = $this->tree->addFolder('/alice/files/PrivateCalendarDrafts');
+        $this->tagAssignments[(string)$id] = [self::HIDDEN_TAG];
+        $this->tree->addFile('/alice/files/PrivateCalendarDrafts/secret.ics', 'invalid private calendar payload');
+        $root = $this->createStub(\OCP\Files\IRootFolder::class);
+        $root->method('getUserFolder')->willReturn($this->tree->rootFolder());
+        $access = $this->createStub(\OCA\Mcp\Platform\Dav\CalDav\ScopedCollectionAccess::class);
+        $access->method('resolveWritable')->willReturn(new \OCA\Mcp\Platform\Dav\Collections\Collection(
+            1, 'personal', 'Personal', 'alice', 'principals/users/alice', true, '/calendar/personal/',
+        ));
+        $store = $this->createMock(\OCA\Mcp\Platform\Dav\CalDav\ObjectStore::class);
+        $store->expects(self::never())->method('objectByUid');
+        $writer = $this->createMock(\OCA\Mcp\Platform\Dav\CalDav\CalDavWriter::class);
+        $writer->expects(self::never())->method('put');
+        $classes = new \OCA\Mcp\Modules\Calendar\Events\Classification();
+        $exchange = new \OCA\Mcp\Modules\Calendar\Exchange\CalendarExchange(
+            $access, $store, new \OCA\Mcp\Modules\Calendar\Events\EventRepository($store, $classes),
+            $classes, $writer, new \OCA\Mcp\Modules\Calendar\Exchange\IcsBundle(), $root, $this->guard,
+            \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this),
+            new \OCA\Mcp\Mcp\Confirmation\PlanState($this->config->mock($this)),
+        );
+        $this->expectException(ToolFailure::class);
+        $this->expectExceptionMessage(FileAccessMessages::notFound());
+        $exchange->preview(['calendar' => '/calendar/personal/', 'path' => '/PrivateCalendarDrafts/secret.ics'], 'alice');
     }
 
     /** Metadata and tag operations must deny a hidden file before exposing its description or assignments. */

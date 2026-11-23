@@ -13,9 +13,17 @@ use OCA\Mcp\Mcp\Tools\ToolDefinition;
 use OCA\Mcp\Modules\People\PeopleModule;
 use OCA\Mcp\Modules\People\PeopleToolCatalog;
 use OCA\Mcp\Modules\People\Tools\SearchUsers;
+use OCA\Mcp\Modules\People\Tools\ResolveUsers;
+use OCA\Mcp\Modules\People\Tools\ListTeams;
+use OCA\Mcp\Modules\People\Tools\ListTeamMembers;
 use PHPUnit\Framework\TestCase;
+use OCA\Mcp\Tests\Support\Mcp\AssertsReadablePlans;
+use OCA\Mcp\Modules\People\Tools\FilterTeamMembers;
+use OCA\Mcp\Modules\People\Tools\AddTeamMember;
+use OCA\Mcp\Modules\People\Tools\RemoveTeamMember;
 
 final class PeopleCatalogTest extends TestCase {
+    use AssertsReadablePlans;
     protected function setUp(): void {
         self::assertTrue(class_exists(PeopleModule::class), 'Final People publisher is missing');
     }
@@ -29,25 +37,54 @@ final class PeopleCatalogTest extends TestCase {
         };
     }
 
+    /** @return array<string, \Closure():Tool> */
+    private function factories(bool $circlesAvailable = false): array {
+        $factories = [];
+        foreach (PeopleToolCatalog::classes($circlesAvailable) as $class) {
+            $definition = $class::definition();
+            $factories[$definition->name] = static fn (): Tool => throw new \LogicException('Must not resolve');
+        }
+        return $factories;
+    }
+
     public function testPublicationIsLazyAndReadOnly(): void {
-        $module = new PeopleModule(['users_search' => static fn () => throw new \LogicException('Must not resolve')]);
-        self::assertSame(['users_search'], array_column($module->definitions(), 'name'));
-        self::assertSame([SearchUsers::class], PeopleToolCatalog::classes());
-        self::assertCount(3, $module->guideNotes());
-        self::assertNotInstanceOf(\OCA\Mcp\Mcp\Confirmation\PreviewsWrites::class, $module);
-        self::assertNotInstanceOf(\OCA\Mcp\Mcp\Confirmation\RendersPlans::class, $module);
+        $module = new PeopleModule($this->factories());
+        self::assertSame(['users_search', 'users_resolve'], array_column($module->definitions(), 'name'));
+        self::assertSame([SearchUsers::class, ResolveUsers::class], PeopleToolCatalog::classes());
+        self::assertCount(4, $module->guideNotes());
         self::assertFalse(is_a(SearchUsers::class, \OCA\Mcp\Mcp\Tools\WriteTool::class, true));
     }
 
+    public function testCirclesToolsArePublishedOnlyWhenRequestedAndCarryOptionalAppMetadata(): void {
+        $module = new PeopleModule($this->factories(true), true);
+        self::assertSame(['users_search','users_resolve','users_list_teams','users_list_team_members','users_filter_team_members','users_add_team_member','users_remove_team_member'], array_column($module->definitions(), 'name'));
+        self::assertSame([SearchUsers::class,ResolveUsers::class,ListTeams::class,ListTeamMembers::class,FilterTeamMembers::class,AddTeamMember::class,RemoveTeamMember::class], PeopleToolCatalog::classes(true));
+        self::assertArrayNotHasKey('app', $module->definitions()[0]);
+        self::assertSame('circles', $module->definitions()[2]['app']);
+        self::assertSame('circles', $module->definitions()[3]['app']);
+    }
+
+    public function testEachTeamMembershipChangeRendersAnInertPlan(): void {
+        $module = new PeopleModule($this->factories(true), true);
+        $common = [
+            'team' => ['displayName' => 'Editors'],
+            'member' => ['uid' => 'alice', 'displayName' => 'Alice'],
+        ];
+        $this->assertEveryWriteToolHasAReadablePlan($module, [
+            'users_add_team_member' => $common + ['impact' => 'Access to team content can start.'],
+            'users_remove_team_member' => $common + ['impact' => 'Access to team content can end.'],
+        ]);
+    }
+
     public function testInvalidFactoryMapsAreRejected(): void {
-        foreach ([[], ['users_search' => 'not a closure'], ['users_search' => static fn () => null, 'extra' => static fn () => null]] as $factories) {
+        foreach ([[], array_replace($this->factories(), ['users_search' => 'not a closure']), array_replace($this->factories(), ['extra' => static fn () => null])] as $factories) {
             try { new PeopleModule($factories); self::fail('Invalid map accepted'); }
             catch (\LogicException) { self::addToAssertionCount(1); }
         }
     }
 
     public function testUnknownNameDoesNotResolveTheFactory(): void {
-        $module = new PeopleModule(['users_search' => static fn () => throw new \LogicException('Must not resolve')]);
+        $module = new PeopleModule($this->factories());
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Unknown tool');
         $module->call('unknown', [], 'alice');
@@ -55,7 +92,9 @@ final class PeopleCatalogTest extends TestCase {
 
     public function testMismatchedResultsNeverExecute(): void {
         foreach ([new \stdClass(), $this->wrongTool()] as $wrong) {
-            $module = new PeopleModule(['users_search' => static fn () => $wrong]);
+            $factories = $this->factories();
+            $factories['users_search'] = static fn () => $wrong;
+            $module = new PeopleModule($factories);
             try { $module->call('users_search', ['query' => 'ok'], 'alice'); self::fail('Mismatched tool accepted'); }
             catch (\LogicException $e) { self::assertSame('Factory returned a different tool', $e->getMessage()); }
         }

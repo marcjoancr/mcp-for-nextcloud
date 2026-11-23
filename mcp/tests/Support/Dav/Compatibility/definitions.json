@@ -94,7 +94,7 @@
             },
             {
                 "name": "calendar_create_event",
-                "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
+                "description": "Creates a simple event, optionally with a finite weekly or monthly recurrence in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -157,6 +157,54 @@
                             "uniqueItems": true,
                             "description": "Nextcloud account IDs (not emails); if you are not sure of someone's ID, call users_search first. Replaces the attendee list."
                         },
+                        "recurrence": {
+                            "type": "object",
+                            "description": "Optional finite recurrence. WEEKLY accepts byDay codes; MONTHLY repeats on the start day of month. until is inclusive, at most one year after start.",
+                            "properties": {
+                                "frequency": {
+                                    "type": "string",
+                                    "enum": [
+                                        "WEEKLY",
+                                        "MONTHLY"
+                                    ]
+                                },
+                                "interval": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 4,
+                                    "default": 1
+                                },
+                                "byDay": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "enum": [
+                                            "MO",
+                                            "TU",
+                                            "WE",
+                                            "TH",
+                                            "FR",
+                                            "SA",
+                                            "SU"
+                                        ]
+                                    },
+                                    "minItems": 1,
+                                    "maxItems": 7,
+                                    "uniqueItems": true
+                                },
+                                "until": {
+                                    "type": "string",
+                                    "minLength": 10,
+                                    "maxLength": 10,
+                                    "description": "inclusive final civil date"
+                                }
+                            },
+                            "required": [
+                                "frequency",
+                                "until"
+                            ],
+                            "additionalProperties": false
+                        },
                         "send_invitations": {
                             "type": "boolean",
                             "default": false,
@@ -182,7 +230,7 @@
             },
             {
                 "name": "calendar_update_event",
-                "description": "Updates title, location, description, dates, or attendees (account IDs; call users_search first if unsure) of an event. Recurrent series dates cannot be changed. This call may send invitations to other people. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
+                "description": "Updates title, location, description, dates, or attendees (account IDs; call users_search first if unsure) of an event. Series dates require recurrence_id to edit one occurrence; without it only the full series text can be changed. This call may send invitations to other people. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -261,6 +309,12 @@
                             "maxLength": 128,
                             "description": "expected etag; if it differs, nothing is changed"
                         },
+                        "recurrence_id": {
+                            "type": "string",
+                            "minLength": 10,
+                            "maxLength": 40,
+                            "description": "original occurrence start as ISO date or timestamp"
+                        },
                         "confirm_shared": {
                             "type": "boolean",
                             "description": "set to true only after the user confirms changing a calendar that belongs to someone else"
@@ -325,7 +379,7 @@
             },
             {
                 "name": "calendar_delete_event",
-                "description": "Deletes an event (the entire series), moving it to the calendar trash bin. Requires confirm: true. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
+                "description": "Deletes an event series to recoverable trash, or cancels one occurrence when recurrence_id is supplied. Requires confirm: true. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -346,6 +400,12 @@
                             "minLength": 1,
                             "maxLength": 128,
                             "description": "expected etag; if it differs, nothing is changed"
+                        },
+                        "recurrence_id": {
+                            "type": "string",
+                            "minLength": 10,
+                            "maxLength": 40,
+                            "description": "original occurrence start as ISO date or timestamp"
                         },
                         "send_invitations": {
                             "type": "boolean",
@@ -533,7 +593,7 @@
             {
                 "name": "calendar_create_event",
                 "title": "Create event",
-                "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
+                "description": "Creates a simple event, optionally with a finite weekly or monthly recurrence in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -596,6 +656,54 @@
                             "uniqueItems": true,
                             "description": "Nextcloud account IDs (not emails); if you are not sure of someone's ID, call users_search first. Replaces the attendee list."
                         },
+                        "recurrence": {
+                            "type": "object",
+                            "description": "Optional finite recurrence. WEEKLY accepts byDay codes; MONTHLY repeats on the start day of month. until is inclusive, at most one year after start.",
+                            "properties": {
+                                "frequency": {
+                                    "type": "string",
+                                    "enum": [
+                                        "WEEKLY",
+                                        "MONTHLY"
+                                    ]
+                                },
+                                "interval": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 4,
+                                    "default": 1
+                                },
+                                "byDay": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "enum": [
+                                            "MO",
+                                            "TU",
+                                            "WE",
+                                            "TH",
+                                            "FR",
+                                            "SA",
+                                            "SU"
+                                        ]
+                                    },
+                                    "minItems": 1,
+                                    "maxItems": 7,
+                                    "uniqueItems": true
+                                },
+                                "until": {
+                                    "type": "string",
+                                    "minLength": 10,
+                                    "maxLength": 10,
+                                    "description": "inclusive final civil date"
+                                }
+                            },
+                            "required": [
+                                "frequency",
+                                "until"
+                            ],
+                            "additionalProperties": false
+                        },
                         "send_invitations": {
                             "type": "boolean",
                             "default": false,
@@ -632,7 +740,7 @@
             {
                 "name": "calendar_update_event",
                 "title": "Edit event",
-                "description": "Updates title, location, description, dates, or attendees (account IDs; call users_search first if unsure) of an event. Recurrent series dates cannot be changed. This call may send invitations to other people. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
+                "description": "Updates title, location, description, dates, or attendees (account IDs; call users_search first if unsure) of an event. Series dates require recurrence_id to edit one occurrence; without it only the full series text can be changed. This call may send invitations to other people. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -710,6 +818,12 @@
                             "minLength": 1,
                             "maxLength": 128,
                             "description": "expected etag; if it differs, nothing is changed"
+                        },
+                        "recurrence_id": {
+                            "type": "string",
+                            "minLength": 10,
+                            "maxLength": 40,
+                            "description": "original occurrence start as ISO date or timestamp"
                         },
                         "confirm_shared": {
                             "type": "boolean",
@@ -798,7 +912,7 @@
             {
                 "name": "calendar_delete_event",
                 "title": "Delete event",
-                "description": "Deletes an event (the entire series), moving it to the calendar trash bin. Requires confirm: true. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
+                "description": "Deletes an event series to recoverable trash, or cancels one occurrence when recurrence_id is supplied. Requires confirm: true. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -819,6 +933,12 @@
                             "minLength": 1,
                             "maxLength": 128,
                             "description": "expected etag; if it differs, nothing is changed"
+                        },
+                        "recurrence_id": {
+                            "type": "string",
+                            "minLength": 10,
+                            "maxLength": 40,
+                            "description": "original occurrence start as ISO date or timestamp"
                         },
                         "send_invitations": {
                             "type": "boolean",
@@ -914,7 +1034,7 @@
             "content": [
                 {
                     "type": "text",
-                    "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Calendar (`calendar`)\n\n8 tools available to you in this module.\n\nBehaviour notes\n\n- Calendars are addressed by path: calendar_list_calendars gives the paths of this user. Events are addressed by uid, and calendar_list_events gives the uids of a period.\n- calendar_check_availability reads busy intervals and free ranges in an explicit UTC window of at most 31 days. It checks at most 20 visible calendars and returns no event titles. Private or unreadable event data, a scan limit, or any incomplete scan makes the whole answer unavailable rather than claiming a time is free.\n- Every write answers with a plan first: what it would change, the etag of the object as it is now, and which invitations would go out. Nothing is written until the very same call is repeated with confirm: true, so show the plan to the user and wait for an explicit yes.\n- The plan of a create, update (when the time or the guests change), move or transfer can carry warnings: a collision with another event of the target calendar, a participant who is busy or whose agenda could not be checked, and a calendar that is not shared with the participants. Each warning has a type (collision, busy, unverifiable, calendarNotShared) and a message to read to the user. They never block: tell the user and repeat the call with confirm: true only if the answer is still yes. When sharedCalendars lists calendars the participants already see and suggestedCalendar is set, offer it; when there are several, ask the user which one to use and repeat the call with that calendar. Other people's appointments are only ever reported as busy, never with their content. When an update moves an event, the event's own slot is left out of the availability check of the guests it already has (their copy of the invitation would otherwise make them busy); the collision check always leaves the event itself out. An appointment of a guest sitting entirely inside the old slot is not reported.\n- Dates and times arrive as they will be stored, and are read back in the timezone of the account; a recurring event is expanded into its occurrences before it reaches the user.\n- send_invitations hands the invitation to the CalDAV scheduling of the server. The plan and the result say whether the server has e-mail invitations switched on (imipEnabled); when it is off, say so to the user instead of claiming an e-mail was sent.\n- A calendar owned by somebody else (a share) needs confirm_shared after asking the user, and a transfer moves the event there and removes it from here.\n- A deleted event goes to the Nextcloud trash bin of the calendar; with retention at 0 the deletion is refused rather than permanent.\n- The writing tools appear only when the administrator granted them to this user; a module showing reads only means the writing grants are off.\n\n\n## List calendars — `calendar_list_calendars`\n\nReads only. Lists calendars visible to the user.\n\n## List events — `calendar_list_events`\n\nReads only. Lists events in a time range (default: next 7 days).\n\nParameters\n- `calendar` (string, optional, length 1..1024) — calendar path (optional)\n- `from` (string, optional, length 10..40) — start ISO date\n- `to` (string, optional, length 10..40) — end ISO date\n\n## Check calendar availability — `calendar_check_availability`\n\nReads only. Check busy times, conflicts and free intervals in accessible calendars\n\nParameters\n- `from` (string, required, length 10..40) — inclusive start ISO date or timestamp\n- `to` (string, required, length 10..40) — exclusive end ISO date or timestamp\n- `calendars` (array of string, optional, at least 1 items, at most 20 items) — Calendar paths from calendar_list_calendars; omit to check all visible calendars.\n- `min_duration_minutes` (integer, optional, default 30, 5..1440) — Minimum length of returned free ranges, in minutes.\n\n## Create event — `calendar_create_event`\n\nWrites: it changes something in this Nextcloud. Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — calendar path, as returned by calendar_list_calendars\n- `summary` (string, required, length 1..255) — event title\n- `start` (string, required, length 10..40) — start: YYYY-MM-DD (all-day) or ISO with Z/offset\n- `end` (string, required, length 10..40) — exclusive end, in the same format as start\n- `allDay` (boolean, optional, default false) — all-day event\n- `timeZone` (string, optional, length 1..64) — IANA time zone, e.g. America/Sao_Paulo\n- `location` (string, optional, length 0..255) — location\n- `description` (string, optional, length 0..65536) — description\n- `attendees` (array of string, optional, at least 1 items, at most 50 items) — Nextcloud account IDs (not emails); if you are not sure of someone's ID, call users_search first. Replaces the attendee list.\n- `send_invitations` (boolean, optional, default false) — true delivers the invitation to Nextcloud scheduling; email depends on server settings and does not confirm receipt\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Edit event — `calendar_update_event`\n\nWrites: it changes something in this Nextcloud. Updates title, location, description, dates, or attendees (account IDs; call users_search first if unsure) of an event. Recurrent series dates cannot be changed. This call may send invitations to other people. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — calendar path, as returned by calendar_list_calendars\n- `uid` (string, required, length 1..255) — event UID\n- `summary` (string, optional, length 1..255) — new title\n- `start` (string, optional, length 10..40) — new start: YYYY-MM-DD (all-day) or ISO with Z/offset\n- `end` (string, optional, length 10..40) — new exclusive end\n- `allDay` (boolean, optional) — all-day event\n- `timeZone` (string, optional, length 1..64) — IANA time zone, e.g. America/Sao_Paulo\n- `location` (string, optional, length 0..255) — new location; empty to clear\n- `description` (string, optional, length 0..65536) — new description; empty to clear\n- `attendees` (array of string, optional, at least 0 items, at most 50 items) — Nextcloud account IDs (not emails); if you are not sure of someone's ID, call users_search first. Replaces the attendee list.\n- `send_invitations` (boolean, optional, default false) — true delivers the invitation to Nextcloud scheduling; email depends on server settings and does not confirm receipt\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Move event to another calendar — `calendar_move_event`\n\nWrites: it changes something in this Nextcloud. Moves an event to another calendar of the same owner, without overwriting. Event attendees are not notified, just like when moving in the Calendar app. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — source calendar path\n- `uid` (string, required, length 1..255) — event UID\n- `targetCalendar` (string, required, length 1..1024) — destination calendar path\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Delete event — `calendar_delete_event`\n\nWrites: it changes something in this Nextcloud. Deletes an event (the entire series), moving it to the calendar trash bin. Requires confirm: true. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — calendar path, as returned by calendar_list_calendars\n- `uid` (string, required, length 1..255) — event UID\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `send_invitations` (boolean, optional, default false) — true delivers the invitation to Nextcloud scheduling; email depends on server settings and does not confirm receipt\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Transfer event to another person's calendar — `calendar_transfer_event`\n\nWrites: it changes something in this Nextcloud. Transfers an event to a calendar owned by another user and shared with write permission. Requires confirm: true. Events with attendees are rejected: you remain the organizer and Nextcloud does not notify anyone in this operation. Event attendees are not notified, just like when moving in the Calendar app. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — source calendar path\n- `uid` (string, required, length 1..255) — event UID\n- `targetCalendar` (string, required, length 1..1024) — destination calendar path, owned by another user\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes."
+                    "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Calendar (`calendar`)\n\n8 tools available to you in this module.\n\nBehaviour notes\n\n- Calendars are addressed by path: calendar_list_calendars gives the paths of this user. Events are addressed by uid, and calendar_list_events gives the uids of a period.\n- Use calendar_search_events or calendar_read_event to find details you may see. calendar_find_slots combines the organizer’s free ranges with native free/busy for internal attendees. An unverified attendee does not count as available.\n- The separate external-attendee tools use email addresses selected by the user. Availability for those addresses is unknown. calendar_respond_to_invitation changes only the acting attendee on their own calendar and requires the preview ETag.\n- List native rooms and resources with calendar_list_resources and read free/busy with calendar_check_resource_availability. A resource booking is a separate scheduling request on an existing non-recurring event on your calendar. Review the resource response separately from the event update.\n- On supported Calendar app versions the appointment tools manage native booking links on your own calendars. Private configurations remain bookable by anyone with the URL. Do not reveal a link unless the user asks you to share it.\n- calendar_check_availability reads busy intervals and free ranges in an explicit UTC window of at most 31 days. It checks at most 20 visible calendars and returns no event titles. Private or unreadable event data, a scan limit, or any incomplete scan makes the whole answer unavailable rather than claiming a time is free.\n- Every write answers with a plan first: what it would change, the etag of the object as it is now, and which invitations would go out. Nothing is written until the very same call is repeated with confirm: true, so show the plan to the user and wait for an explicit yes.\n- The plan of a create, update (when the time or the guests change), move or transfer can carry warnings: a collision with another event of the target calendar, a participant who is busy or whose agenda could not be checked, and a calendar that is not shared with the participants. Each warning has a type (collision, busy, unverifiable, calendarNotShared) and a message to read to the user. They never block: tell the user and repeat the call with confirm: true only if the answer is still yes. When sharedCalendars lists calendars the participants already see and suggestedCalendar is set, offer it; when there are several, ask the user which one to use and repeat the call with that calendar. Other people's appointments are only ever reported as busy, never with their content. When an update moves an event, the event's own slot is left out of the availability check of the guests it already has (their copy of the invitation would otherwise make them busy); the collision check always leaves the event itself out. An appointment of a guest sitting entirely inside the old slot is not reported.\n- Dates and times arrive as they will be stored, and are read back in the timezone of the account; a recurring event is expanded into its occurrences before it reaches the user.\n- send_invitations hands the invitation to the CalDAV scheduling of the server. The plan and the result say whether the server has e-mail invitations switched on (imipEnabled); when it is off, say so to the user instead of claiming an e-mail was sent.\n- A calendar owned by somebody else (a share) needs confirm_shared after asking the user, and a transfer moves the event there and removes it from here.\n- A deleted event goes to the Nextcloud trash bin of the calendar; with retention at 0 the deletion is refused rather than permanent.\n- Filter calendar_search_events by participation_status to find your unanswered invitations. Review calendar_import_ics to see duplicate events and excluded invitation, reminder and attachment data. Use calendar_set_event_reminders for display alarms before the event start.\n- The writing tools appear only when the administrator granted them to this user; a module showing reads only means the writing grants are off.\n\n\n## List calendars — `calendar_list_calendars`\n\nReads only. Lists calendars visible to the user.\n\n## List events — `calendar_list_events`\n\nReads only. Lists events in a time range (default: next 7 days).\n\nParameters\n- `calendar` (string, optional, length 1..1024) — calendar path (optional)\n- `from` (string, optional, length 10..40) — start ISO date\n- `to` (string, optional, length 10..40) — end ISO date\n\n## Check calendar availability — `calendar_check_availability`\n\nReads only. Check busy times, conflicts and free intervals in accessible calendars\n\nParameters\n- `from` (string, required, length 10..40) — inclusive start ISO date or timestamp\n- `to` (string, required, length 10..40) — exclusive end ISO date or timestamp\n- `calendars` (array of string, optional, at least 1 items, at most 20 items) — Calendar paths from calendar_list_calendars; omit to check all visible calendars.\n- `min_duration_minutes` (integer, optional, default 30, 5..1440) — Minimum length of returned free ranges, in minutes.\n\n## Create event — `calendar_create_event`\n\nWrites: it changes something in this Nextcloud. Creates a simple event, optionally with a finite weekly or monthly recurrence in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — calendar path, as returned by calendar_list_calendars\n- `summary` (string, required, length 1..255) — event title\n- `start` (string, required, length 10..40) — start: YYYY-MM-DD (all-day) or ISO with Z/offset\n- `end` (string, required, length 10..40) — exclusive end, in the same format as start\n- `allDay` (boolean, optional, default false) — all-day event\n- `timeZone` (string, optional, length 1..64) — IANA time zone, e.g. America/Sao_Paulo\n- `location` (string, optional, length 0..255) — location\n- `description` (string, optional, length 0..65536) — description\n- `attendees` (array of string, optional, at least 1 items, at most 50 items) — Nextcloud account IDs (not emails); if you are not sure of someone's ID, call users_search first. Replaces the attendee list.\n- `recurrence` (object, optional) — Optional finite recurrence. WEEKLY accepts byDay codes; MONTHLY repeats on the start day of month. until is inclusive, at most one year after start.\n- `send_invitations` (boolean, optional, default false) — true delivers the invitation to Nextcloud scheduling; email depends on server settings and does not confirm receipt\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Edit event — `calendar_update_event`\n\nWrites: it changes something in this Nextcloud. Updates title, location, description, dates, or attendees (account IDs; call users_search first if unsure) of an event. Series dates require recurrence_id to edit one occurrence; without it only the full series text can be changed. This call may send invitations to other people. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — calendar path, as returned by calendar_list_calendars\n- `uid` (string, required, length 1..255) — event UID\n- `summary` (string, optional, length 1..255) — new title\n- `start` (string, optional, length 10..40) — new start: YYYY-MM-DD (all-day) or ISO with Z/offset\n- `end` (string, optional, length 10..40) — new exclusive end\n- `allDay` (boolean, optional) — all-day event\n- `timeZone` (string, optional, length 1..64) — IANA time zone, e.g. America/Sao_Paulo\n- `location` (string, optional, length 0..255) — new location; empty to clear\n- `description` (string, optional, length 0..65536) — new description; empty to clear\n- `attendees` (array of string, optional, at least 0 items, at most 50 items) — Nextcloud account IDs (not emails); if you are not sure of someone's ID, call users_search first. Replaces the attendee list.\n- `send_invitations` (boolean, optional, default false) — true delivers the invitation to Nextcloud scheduling; email depends on server settings and does not confirm receipt\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `recurrence_id` (string, optional, length 10..40) — original occurrence start as ISO date or timestamp\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Move event to another calendar — `calendar_move_event`\n\nWrites: it changes something in this Nextcloud. Moves an event to another calendar of the same owner, without overwriting. Event attendees are not notified, just like when moving in the Calendar app. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — source calendar path\n- `uid` (string, required, length 1..255) — event UID\n- `targetCalendar` (string, required, length 1..1024) — destination calendar path\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Delete event — `calendar_delete_event`\n\nWrites: it changes something in this Nextcloud. Deletes an event series to recoverable trash, or cancels one occurrence when recurrence_id is supplied. Requires confirm: true. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — calendar path, as returned by calendar_list_calendars\n- `uid` (string, required, length 1..255) — event UID\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `recurrence_id` (string, optional, length 10..40) — original occurrence start as ISO date or timestamp\n- `send_invitations` (boolean, optional, default false) — true delivers the invitation to Nextcloud scheduling; email depends on server settings and does not confirm receipt\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Transfer event to another person's calendar — `calendar_transfer_event`\n\nWrites: it changes something in this Nextcloud. Transfers an event to a calendar owned by another user and shared with write permission. Requires confirm: true. Events with attendees are rejected: you remain the organizer and Nextcloud does not notify anyone in this operation. Event attendees are not notified, just like when moving in the Calendar app. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `calendar` (string, required, length 1..1024) — source calendar path\n- `uid` (string, required, length 1..255) — event UID\n- `targetCalendar` (string, required, length 1..1024) — destination calendar path, owned by another user\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `confirm_shared` (boolean, optional) — set to true only after the user confirms changing a calendar that belongs to someone else\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes."
                 }
             ],
             "structuredContent": {
@@ -923,6 +1043,10 @@
                 "title": "Calendar",
                 "notes": [
                     "Calendars are addressed by path: calendar_list_calendars gives the paths of this user. Events are addressed by uid, and calendar_list_events gives the uids of a period.",
+                    "Use calendar_search_events or calendar_read_event to find details you may see. calendar_find_slots combines the organizer’s free ranges with native free/busy for internal attendees. An unverified attendee does not count as available.",
+                    "The separate external-attendee tools use email addresses selected by the user. Availability for those addresses is unknown. calendar_respond_to_invitation changes only the acting attendee on their own calendar and requires the preview ETag.",
+                    "List native rooms and resources with calendar_list_resources and read free/busy with calendar_check_resource_availability. A resource booking is a separate scheduling request on an existing non-recurring event on your calendar. Review the resource response separately from the event update.",
+                    "On supported Calendar app versions the appointment tools manage native booking links on your own calendars. Private configurations remain bookable by anyone with the URL. Do not reveal a link unless the user asks you to share it.",
                     "calendar_check_availability reads busy intervals and free ranges in an explicit UTC window of at most 31 days. It checks at most 20 visible calendars and returns no event titles. Private or unreadable event data, a scan limit, or any incomplete scan makes the whole answer unavailable rather than claiming a time is free.",
                     "Every write answers with a plan first: what it would change, the etag of the object as it is now, and which invitations would go out. Nothing is written until the very same call is repeated with confirm: true, so show the plan to the user and wait for an explicit yes.",
                     "The plan of a create, update (when the time or the guests change), move or transfer can carry warnings: a collision with another event of the target calendar, a participant who is busy or whose agenda could not be checked, and a calendar that is not shared with the participants. Each warning has a type (collision, busy, unverifiable, calendarNotShared) and a message to read to the user. They never block: tell the user and repeat the call with confirm: true only if the answer is still yes. When sharedCalendars lists calendars the participants already see and suggestedCalendar is set, offer it; when there are several, ask the user which one to use and repeat the call with that calendar. Other people's appointments are only ever reported as busy, never with their content. When an update moves an event, the event's own slot is left out of the availability check of the guests it already has (their copy of the invitation would otherwise make them busy); the collision check always leaves the event itself out. An appointment of a guest sitting entirely inside the old slot is not reported.",
@@ -930,6 +1054,7 @@
                     "send_invitations hands the invitation to the CalDAV scheduling of the server. The plan and the result say whether the server has e-mail invitations switched on (imipEnabled); when it is off, say so to the user instead of claiming an e-mail was sent.",
                     "A calendar owned by somebody else (a share) needs confirm_shared after asking the user, and a transfer moves the event there and removes it from here.",
                     "A deleted event goes to the Nextcloud trash bin of the calendar; with retention at 0 the deletion is refused rather than permanent.",
+                    "Filter calendar_search_events by participation_status to find your unanswered invitations. Review calendar_import_ics to see duplicate events and excluded invitation, reminder and attachment data. Use calendar_set_event_reminders for display alarms before the event start.",
                     "The writing tools appear only when the administrator granted them to this user; a module showing reads only means the writing grants are off."
                 ],
                 "tools": [
@@ -1030,7 +1155,7 @@
                     {
                         "name": "calendar_create_event",
                         "title": "Create event",
-                        "description": "Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
+                        "description": "Creates a simple event, optionally with a finite weekly or monthly recurrence in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone's ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
                         "read_only": false,
                         "destructive": true,
                         "confirmation": [
@@ -1121,6 +1246,13 @@
                                 ]
                             },
                             {
+                                "name": "recurrence",
+                                "type": "object",
+                                "required": false,
+                                "description": "Optional finite recurrence. WEEKLY accepts byDay codes; MONTHLY repeats on the start day of month. until is inclusive, at most one year after start.",
+                                "constraints": []
+                            },
+                            {
                                 "name": "send_invitations",
                                 "type": "boolean",
                                 "required": false,
@@ -1148,7 +1280,7 @@
                     {
                         "name": "calendar_update_event",
                         "title": "Edit event",
-                        "description": "Updates title, location, description, dates, or attendees (account IDs; call users_search first if unsure) of an event. Recurrent series dates cannot be changed. This call may send invitations to other people. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
+                        "description": "Updates title, location, description, dates, or attendees (account IDs; call users_search first if unsure) of an event. Series dates require recurrence_id to edit one occurrence; without it only the full series text can be changed. This call may send invitations to other people. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
                         "read_only": false,
                         "destructive": true,
                         "confirmation": [
@@ -1264,6 +1396,15 @@
                                 ]
                             },
                             {
+                                "name": "recurrence_id",
+                                "type": "string",
+                                "required": false,
+                                "description": "original occurrence start as ISO date or timestamp",
+                                "constraints": [
+                                    "length 10..40"
+                                ]
+                            },
+                            {
                                 "name": "confirm_shared",
                                 "type": "boolean",
                                 "required": false,
@@ -1345,7 +1486,7 @@
                     {
                         "name": "calendar_delete_event",
                         "title": "Delete event",
-                        "description": "Deletes an event (the entire series), moving it to the calendar trash bin. Requires confirm: true. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
+                        "description": "Deletes an event series to recoverable trash, or cancels one occurrence when recurrence_id is supplied. Requires confirm: true. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.",
                         "read_only": false,
                         "destructive": true,
                         "confirmation": [
@@ -1378,6 +1519,15 @@
                                 "description": "expected etag; if it differs, nothing is changed",
                                 "constraints": [
                                     "length 1..128"
+                                ]
+                            },
+                            {
+                                "name": "recurrence_id",
+                                "type": "string",
+                                "required": false,
+                                "description": "original occurrence start as ISO date or timestamp",
+                                "constraints": [
+                                    "length 10..40"
                                 ]
                             },
                             {
@@ -1502,7 +1652,13 @@
                             "type": "string",
                             "minLength": 0,
                             "maxLength": 1024,
-                            "description": "Case-insensitive search text."
+                            "description": "Case-insensitive search text across contact name, organization, email, phone and categories."
+                        },
+                        "group": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 255,
+                            "description": "Return only contacts carrying this exact vCard CATEGORIES group, case-insensitive."
                         },
                         "limit": {
                             "type": "integer",
@@ -1596,6 +1752,117 @@
                             "maxLength": 1024,
                             "description": "Contact url. Omit to preserve its existing value."
                         },
+                        "addresses": {
+                            "type": "array",
+                            "maxItems": 30,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "postOfficeBox": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Post office box."
+                                    },
+                                    "extended": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Extended address or apartment."
+                                    },
+                                    "street": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Street address."
+                                    },
+                                    "locality": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "City or locality."
+                                    },
+                                    "region": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Region or state."
+                                    },
+                                    "postalCode": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 128,
+                                        "description": "Postal code."
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 255,
+                                        "description": "Country."
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 32,
+                                        "description": "Address type, such as HOME or WORK."
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "description": "Replace structured ADR addresses in order. Omit to keep; [] to clear."
+                        },
+                        "birthday": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 64,
+                            "description": "Birthday in a vCard date format, such as YYYY-MM-DD. Use an empty string to clear."
+                        },
+                        "preferredEmail": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Email address to mark as preferred. It must exactly match an email on this contact; empty clears the preference."
+                        },
+                        "categories": {
+                            "type": "array",
+                            "maxItems": 100,
+                            "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 255
+                            },
+                            "description": "Replace vCard CATEGORIES (the groups shown by contacts_list_groups). Omit to keep; [] to clear."
+                        },
+                        "familyName": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Structured N family name."
+                        },
+                        "givenName": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Structured N given name."
+                        },
+                        "additionalName": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Structured N additional name."
+                        },
+                        "namePrefix": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 255,
+                            "description": "Structured N honorific prefix."
+                        },
+                        "nameSuffix": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 255,
+                            "description": "Structured N honorific suffix."
+                        },
                         "emails": {
                             "type": "array",
                             "maxItems": 50,
@@ -1686,6 +1953,117 @@
                             "minLength": 0,
                             "maxLength": 1024,
                             "description": "Contact url. Omit to preserve its existing value."
+                        },
+                        "addresses": {
+                            "type": "array",
+                            "maxItems": 30,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "postOfficeBox": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Post office box."
+                                    },
+                                    "extended": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Extended address or apartment."
+                                    },
+                                    "street": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Street address."
+                                    },
+                                    "locality": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "City or locality."
+                                    },
+                                    "region": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Region or state."
+                                    },
+                                    "postalCode": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 128,
+                                        "description": "Postal code."
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 255,
+                                        "description": "Country."
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 32,
+                                        "description": "Address type, such as HOME or WORK."
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "description": "Replace structured ADR addresses in order. Omit to keep; [] to clear."
+                        },
+                        "birthday": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 64,
+                            "description": "Birthday in a vCard date format, such as YYYY-MM-DD. Use an empty string to clear."
+                        },
+                        "preferredEmail": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Email address to mark as preferred. It must exactly match an email on this contact; empty clears the preference."
+                        },
+                        "categories": {
+                            "type": "array",
+                            "maxItems": 100,
+                            "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 255
+                            },
+                            "description": "Replace vCard CATEGORIES (the groups shown by contacts_list_groups). Omit to keep; [] to clear."
+                        },
+                        "familyName": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Structured N family name."
+                        },
+                        "givenName": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Structured N given name."
+                        },
+                        "additionalName": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Structured N additional name."
+                        },
+                        "namePrefix": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 255,
+                            "description": "Structured N honorific prefix."
+                        },
+                        "nameSuffix": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 255,
+                            "description": "Structured N honorific suffix."
                         },
                         "emails": {
                             "type": "array",
@@ -1802,7 +2180,13 @@
                             "type": "string",
                             "minLength": 0,
                             "maxLength": 1024,
-                            "description": "Case-insensitive search text."
+                            "description": "Case-insensitive search text across contact name, organization, email, phone and categories."
+                        },
+                        "group": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 255,
+                            "description": "Return only contacts carrying this exact vCard CATEGORIES group, case-insensitive."
                         },
                         "limit": {
                             "type": "integer",
@@ -1912,6 +2296,117 @@
                             "maxLength": 1024,
                             "description": "Contact url. Omit to preserve its existing value."
                         },
+                        "addresses": {
+                            "type": "array",
+                            "maxItems": 30,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "postOfficeBox": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Post office box."
+                                    },
+                                    "extended": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Extended address or apartment."
+                                    },
+                                    "street": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Street address."
+                                    },
+                                    "locality": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "City or locality."
+                                    },
+                                    "region": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Region or state."
+                                    },
+                                    "postalCode": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 128,
+                                        "description": "Postal code."
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 255,
+                                        "description": "Country."
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 32,
+                                        "description": "Address type, such as HOME or WORK."
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "description": "Replace structured ADR addresses in order. Omit to keep; [] to clear."
+                        },
+                        "birthday": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 64,
+                            "description": "Birthday in a vCard date format, such as YYYY-MM-DD. Use an empty string to clear."
+                        },
+                        "preferredEmail": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Email address to mark as preferred. It must exactly match an email on this contact; empty clears the preference."
+                        },
+                        "categories": {
+                            "type": "array",
+                            "maxItems": 100,
+                            "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 255
+                            },
+                            "description": "Replace vCard CATEGORIES (the groups shown by contacts_list_groups). Omit to keep; [] to clear."
+                        },
+                        "familyName": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Structured N family name."
+                        },
+                        "givenName": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Structured N given name."
+                        },
+                        "additionalName": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Structured N additional name."
+                        },
+                        "namePrefix": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 255,
+                            "description": "Structured N honorific prefix."
+                        },
+                        "nameSuffix": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 255,
+                            "description": "Structured N honorific suffix."
+                        },
                         "emails": {
                             "type": "array",
                             "maxItems": 50,
@@ -2014,6 +2509,117 @@
                             "minLength": 0,
                             "maxLength": 1024,
                             "description": "Contact url. Omit to preserve its existing value."
+                        },
+                        "addresses": {
+                            "type": "array",
+                            "maxItems": 30,
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "postOfficeBox": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Post office box."
+                                    },
+                                    "extended": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Extended address or apartment."
+                                    },
+                                    "street": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Street address."
+                                    },
+                                    "locality": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "City or locality."
+                                    },
+                                    "region": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 1024,
+                                        "description": "Region or state."
+                                    },
+                                    "postalCode": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 128,
+                                        "description": "Postal code."
+                                    },
+                                    "country": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 255,
+                                        "description": "Country."
+                                    },
+                                    "type": {
+                                        "type": "string",
+                                        "minLength": 0,
+                                        "maxLength": 32,
+                                        "description": "Address type, such as HOME or WORK."
+                                    }
+                                },
+                                "additionalProperties": false
+                            },
+                            "description": "Replace structured ADR addresses in order. Omit to keep; [] to clear."
+                        },
+                        "birthday": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 64,
+                            "description": "Birthday in a vCard date format, such as YYYY-MM-DD. Use an empty string to clear."
+                        },
+                        "preferredEmail": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Email address to mark as preferred. It must exactly match an email on this contact; empty clears the preference."
+                        },
+                        "categories": {
+                            "type": "array",
+                            "maxItems": 100,
+                            "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 255
+                            },
+                            "description": "Replace vCard CATEGORIES (the groups shown by contacts_list_groups). Omit to keep; [] to clear."
+                        },
+                        "familyName": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Structured N family name."
+                        },
+                        "givenName": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Structured N given name."
+                        },
+                        "additionalName": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 1024,
+                            "description": "Structured N additional name."
+                        },
+                        "namePrefix": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 255,
+                            "description": "Structured N honorific prefix."
+                        },
+                        "nameSuffix": {
+                            "type": "string",
+                            "minLength": 0,
+                            "maxLength": 255,
+                            "description": "Structured N honorific suffix."
                         },
                         "emails": {
                             "type": "array",
@@ -2119,7 +2725,7 @@
             "content": [
                 {
                     "type": "text",
-                    "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Contacts (`contacts`)\n\n6 tools available to you in this module.\n\nBehaviour notes\n\n- List address books first; your own and shared address books are exposed, plus the read-only accounts catalog when the admin allows it. Searching without an address book also covers the accounts of the instance (colleagues, with a term of at least 2 characters, following the admin user-enumeration settings); each account result has accountId, the ID to use for invitations. Use users_search to look for accounts only. Account contacts can never be created, edited or deleted.\n- Search an address book to obtain contact object URIs, then read a contact before editing it. Unknown vCard properties are preserved; the preview includes every property before and after.\n- Writes first show a plan without changing anything. Wait for an explicit yes, repeat with confirm=true, and acknowledge another owner with confirm_shared=true. The optional etag prevents overwriting a newer edit.\n- Contact deletion is PERMANENT in Nextcloud: there is no contact trash. After confirmation, a verified full .vcf copy is saved under Contacts in the configured backup folder before native CardDAV DELETE. Backup failure prevents deletion; the result gives the backup path. Import the .vcf through Contacts to recover it.\n- These tools are hidden when the Contacts app is disabled. Writing grants start disabled.\n\n\n## List address books — `contacts_list_addressbooks`\n\nReads only. List your own and shared address books plus, when the admin exposes it, the read-only accounts catalog of the instance.\n\n## Search contacts — `contacts_search_contacts`\n\nReads only. Search contacts by name, email, phone or organization in one address book or, when \"addressbook\" is omitted, in all of them including the read-only accounts of the instance (colleagues). Account results carry accountId, the user ID to use for invitations, attendees, Deck and Talk. An empty query lists personal contacts only; accounts need a search term of at least 2 characters.\n\nParameters\n- `addressbook` (string, optional, length 1..1024) — Address book path returned by List address books. Omit to search all of them.\n- `query` (string, optional, length 0..1024) — Case-insensitive search text.\n- `limit` (integer, optional, default 50, 1..200) — Maximum results (1-200).\n- `offset` (integer, optional, default 0, 0..1000000) — Offset among matching results; use nextOffset to continue.\n\n## Read contact — `contacts_read_contact`\n\nReads only. Read a contact including all vCard properties and its ETag. A contact of the accounts catalog returns only its public fields and accountId, without vCard or ETag.\n\nParameters\n- `addressbook` (string, required, length 1..1024) — Address book path returned by List address books.\n- `uri` (string, required, length 1..255) — Contact object URI returned by Search contacts.\n\n## Create contact — `contacts_create_contact`\n\nWrites: it changes something in this Nextcloud. Create a contact in a writable personal or shared address book. Returns a detailed plan without writing. Show it to the user, wait for explicit approval, then repeat with confirm=true and the optional etag from the plan. Shared collections also require confirm_shared=true.\n\nParameters\n- `addressbook` (string, required, length 1..1024) — Address book path returned by List address books.\n- `name` (string, required, length 1..1024) — Contact name. Omit to preserve its existing value.\n- `organization` (string, optional, length 0..1024) — Organization company name (first ORG component); existing departments and units are preserved.\n- `title` (string, optional, length 0..1024) — Contact title. Omit to preserve its existing value.\n- `note` (string, optional, length 0..65536) — Contact note. Omit to preserve its existing value.\n- `url` (string, optional, length 0..1024) — Contact url. Omit to preserve its existing value.\n- `emails` (array of string, optional, at most 50 items) — Replace the emails in order; existing parameters are preserved. Omit to keep all values, [] to clear them.\n- `phones` (array of string, optional, at most 50 items) — Replace the phones in order; existing parameters are preserved. Omit to keep all values, [] to clear them.\n- `confirm_shared` (boolean, optional) — Acknowledge changing a collection owned by another person after showing the shared notice.\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Edit contact — `contacts_edit_contact`\n\nWrites: it changes something in this Nextcloud. Edit only supplied contact fields, preserving unknown vCard properties. Returns a detailed plan without writing. Show it to the user, wait for explicit approval, then repeat with confirm=true and the optional etag from the plan. Shared collections also require confirm_shared=true.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `addressbook` (string, required, length 1..1024) — Address book path returned by List address books.\n- `uri` (string, required, length 1..255) — Contact object URI returned by Search contacts.\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `name` (string, optional, length 1..1024) — Contact name. Omit to preserve its existing value.\n- `organization` (string, optional, length 0..1024) — Organization company name (first ORG component); existing departments and units are preserved.\n- `title` (string, optional, length 0..1024) — Contact title. Omit to preserve its existing value.\n- `note` (string, optional, length 0..65536) — Contact note. Omit to preserve its existing value.\n- `url` (string, optional, length 0..1024) — Contact url. Omit to preserve its existing value.\n- `emails` (array of string, optional, at most 50 items) — Replace the emails in order; existing parameters are preserved. Omit to keep all values, [] to clear them.\n- `phones` (array of string, optional, at most 50 items) — Replace the phones in order; existing parameters are preserved. Omit to keep all values, [] to clear them.\n- `confirm_shared` (boolean, optional) — Acknowledge changing a collection owned by another person after showing the shared notice.\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Delete contact — `contacts_delete_contact`\n\nWrites: it changes something in this Nextcloud. Permanently delete a contact after saving a verified vCard backup in your Files. Nextcloud has no contact trash. Returns a detailed plan without writing. Show it to the user, wait for explicit approval, then repeat with confirm=true and the optional etag from the plan. Shared collections also require confirm_shared=true.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `addressbook` (string, required, length 1..1024) — Address book path returned by List address books.\n- `uri` (string, required, length 1..255) — Contact object URI returned by Search contacts.\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `confirm_shared` (boolean, optional) — Acknowledge changing a collection owned by another person after showing the shared notice.\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes."
+                    "text": "This guide is in English: relay it to the user in their own language.\n\nWrite confirmation plans arrive as readable text in the user’s language, with the complete plan in structuredContent. Show that text to the user exactly as received.\n\n# Contacts (`contacts`)\n\n6 tools available to you in this module.\n\nBehaviour notes\n\n- Use contacts_list_groups to browse the vCard CATEGORIES groups used by your contacts. Use contacts_list_addressbook_shares for your own shares and contacts_share_addressbook to grant or remove a local user’s read or edit access after explicit approval. List address books first; your own and shared address books are exposed, plus the read-only accounts catalog when the admin allows it. Searching without an address book also covers the accounts of the instance (colleagues, with a term of at least 2 characters, following the admin user-enumeration settings); each account result has accountId, the ID to use for invitations. Use users_search to look for accounts only. Account contacts can never be created, edited or deleted.\n- Search an address book to obtain contact object URIs, use the optional group filter to match a vCard CATEGORIES value, then read a contact before editing it. Unknown vCard properties are preserved; the preview includes every property before and after.\n- Writes first show a plan without changing anything. Wait for an explicit yes, repeat with confirm=true, and acknowledge another owner with confirm_shared=true. The optional etag prevents overwriting a newer edit.\n- Create address books only after reviewing their generated paths. Copy retains the source and uses a fresh UID. Move creates and verifies the destination, saves a verified source backup, then removes the source; if the last step fails both remain. Contact deletion is PERMANENT in Nextcloud: there is no contact trash. After confirmation, a verified full .vcf copy is saved under Contacts in the configured backup folder before native CardDAV DELETE. Backup failure prevents deletion; the result gives the backup path. Import the .vcf through Contacts to recover it.\n- Export selected cards with contacts_export_vcf. Import from an authorized Files path with contacts_import_vcf, including deletion backups. Use contacts_find_duplicates to review candidate groups. contacts_merge_contacts takes explicit choices and current ETags, saves verified backups and reports which groups need another review.\n- Use contacts_update_categories to plan a category change for selected cards. Use contacts_reconcile_vcf to review matching existing cards and apply approved source fields only after saving a verified backup.\n- These tools are hidden when the Contacts app is disabled. Writing grants start disabled.\n\n\n## List address books — `contacts_list_addressbooks`\n\nReads only. List your own and shared address books plus, when the admin exposes it, the read-only accounts catalog of the instance.\n\n## Search contacts — `contacts_search_contacts`\n\nReads only. Search contacts by name, email, phone or organization in one address book or, when \"addressbook\" is omitted, in all of them including the read-only accounts of the instance (colleagues). Account results carry accountId, the user ID to use for invitations, attendees, Deck and Talk. An empty query lists personal contacts only; accounts need a search term of at least 2 characters.\n\nParameters\n- `addressbook` (string, optional, length 1..1024) — Address book path returned by List address books. Omit to search all of them.\n- `query` (string, optional, length 0..1024) — Case-insensitive search text across contact name, organization, email, phone and categories.\n- `group` (string, optional, length 1..255) — Return only contacts carrying this exact vCard CATEGORIES group, case-insensitive.\n- `limit` (integer, optional, default 50, 1..200) — Maximum results (1-200).\n- `offset` (integer, optional, default 0, 0..1000000) — Offset among matching results; use nextOffset to continue.\n\n## Read contact — `contacts_read_contact`\n\nReads only. Read a contact including all vCard properties and its ETag. A contact of the accounts catalog returns only its public fields and accountId, without vCard or ETag.\n\nParameters\n- `addressbook` (string, required, length 1..1024) — Address book path returned by List address books.\n- `uri` (string, required, length 1..255) — Contact object URI returned by Search contacts.\n\n## Create contact — `contacts_create_contact`\n\nWrites: it changes something in this Nextcloud. Create a contact in a writable personal or shared address book. Returns a detailed plan without writing. Show it to the user, wait for explicit approval, then repeat with confirm=true and the optional etag from the plan. Shared collections also require confirm_shared=true.\n\nParameters\n- `addressbook` (string, required, length 1..1024) — Address book path returned by List address books.\n- `name` (string, required, length 1..1024) — Contact name. Omit to preserve its existing value.\n- `organization` (string, optional, length 0..1024) — Organization company name (first ORG component); existing departments and units are preserved.\n- `title` (string, optional, length 0..1024) — Contact title. Omit to preserve its existing value.\n- `note` (string, optional, length 0..65536) — Contact note. Omit to preserve its existing value.\n- `url` (string, optional, length 0..1024) — Contact url. Omit to preserve its existing value.\n- `addresses` (array of objects (postOfficeBox, extended, street, locality, region, postalCode, country, type), optional, at most 30 items) — Replace structured ADR addresses in order. Omit to keep; [] to clear.\n- `birthday` (string, optional, length 0..64) — Birthday in a vCard date format, such as YYYY-MM-DD. Use an empty string to clear.\n- `preferredEmail` (string, optional, length 0..1024) — Email address to mark as preferred. It must exactly match an email on this contact; empty clears the preference.\n- `categories` (array of string, optional, at most 100 items) — Replace vCard CATEGORIES (the groups shown by contacts_list_groups). Omit to keep; [] to clear.\n- `familyName` (string, optional, length 0..1024) — Structured N family name.\n- `givenName` (string, optional, length 0..1024) — Structured N given name.\n- `additionalName` (string, optional, length 0..1024) — Structured N additional name.\n- `namePrefix` (string, optional, length 0..255) — Structured N honorific prefix.\n- `nameSuffix` (string, optional, length 0..255) — Structured N honorific suffix.\n- `emails` (array of string, optional, at most 50 items) — Replace the emails in order; existing parameters are preserved. Omit to keep all values, [] to clear them.\n- `phones` (array of string, optional, at most 50 items) — Replace the phones in order; existing parameters are preserved. Omit to keep all values, [] to clear them.\n- `confirm_shared` (boolean, optional) — Acknowledge changing a collection owned by another person after showing the shared notice.\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Edit contact — `contacts_edit_contact`\n\nWrites: it changes something in this Nextcloud. Edit only supplied contact fields, preserving unknown vCard properties. Returns a detailed plan without writing. Show it to the user, wait for explicit approval, then repeat with confirm=true and the optional etag from the plan. Shared collections also require confirm_shared=true.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `addressbook` (string, required, length 1..1024) — Address book path returned by List address books.\n- `uri` (string, required, length 1..255) — Contact object URI returned by Search contacts.\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `name` (string, optional, length 1..1024) — Contact name. Omit to preserve its existing value.\n- `organization` (string, optional, length 0..1024) — Organization company name (first ORG component); existing departments and units are preserved.\n- `title` (string, optional, length 0..1024) — Contact title. Omit to preserve its existing value.\n- `note` (string, optional, length 0..65536) — Contact note. Omit to preserve its existing value.\n- `url` (string, optional, length 0..1024) — Contact url. Omit to preserve its existing value.\n- `addresses` (array of objects (postOfficeBox, extended, street, locality, region, postalCode, country, type), optional, at most 30 items) — Replace structured ADR addresses in order. Omit to keep; [] to clear.\n- `birthday` (string, optional, length 0..64) — Birthday in a vCard date format, such as YYYY-MM-DD. Use an empty string to clear.\n- `preferredEmail` (string, optional, length 0..1024) — Email address to mark as preferred. It must exactly match an email on this contact; empty clears the preference.\n- `categories` (array of string, optional, at most 100 items) — Replace vCard CATEGORIES (the groups shown by contacts_list_groups). Omit to keep; [] to clear.\n- `familyName` (string, optional, length 0..1024) — Structured N family name.\n- `givenName` (string, optional, length 0..1024) — Structured N given name.\n- `additionalName` (string, optional, length 0..1024) — Structured N additional name.\n- `namePrefix` (string, optional, length 0..255) — Structured N honorific prefix.\n- `nameSuffix` (string, optional, length 0..255) — Structured N honorific suffix.\n- `emails` (array of string, optional, at most 50 items) — Replace the emails in order; existing parameters are preserved. Omit to keep all values, [] to clear them.\n- `phones` (array of string, optional, at most 50 items) — Replace the phones in order; existing parameters are preserved. Omit to keep all values, [] to clear them.\n- `confirm_shared` (boolean, optional) — Acknowledge changing a collection owned by another person after showing the shared notice.\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes.\n\n## Delete contact — `contacts_delete_contact`\n\nWrites: it changes something in this Nextcloud. Permanently delete a contact after saving a verified vCard backup in your Files. Nextcloud has no contact trash. Returns a detailed plan without writing. Show it to the user, wait for explicit approval, then repeat with confirm=true and the optional etag from the plan. Shared collections also require confirm_shared=true.\nFlagged as destructive: the client is expected to ask the user before it runs.\n\nParameters\n- `addressbook` (string, required, length 1..1024) — Address book path returned by List address books.\n- `uri` (string, required, length 1..255) — Contact object URI returned by Search contacts.\n- `etag` (string, optional, length 1..128) — expected etag; if it differs, nothing is changed\n- `confirm_shared` (boolean, optional) — Acknowledge changing a collection owned by another person after showing the shared notice.\n- `confirm` (boolean, optional) — Send true only after you have shown the plan of this call to the user and the user explicitly said yes. Without it nothing is changed and the answer is the plan.\n\nNeeds `confirm` (boolean, must be true) before it writes.\nNeeds `confirm_shared` (boolean) before it writes."
                 }
             ],
             "structuredContent": {
@@ -2127,10 +2733,12 @@
                 "module": "contacts",
                 "title": "Contacts",
                 "notes": [
-                    "List address books first; your own and shared address books are exposed, plus the read-only accounts catalog when the admin allows it. Searching without an address book also covers the accounts of the instance (colleagues, with a term of at least 2 characters, following the admin user-enumeration settings); each account result has accountId, the ID to use for invitations. Use users_search to look for accounts only. Account contacts can never be created, edited or deleted.",
-                    "Search an address book to obtain contact object URIs, then read a contact before editing it. Unknown vCard properties are preserved; the preview includes every property before and after.",
+                    "Use contacts_list_groups to browse the vCard CATEGORIES groups used by your contacts. Use contacts_list_addressbook_shares for your own shares and contacts_share_addressbook to grant or remove a local user’s read or edit access after explicit approval. List address books first; your own and shared address books are exposed, plus the read-only accounts catalog when the admin allows it. Searching without an address book also covers the accounts of the instance (colleagues, with a term of at least 2 characters, following the admin user-enumeration settings); each account result has accountId, the ID to use for invitations. Use users_search to look for accounts only. Account contacts can never be created, edited or deleted.",
+                    "Search an address book to obtain contact object URIs, use the optional group filter to match a vCard CATEGORIES value, then read a contact before editing it. Unknown vCard properties are preserved; the preview includes every property before and after.",
                     "Writes first show a plan without changing anything. Wait for an explicit yes, repeat with confirm=true, and acknowledge another owner with confirm_shared=true. The optional etag prevents overwriting a newer edit.",
-                    "Contact deletion is PERMANENT in Nextcloud: there is no contact trash. After confirmation, a verified full .vcf copy is saved under Contacts in the configured backup folder before native CardDAV DELETE. Backup failure prevents deletion; the result gives the backup path. Import the .vcf through Contacts to recover it.",
+                    "Create address books only after reviewing their generated paths. Copy retains the source and uses a fresh UID. Move creates and verifies the destination, saves a verified source backup, then removes the source; if the last step fails both remain. Contact deletion is PERMANENT in Nextcloud: there is no contact trash. After confirmation, a verified full .vcf copy is saved under Contacts in the configured backup folder before native CardDAV DELETE. Backup failure prevents deletion; the result gives the backup path. Import the .vcf through Contacts to recover it.",
+                    "Export selected cards with contacts_export_vcf. Import from an authorized Files path with contacts_import_vcf, including deletion backups. Use contacts_find_duplicates to review candidate groups. contacts_merge_contacts takes explicit choices and current ETags, saves verified backups and reports which groups need another review.",
+                    "Use contacts_update_categories to plan a category change for selected cards. Use contacts_reconcile_vcf to review matching existing cards and apply approved source fields only after saving a verified backup.",
                     "These tools are hidden when the Contacts app is disabled. Writing grants start disabled."
                 ],
                 "tools": [
@@ -2164,9 +2772,18 @@
                                 "name": "query",
                                 "type": "string",
                                 "required": false,
-                                "description": "Case-insensitive search text.",
+                                "description": "Case-insensitive search text across contact name, organization, email, phone and categories.",
                                 "constraints": [
                                     "length 0..1024"
+                                ]
+                            },
+                            {
+                                "name": "group",
+                                "type": "string",
+                                "required": false,
+                                "description": "Return only contacts carrying this exact vCard CATEGORIES group, case-insensitive.",
+                                "constraints": [
+                                    "length 1..255"
                                 ]
                             },
                             {
@@ -2285,6 +2902,87 @@
                                 ]
                             },
                             {
+                                "name": "addresses",
+                                "type": "array of objects (postOfficeBox, extended, street, locality, region, postalCode, country, type)",
+                                "required": false,
+                                "description": "Replace structured ADR addresses in order. Omit to keep; [] to clear.",
+                                "constraints": [
+                                    "at most 30 items"
+                                ]
+                            },
+                            {
+                                "name": "birthday",
+                                "type": "string",
+                                "required": false,
+                                "description": "Birthday in a vCard date format, such as YYYY-MM-DD. Use an empty string to clear.",
+                                "constraints": [
+                                    "length 0..64"
+                                ]
+                            },
+                            {
+                                "name": "preferredEmail",
+                                "type": "string",
+                                "required": false,
+                                "description": "Email address to mark as preferred. It must exactly match an email on this contact; empty clears the preference.",
+                                "constraints": [
+                                    "length 0..1024"
+                                ]
+                            },
+                            {
+                                "name": "categories",
+                                "type": "array of string",
+                                "required": false,
+                                "description": "Replace vCard CATEGORIES (the groups shown by contacts_list_groups). Omit to keep; [] to clear.",
+                                "constraints": [
+                                    "at most 100 items"
+                                ]
+                            },
+                            {
+                                "name": "familyName",
+                                "type": "string",
+                                "required": false,
+                                "description": "Structured N family name.",
+                                "constraints": [
+                                    "length 0..1024"
+                                ]
+                            },
+                            {
+                                "name": "givenName",
+                                "type": "string",
+                                "required": false,
+                                "description": "Structured N given name.",
+                                "constraints": [
+                                    "length 0..1024"
+                                ]
+                            },
+                            {
+                                "name": "additionalName",
+                                "type": "string",
+                                "required": false,
+                                "description": "Structured N additional name.",
+                                "constraints": [
+                                    "length 0..1024"
+                                ]
+                            },
+                            {
+                                "name": "namePrefix",
+                                "type": "string",
+                                "required": false,
+                                "description": "Structured N honorific prefix.",
+                                "constraints": [
+                                    "length 0..255"
+                                ]
+                            },
+                            {
+                                "name": "nameSuffix",
+                                "type": "string",
+                                "required": false,
+                                "description": "Structured N honorific suffix.",
+                                "constraints": [
+                                    "length 0..255"
+                                ]
+                            },
+                            {
                                 "name": "emails",
                                 "type": "array of string",
                                 "required": false,
@@ -2399,6 +3097,87 @@
                                 "description": "Contact url. Omit to preserve its existing value.",
                                 "constraints": [
                                     "length 0..1024"
+                                ]
+                            },
+                            {
+                                "name": "addresses",
+                                "type": "array of objects (postOfficeBox, extended, street, locality, region, postalCode, country, type)",
+                                "required": false,
+                                "description": "Replace structured ADR addresses in order. Omit to keep; [] to clear.",
+                                "constraints": [
+                                    "at most 30 items"
+                                ]
+                            },
+                            {
+                                "name": "birthday",
+                                "type": "string",
+                                "required": false,
+                                "description": "Birthday in a vCard date format, such as YYYY-MM-DD. Use an empty string to clear.",
+                                "constraints": [
+                                    "length 0..64"
+                                ]
+                            },
+                            {
+                                "name": "preferredEmail",
+                                "type": "string",
+                                "required": false,
+                                "description": "Email address to mark as preferred. It must exactly match an email on this contact; empty clears the preference.",
+                                "constraints": [
+                                    "length 0..1024"
+                                ]
+                            },
+                            {
+                                "name": "categories",
+                                "type": "array of string",
+                                "required": false,
+                                "description": "Replace vCard CATEGORIES (the groups shown by contacts_list_groups). Omit to keep; [] to clear.",
+                                "constraints": [
+                                    "at most 100 items"
+                                ]
+                            },
+                            {
+                                "name": "familyName",
+                                "type": "string",
+                                "required": false,
+                                "description": "Structured N family name.",
+                                "constraints": [
+                                    "length 0..1024"
+                                ]
+                            },
+                            {
+                                "name": "givenName",
+                                "type": "string",
+                                "required": false,
+                                "description": "Structured N given name.",
+                                "constraints": [
+                                    "length 0..1024"
+                                ]
+                            },
+                            {
+                                "name": "additionalName",
+                                "type": "string",
+                                "required": false,
+                                "description": "Structured N additional name.",
+                                "constraints": [
+                                    "length 0..1024"
+                                ]
+                            },
+                            {
+                                "name": "namePrefix",
+                                "type": "string",
+                                "required": false,
+                                "description": "Structured N honorific prefix.",
+                                "constraints": [
+                                    "length 0..255"
+                                ]
+                            },
+                            {
+                                "name": "nameSuffix",
+                                "type": "string",
+                                "required": false,
+                                "description": "Structured N honorific suffix.",
+                                "constraints": [
+                                    "length 0..255"
                                 ]
                             },
                             {

@@ -130,6 +130,26 @@ final class EmbeddedDavDispatcherTest extends TestCase {
         self::assertStringContainsString('edited', $this->backend->objects[$this->personalId]['e.ics']['calendardata']);
     }
 
+    public function testResourceUpdateAddsNativePrincipalCollectionsOnlyToThatDispatch(): void {
+        $etag = $this->backend->addObject($this->personalId, 'room.ics', $this->ics('room'));
+        $server = $this->serverFor(self::ALICE);
+        $dispatcher = new EmbeddedDavDispatcher(
+            fn () => $server,
+            new Session($this->sessionFor('alice')),
+            $this->configFor(''),
+            new NullLogger(),
+        );
+
+        $dispatcher->updateWithResourcePrincipals('alice','personal','room.ics',$etag,$this->ics('room-updated'));
+
+        $acl = $server->getPlugin('acl');
+        self::assertContains('principals/calendar-rooms',$acl->principalCollectionSet);
+        self::assertContains('principals/calendar-resources',$acl->principalCollectionSet);
+        $ordinaryServer = $this->serverFor(self::ALICE);
+        self::assertNotContains('principals/calendar-rooms',$ordinaryServer->getPlugin('acl')->principalCollectionSet);
+        self::assertNotContains('principals/calendar-resources',$ordinaryServer->getPlugin('acl')->principalCollectionSet);
+    }
+
     /** @return void */
     public function testSchedulingSuppressionHeaderReachesBothPlacesTheNextcloudSchedulePluginReadsIt(): void {
         $this->watchNextRequest();

@@ -36,6 +36,8 @@ final class EventChangeRenderer
             return null;
         }
         $lines[] = Translator::t('- When: %s', [$timing]);
+        $rule = PlanText::inline($this->text->text($after['recurrenceRule'] ?? null));
+        if ($rule !== '') $lines[] = Translator::t('- Repeats: %s', [$rule]);
         $location = PlanText::inline($this->text->text($after['location'] ?? null));
         if ($location !== '') {
             $lines[] = Translator::t('- Location: %s', [$location]);

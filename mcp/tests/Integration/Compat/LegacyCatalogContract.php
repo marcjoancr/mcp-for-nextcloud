@@ -16,6 +16,9 @@ final class LegacyCatalogContract {
 	private const FORMS_ADDITIONS = ['read', 'read_responses', 'summarize_responses', 'export_responses', 'read_settings', 'create', 'edit', 'set_state', 'manage_locks', 'transfer', 'delete_form', 'restore', 'edit_questions', 'read_shares', 'read_links', 'share', 'public_link', 'submit', 'read_own_responses', 'edit_own_responses', 'edit_responses', 'delete_own_responses', 'delete_response', 'delete_all_responses', 'upload_response_files', 'read_response_files', 'save_response_file', 'summarize_results', 'download_results', 'export_results', 'link_results', 'read_comments', 'comment', 'edit_comments', 'delete_comments', 'read_admin_settings', 'admin_settings', 'read_operations', 'continue_operations', 'cancel_operations', 'read_respondents', 'configure_notifications'];
 
 	private const FILES_ADDITIONS = ['description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link'];
+	private const CONTACTS_ADDITIONS = ['share'];
+	private const CALENDAR_ADDITIONS = ['share', 'restore'];
+	private const PEOPLE_ADDITIONS = ['edit'];
 
 	/**
 	 * @param array<string, list<string>> $baseline catalog actually read from the released 1.0.8 code
@@ -27,7 +30,9 @@ final class LegacyCatalogContract {
 		$expected = $baseline;
 		$expected['files'] = [...$baseline['files'], ...self::FILES_ADDITIONS];
 		$expected['deck'] = [...$baseline['deck'], 'read_comments', 'comment', 'search'];
-		$expected['calendar'] = [...$baseline['calendar'], 'availability'];
+		$expected['contacts'] = [...$baseline['contacts'], ...self::CONTACTS_ADDITIONS];
+		$expected['calendar'] = [...$baseline['calendar'], 'availability', ...self::CALENDAR_ADDITIONS];
+		$expected['people'] = [...$baseline['people'], ...self::PEOPLE_ADDITIONS];
 		$expected['talk'] = [...$baseline['talk'], 'publish_summary', 'search'];
 		if (isset($baseline['mail']) || isset($baseline['forms']) || $current !== [...$expected, 'mail' => self::MAIL_ADDITIONS, 'forms' => self::FORMS_ADDITIONS]) {
 			throw new \UnexpectedValueException('Unexpected change to legacy permissions');
@@ -48,6 +53,14 @@ final class LegacyCatalogContract {
 						throw new \UnexpectedValueException("Expected Files $operation to be denied after upgrade");
 					}
 					unset($row['grants']['files'][$operation]);
+				}
+				foreach (['contacts' => self::CONTACTS_ADDITIONS, 'calendar' => self::CALENDAR_ADDITIONS, 'people' => self::PEOPLE_ADDITIONS] as $module => $operations) {
+					foreach ($operations as $operation) {
+						if (($row['grants'][$module][$operation] ?? null) !== false) {
+							throw new \UnexpectedValueException("Expected $module.$operation to be denied after upgrade");
+						}
+						unset($row['grants'][$module][$operation]);
+					}
 				}
 				if (($row['grants']['mail'] ?? null) !== array_fill_keys(self::MAIL_ADDITIONS, false)
 					|| ($row['grants']['forms'] ?? null) !== array_fill_keys(self::FORMS_ADDITIONS, false)

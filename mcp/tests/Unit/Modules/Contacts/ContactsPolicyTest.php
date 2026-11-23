@@ -52,6 +52,34 @@ final class ContactsPolicyTest extends TestCase {
         );
     }
 
+    public function testCrossOperationGrantsAreEnforcedEvenWithAnExplicitToolGrant(): void {
+        $apps = $this->createMock(IAppManager::class);
+        $apps->method('isEnabledForUser')->willReturn(true);
+        $users = $this->createMock(IUserManager::class);
+        $users->method('get')->willReturn($this->createMock(IUser::class));
+        $policy = $this->createMock(GrantPolicy::class);
+        $policy->method('toolGranted')->willReturn(true);
+        $grants = ['contacts.read' => true, 'contacts.delete' => false, 'files.read' => false];
+        $policy->method('granted')->willReturnCallback(static function (string $user, string $module, string $operation) use (&$grants): bool {
+            return $grants[$module . '.' . $operation] ?? false;
+        });
+        $availability = new \OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability($policy, $apps, $users);
+        $definitions = \OCA\Mcp\Modules\Contacts\ContactsToolCatalog::definitions();
+        self::assertTrue($availability->allowed($definitions['contacts_copy_contact'], 'alice'));
+        self::assertFalse($availability->allowed($definitions['contacts_move_contact'], 'alice'));
+        self::assertFalse($availability->allowed($definitions['contacts_merge_contacts'], 'alice'));
+        self::assertFalse($availability->allowed($definitions['contacts_import_vcf'], 'alice'));
+
+        $grants['contacts.delete'] = true;
+        $grants['files.read'] = true;
+        self::assertTrue($availability->allowed($definitions['contacts_move_contact'], 'alice'));
+        self::assertTrue($availability->allowed($definitions['contacts_merge_contacts'], 'alice'));
+        self::assertTrue($availability->allowed($definitions['contacts_import_vcf'], 'alice'));
+
+        $grants['contacts.read'] = false;
+        self::assertFalse($availability->allowed($definitions['contacts_copy_contact'], 'alice'));
+    }
+
     public function testDisabledContactsAppHidesAllContactTools(): void {
         [$registry] = $this->registry(false);
         self::assertSame(['mcp_guide'], array_column($registry->list('alice'), 'name'));
@@ -69,7 +97,10 @@ final class ContactsPolicyTest extends TestCase {
             new ContactCard(),
             new SharedGuard($users),
             $this->createMock(ContactBackup::class),
-            $this->createMock(\OCA\Mcp\Modules\Contacts\Directory\AccountDirectory::class)
+            $this->createMock(\OCA\Mcp\Modules\Contacts\Directory\AccountDirectory::class),
+            $users,
+            $this->createMock(\OCP\Collaboration\Collaborators\ISearch::class),
+            $this->testPlanState()
         );
         $apps = $this->createMock(IAppManager::class);
         $apps->method('isEnabledForUser')->with('contacts')->willReturn($enabled);
@@ -79,5 +110,11 @@ final class ContactsPolicyTest extends TestCase {
             new ToolRegistry([$module], $availability, new \OCA\Mcp\Mcp\Tools\Execution\ToolExecutor($availability, new NullLogger())),
             $policy,
         ];
+    }
+
+    private function testPlanState(): \OCA\Mcp\Mcp\Confirmation\PlanState {
+        $config = $this->createMock(\OCP\IConfig::class);
+        $config->method('getSystemValueString')->with('secret', '')->willReturn('contacts-test-secret');
+        return new \OCA\Mcp\Mcp\Confirmation\PlanState($config);
     }
 }

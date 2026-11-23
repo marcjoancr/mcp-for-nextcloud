@@ -448,6 +448,11 @@
                     "phones": [
                         "123"
                     ],
+                    "familyName": "Name",
+                    "givenName": "Old",
+                    "additionalName": "",
+                    "namePrefix": "",
+                    "nameSuffix": "",
                     "properties": [
                         {
                             "name": "VERSION",
@@ -519,6 +524,11 @@
                     "phones": [
                         "123"
                     ],
+                    "familyName": "Name",
+                    "givenName": "Old",
+                    "additionalName": "",
+                    "namePrefix": "",
+                    "nameSuffix": "",
                     "properties": [
                         {
                             "name": "VERSION",
@@ -615,6 +625,11 @@
                     "phones": [
                         "123"
                     ],
+                    "familyName": "Name",
+                    "givenName": "Old",
+                    "additionalName": "",
+                    "namePrefix": "",
+                    "nameSuffix": "",
                     "properties": [
                         {
                             "name": "VERSION",
@@ -908,7 +923,7 @@
             "content": [
                 {
                     "type": "text",
-                    "text": "{\n    \"uid\": \"c1\",\n    \"name\": \"Old Name\",\n    \"organization\": \"\",\n    \"title\": \"\",\n    \"note\": \"Original\",\n    \"url\": \"\",\n    \"emails\": [\n        \"home@example.invalid\"\n    ],\n    \"phones\": [\n        \"123\"\n    ],\n    \"properties\": [\n        {\n            \"name\": \"VERSION\",\n            \"group\": null,\n            \"value\": \"3.0\",\n            \"serialized\": \"VERSION:3.0\\r\\n\"\n        },\n        {\n            \"name\": \"UID\",\n            \"group\": null,\n            \"value\": \"c1\",\n            \"serialized\": \"UID:c1\\r\\n\"\n        },\n        {\n            \"name\": \"FN\",\n            \"group\": null,\n            \"value\": \"Old Name\",\n            \"serialized\": \"FN:Old Name\\r\\n\"\n        },\n        {\n            \"name\": \"N\",\n            \"group\": null,\n            \"value\": \"Name;Old;;;\",\n            \"serialized\": \"N:Name;Old;;;\\r\\n\"\n        },\n        {\n            \"name\": \"EMAIL\",\n            \"group\": null,\n            \"value\": \"home@example.invalid\",\n            \"serialized\": \"EMAIL;TYPE=HOME:home@example.invalid\\r\\n\"\n        },\n        {\n            \"name\": \"TEL\",\n            \"group\": \"ITEM1\",\n            \"value\": \"123\",\n            \"serialized\": \"ITEM1.TEL;TYPE=CELL:123\\r\\n\"\n        },\n        {\n            \"name\": \"X-ABLABEL\",\n            \"group\": \"ITEM1\",\n            \"value\": \"Mobile\",\n            \"serialized\": \"ITEM1.X-ABLABEL:Mobile\\r\\n\"\n        },\n        {\n            \"name\": \"X-CUSTOM\",\n            \"group\": null,\n            \"value\": \"untouched\",\n            \"serialized\": \"X-CUSTOM;X-PARAM=keep:untouched\\r\\n\"\n        },\n        {\n            \"name\": \"NOTE\",\n            \"group\": null,\n            \"value\": \"Original\",\n            \"serialized\": \"NOTE:Original\\r\\n\"\n        }\n    ],\n    \"vcard\": \"BEGIN:VCARD\\r\\nVERSION:3.0\\r\\nUID:c1\\r\\nFN:Old Name\\r\\nN:Name;Old;;;\\r\\nEMAIL;TYPE=HOME:home@example.invalid\\r\\nITEM1.TEL;TYPE=CELL:123\\r\\nITEM1.X-ABLABEL:Mobile\\r\\nX-CUSTOM;X-PARAM=keep:untouched\\r\\nNOTE:Original\\r\\nEND:VCARD\\r\\n\",\n    \"uri\": \"c1.vcf\",\n    \"etag\": \"\\\"v1\\\"\",\n    \"addressbook\": \"/remote.php/dav/addressbooks/users/alice/personal/\"\n}"
+                    "text": "{\n    \"uid\": \"c1\",\n    \"name\": \"Old Name\",\n    \"organization\": \"\",\n    \"title\": \"\",\n    \"note\": \"Original\",\n    \"url\": \"\",\n    \"emails\": [\n        \"home@example.invalid\"\n    ],\n    \"phones\": [\n        \"123\"\n    ],\n    \"familyName\": \"Name\",\n    \"givenName\": \"Old\",\n    \"additionalName\": \"\",\n    \"namePrefix\": \"\",\n    \"nameSuffix\": \"\",\n    \"properties\": [\n        {\n            \"name\": \"VERSION\",\n            \"group\": null,\n            \"value\": \"3.0\",\n            \"serialized\": \"VERSION:3.0\\r\\n\"\n        },\n        {\n            \"name\": \"UID\",\n            \"group\": null,\n            \"value\": \"c1\",\n            \"serialized\": \"UID:c1\\r\\n\"\n        },\n        {\n            \"name\": \"FN\",\n            \"group\": null,\n            \"value\": \"Old Name\",\n            \"serialized\": \"FN:Old Name\\r\\n\"\n        },\n        {\n            \"name\": \"N\",\n            \"group\": null,\n            \"value\": \"Name;Old;;;\",\n            \"serialized\": \"N:Name;Old;;;\\r\\n\"\n        },\n        {\n            \"name\": \"EMAIL\",\n            \"group\": null,\n            \"value\": \"home@example.invalid\",\n            \"serialized\": \"EMAIL;TYPE=HOME:home@example.invalid\\r\\n\"\n        },\n        {\n            \"name\": \"TEL\",\n            \"group\": \"ITEM1\",\n            \"value\": \"123\",\n            \"serialized\": \"ITEM1.TEL;TYPE=CELL:123\\r\\n\"\n        },\n        {\n            \"name\": \"X-ABLABEL\",\n            \"group\": \"ITEM1\",\n            \"value\": \"Mobile\",\n            \"serialized\": \"ITEM1.X-ABLABEL:Mobile\\r\\n\"\n        },\n        {\n            \"name\": \"X-CUSTOM\",\n            \"group\": null,\n            \"value\": \"untouched\",\n            \"serialized\": \"X-CUSTOM;X-PARAM=keep:untouched\\r\\n\"\n        },\n        {\n            \"name\": \"NOTE\",\n            \"group\": null,\n            \"value\": \"Original\",\n            \"serialized\": \"NOTE:Original\\r\\n\"\n        }\n    ],\n    \"vcard\": \"BEGIN:VCARD\\r\\nVERSION:3.0\\r\\nUID:c1\\r\\nFN:Old Name\\r\\nN:Name;Old;;;\\r\\nEMAIL;TYPE=HOME:home@example.invalid\\r\\nITEM1.TEL;TYPE=CELL:123\\r\\nITEM1.X-ABLABEL:Mobile\\r\\nX-CUSTOM;X-PARAM=keep:untouched\\r\\nNOTE:Original\\r\\nEND:VCARD\\r\\n\",\n    \"uri\": \"c1.vcf\",\n    \"etag\": \"\\\"v1\\\"\",\n    \"addressbook\": \"/remote.php/dav/addressbooks/users/alice/personal/\"\n}"
                 }
             ]
         },

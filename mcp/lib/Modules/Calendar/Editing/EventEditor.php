@@ -8,6 +8,7 @@ declare (strict_types=1);
 namespace OCA\Mcp\Modules\Calendar\Editing;
 
 use OCA\Mcp\Modules\Calendar\Scheduling\AttendeeResolver;
+use OCA\Mcp\Modules\Calendar\Scheduling\EmailAttendeeChanges;
 use OCA\Mcp\Platform\Dav\CalDav\ScopedCollectionAccess as CalendarAccess;
 use OCA\Mcp\Modules\Calendar\Execution\CalendarArgumentException;
 use OCA\Mcp\Platform\Dav\CalDav\CalDavWriter as CalendarDav;
@@ -18,8 +19,13 @@ use OCA\Mcp\Modules\Calendar\Events\EventDates as DateInput;
 use OCA\Mcp\Modules\Calendar\Events\EventBuilder;
 use OCA\Mcp\Modules\Calendar\Events\EventMapper;
 use OCA\Mcp\Modules\Calendar\Events\EventRepository;
+use OCA\Mcp\Modules\Calendar\Events\EventExpander;
+use OCA\Mcp\Modules\Calendar\Events\EventOccurrenceResolver;
 use OCA\Mcp\Modules\Calendar\Events\EventTiming;
 use OCA\Mcp\Modules\Calendar\Scheduling\Scheduling;
+use OCA\Mcp\Modules\Calendar\Resources\ResourceAttendeeDetector;
+use OCA\Mcp\Platform\Dav\CalDav\ResourceAwareCalDavWriter;
+use OCA\Mcp\Modules\Calendar\Resources\CalendarResourceDirectory;
 use OCA\Mcp\Mcp\Confirmation\SharedCollectionNotice as SharedGuard;
 use OCA\Mcp\Modules\Calendar\Presentation\CalendarResult as ToolSchema;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -66,11 +72,13 @@ final class EventEditor implements \OCA\Mcp\Modules\Calendar\Execution\EventWrit
         private AttendeeResolver $attendees,
         private Scheduling $scheduling,
         private ITimeFactory $time,
+        private ?EventOccurrenceResolver $occurrences = null,
+        private ?CalendarResourceDirectory $resourceDirectory = null,
     )
     {
     }
     /**
-     * @param array{calendar: string, uid: string, summary?: string, start?: string, end?: string, allDay?: bool, timeZone?: string, location?: string, description?: string, attendees?: list<string>, send_invitations?: bool, etag?: string, confirm_shared?: bool} $arguments
+     * @param array{calendar: string, uid: string, recurrence_id?: string, summary?: string, start?: string, end?: string, allDay?: bool, timeZone?: string, location?: string, description?: string, attendees?: list<string>, add_attendee_emails?: list<string>, remove_attendee_emails?: list<string>, send_invitations?: bool, etag?: string, confirm_shared?: bool} $arguments
      * @param string $userId authenticated UID
      * @return array{content: list<array{type:string, text:string}>} updated event item plus etag and scheduling
      * @throws CalendarException when not visible, not writable, changed meanwhile or a recurring timing change
@@ -90,10 +98,15 @@ final class EventEditor implements \OCA\Mcp\Modules\Calendar\Execution\EventWrit
      */
     public function prepare(array $arguments, string $userId): \OCA\Mcp\Modules\Calendar\Execution\PreparedEventWrite|array
     {
+        $recurrenceId = $arguments['recurrence_id'] ?? null;
+        if ($recurrenceId !== null && !is_string($recurrenceId)) throw new CalendarArgumentException('recurrence_id must be an ISO date or timestamp.', 'recurrence_id', 'invalid');
         $timingChanges = array_intersect_key($arguments, array_flip(self::TIMING_FIELDS));
         $textChanges = array_intersect_key($arguments, array_flip(self::TEXT_FIELDS));
         $guestChanges = array_key_exists('attendees', $arguments);
-        if ($timingChanges === [] && $textChanges === [] && !$guestChanges) {
+        $add = $arguments['add_attendee_emails'] ?? [];
+        $remove = $arguments['remove_attendee_emails'] ?? [];
+        $emailChanges = $add !== [] || $remove !== [];
+        if ($timingChanges === [] && $textChanges === [] && !$guestChanges && !$emailChanges) {
             throw new CalendarArgumentException(\OCA\Mcp\Modules\Calendar\Events\EventMessages::noFieldGiven());
         }
         $calendar = $this->access->resolveWritable($userId, $arguments['calendar']);
@@ -113,23 +126,36 @@ final class EventEditor implements \OCA\Mcp\Modules\Calendar\Execution\EventWrit
             clone $stored->vcalendar
         );
         $master = $stored->master() ?? throw CalendarException::notFound();
-        if ($timingChanges !== []) {
-            if ($stored->recurring()) {
-                throw CalendarException::conflict(\OCA\Mcp\Modules\Calendar\Events\EventMessages::recurringTiming());
-            }
-            $this->builder->setTiming($master, $this->mergeTiming($master, $timingChanges));
+        $target = $master;
+        if ($recurrenceId !== null) {
+            if (!$stored->recurring()) throw CalendarException::notFound();
+            $target = $this->occurrenceResolver()->ensureOverride($stored->vcalendar, $master, $recurrenceId);
+            if (strtoupper((string)($target->STATUS ?? '')) === 'CANCELLED') unset($target->STATUS);
         }
-        $this->builder->setText($master, $textChanges);
+        if ($timingChanges !== []) {
+            if ($stored->recurring() && $recurrenceId === null) throw CalendarException::conflict(\OCA\Mcp\Modules\Calendar\Events\EventMessages::recurringTiming());
+            $this->builder->setTiming($target, $this->mergeTiming($target, $timingChanges));
+        }
+        $this->builder->setText($target, $textChanges);
         if ($guestChanges) {
             $this->replaceGuests(
-                $master,
+                $target,
                 $stored,
                 $arguments['attendees'] ?? [],
                 $userId
             );
         }
-        $this->builder->touch($master, $this->time->now());
+        if ($emailChanges) {
+            $this->assertCanChangeGuests($target, $stored, $userId);
+            $organizer = $this->attendees->organizer($userId);
+            EmailAttendeeChanges::apply($target, $add, $remove, $organizer['email'], $organizer['displayName']);
+        }
+        $this->builder->touch($target, $this->time->now());
         $notify = (bool) ($arguments['send_invitations'] ?? false);
+        if ($notify && $add !== [] && ResourceAttendeeDetector::contains($before->vcalendar)) {
+            if ($this->resourceDirectory === null) throw CalendarException::blocked('This server cannot safely distinguish resource addresses from external attendees.');
+            foreach ($add as $email) $this->resourceDirectory->assertNotResourceAddress($userId,$email);
+        }
         // If-Match always carries the ETag just read, even when the client sent none, so a change
         // made between the read and the write loses instead of being overwritten (an ETag mismatch aborts the update).
         return new \OCA\Mcp\Modules\Calendar\Execution\PreparedEventWrite(
@@ -137,24 +163,25 @@ final class EventEditor implements \OCA\Mcp\Modules\Calendar\Execution\EventWrit
             null,
             $before,
             $stored->vcalendar,
-            function () use ($calendar, $stored, $notify, $userId): array {
-                $this->dav->update(
-                    $userId,
-                    $calendar->uri,
-                    $stored->uri,
-                    $stored->etag,
-                    $stored->vcalendar->serialize(),
-                    $notify
-                );
+            function () use ($calendar, $stored, $notify, $userId, $recurrenceId, $before): array {
+                if ($notify && ResourceAttendeeDetector::contains($before->vcalendar)) {
+                    if (!($this->dav instanceof ResourceAwareCalDavWriter)) throw CalendarException::blocked('This server cannot schedule updates to a native room or resource.');
+                    $this->dav->updateWithResourcePrincipals($userId,$calendar->uri,$stored->uri,$stored->etag,$stored->vcalendar->serialize(),true);
+                } else {
+                    $this->dav->update($userId,$calendar->uri,$stored->uri,$stored->etag,$stored->vcalendar->serialize(),$notify);
+                }
                 $row = $this->store->object($calendar->id, $stored->uri) ?? throw new \RuntimeException(\OCA\Mcp\Modules\Calendar\Events\EventMessages::DAV_FAILURE);
                 $written = $this->events->parse($row['data']) ?? throw new \RuntimeException(\OCA\Mcp\Modules\Calendar\Events\EventMessages::DAV_FAILURE);
-                $timing = $this->builder->timing($written->VEVENT);
+                $writtenEvent = $recurrenceId === null ? $written->VEVENT : $this->occurrenceResolver()->find($written, $recurrenceId);
+                if (!$writtenEvent instanceof VEvent) throw new \RuntimeException(\OCA\Mcp\Modules\Calendar\Events\EventMessages::DAV_FAILURE);
+                $timing = $this->builder->timing($writtenEvent);
                 $item = $this->mapper->toItem(
-                    $written->VEVENT,
+                    $writtenEvent,
                     $timing['start'],
                     $timing['end'],
                     $calendar,
-                    Classification::FULL
+                    Classification::FULL,
+                    $recurrenceId === null ? null : $this->dates->parse($recurrenceId, 'recurrence_id'),
                 );
                 return ToolSchema::json(
                     $item + [
@@ -165,6 +192,11 @@ final class EventEditor implements \OCA\Mcp\Modules\Calendar\Execution\EventWrit
             }
         );
     }
+    private function occurrenceResolver(): EventOccurrenceResolver
+    {
+        return $this->occurrences ?? new EventOccurrenceResolver(new EventExpander(), $this->dates, $this->builder);
+    }
+
     /**
      * Replaces the guest list of a series or of somebody else's event only when the caller may.
      *
@@ -183,12 +215,7 @@ final class EventEditor implements \OCA\Mcp\Modules\Calendar\Execution\EventWrit
         string $userId,
     ): void
     {
-        if ($stored->recurring()) {
-            throw CalendarException::blocked(\OCA\Mcp\Modules\Calendar\Events\EventMessages::recurringAttendees());
-        }
-        if (!$this->isOrganizer($master, $userId)) {
-            throw CalendarException::blocked(\OCA\Mcp\Modules\Calendar\Events\EventMessages::notOrganizer());
-        }
+        $this->assertCanChangeGuests($master, $stored, $userId);
         if ($uids === []) {
             unset($master->ATTENDEE);
             return;
@@ -200,6 +227,15 @@ final class EventEditor implements \OCA\Mcp\Modules\Calendar\Execution\EventWrit
             $this->attendees->organizer($userId)['email'],
             $this->attendees->organizer($userId)['displayName']
         );
+    }
+    private function assertCanChangeGuests(VEvent $master, \OCA\Mcp\Modules\Calendar\Events\StoredEvent $stored, string $userId): void
+    {
+        if ($stored->recurring()) {
+            throw CalendarException::blocked(\OCA\Mcp\Modules\Calendar\Events\EventMessages::recurringAttendees());
+        }
+        if (!$this->isOrganizer($master, $userId)) {
+            throw CalendarException::blocked(\OCA\Mcp\Modules\Calendar\Events\EventMessages::notOrganizer());
+        }
     }
     /**
      * @param VEvent $event event to inspect

@@ -60,6 +60,7 @@ abstract class CalendarTestCase extends TestCase {
     protected const TEAM = '/remote.php/dav/calendars/alice/team_shared_by_bob/';
     protected const READONLY = '/remote.php/dav/calendars/alice/private_shared_by_bob/';
     protected const BIRTHDAYS = '/remote.php/dav/calendars/alice/contact_birthdays/';
+    protected const ROOM = 'principals/calendar-rooms/fixture-meeting';
     protected const NOW = '2026-03-10T12:00:00Z';
 
     protected \OCA\Mcp\Tests\Support\Dav\ScopeStub $scope;
@@ -73,6 +74,7 @@ abstract class CalendarTestCase extends TestCase {
     protected string $retention = '';
     /** Value returned by dav/sendInvitations. */
     protected string $sendInvitations = 'yes';
+    protected bool $externalAttendeesDisabled = false;
     /** @var list<string> e-mail addresses the availability API reports as busy */
     protected array $busyEmails = [];
     /** @var array<string, list<array{string, string}>> busy blocks (ISO start, ISO end) per address, as the core free/busy sees them */
@@ -103,6 +105,10 @@ abstract class CalendarTestCase extends TestCase {
         $time = $this->createMock(ITimeFactory::class);
         $time->method('now')->willReturnCallback(static fn () => new DateTimeImmutable(self::NOW));
         $appConfig = $this->createMock(IAppConfig::class);
+        $appConfig->method('getValueBool')->willReturnCallback(
+            fn (string $app, string $key, bool $default = false) => $app === 'dav' && $key === 'caldav_external_attendees_disabled'
+                ? $this->externalAttendeesDisabled : $default,
+        );
         $appConfig->method('getValueString')->willReturnCallback(
             fn (string $app, string $key, string $default = '') => $app === 'dav' && $key === 'sendInvitations' ? $this->sendInvitations : $default,
         );
@@ -161,9 +167,10 @@ abstract class CalendarTestCase extends TestCase {
         $zones = new \OCA\Mcp\Platform\Time\UserTimezone($zoneConfig);
         $groups = $this->createMock(IGroupManager::class);
         $groups->method('getUserGroupIds')->willReturn([]);
+        $attendeeAvailability = new AvailabilityCheck($calendarManager, $this->users(), $logger);
         $warnings = new PlanWarnings(
             new CollisionCheck($this->store,$this->store, $repository, $classification, new EventExpander(), $logger),
-            new AvailabilityCheck($calendarManager, $this->users(), $logger),
+            $attendeeAvailability,
             new SharedCalendarFinder($access, $this->store, $this->users(), $groups),
             $attendees,
             $builder,
@@ -171,7 +178,38 @@ abstract class CalendarTestCase extends TestCase {
             $logger,
             $zones,
         );
-        $this->module = \OCA\Mcp\Tests\Support\Calendar\CalendarModuleFactory::create($listCalendars, $listEvents, $availability, $createEvent, $updateEvent, $moveEvent, $deleteEvent, $transferEvent, new \OCA\Mcp\Modules\Calendar\Execution\EventApproval($scheduling, $builder, $guard, $warnings, $zones), \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this));
+        $urlGenerator = $this->createMock(\OCP\IURLGenerator::class);
+        $urlGenerator->method('getAbsoluteURL')->willReturnCallback(static fn(string $path): string => 'https://calendar.example.test' . $path);
+        $references = new \OCA\Mcp\Modules\Calendar\References\CalendarEventReferenceReader($access, $this->store, $repository, $classification, $urlGenerator);
+        $resourceSession = $this->createMock(\OCP\IUserSession::class);
+        $resourceSession->method('getUser')->willReturn($this->users()->get('alice'));
+        $roomBackend = $this->createMock(\Sabre\DAVACL\PrincipalBackend\BackendInterface::class);
+        $roomBackend->method('searchPrincipals')->willReturn([self::ROOM]);
+        $roomBackend->method('findByUri')->willReturn(self::ROOM);
+        $roomBackend->method('getPrincipalByPath')->with(self::ROOM)->willReturn([
+            '{DAV:}displayname' => 'Fixture room',
+            '{http://sabredav.org/ns}email-address' => 'room@example.test',
+        ]);
+        $resourceDirectory = new \OCA\Mcp\Modules\Calendar\Resources\CalendarResourceDirectory(
+            static fn () => $roomBackend, static fn () => null, $resourceSession, $this->users(),
+        );
+        $resourceDav = $this->createMock(\OCA\Mcp\Platform\Dav\CalDav\EmbeddedCalDavDispatcher::class);
+        $resourceDav->method('resourceFreeBusy')->willReturn(new \OCA\Mcp\Platform\Dav\Transport\DavResult(200));
+        $approval = new \OCA\Mcp\Modules\Calendar\Execution\EventApproval($scheduling, $builder, $guard, $warnings, $zones);
+        $extensions = [
+            'calendar_set_event_reminders' => fn () => new \OCA\Mcp\Modules\Calendar\Tools\SetEventReminders(
+                new \OCA\Mcp\Modules\Calendar\Editing\EventReminders($access, $repository, $this->dav, $guard,
+                    new \OCA\Mcp\Mcp\Confirmation\PlanState($config)),
+            ),
+            'calendar_list_resources' => fn () => new \OCA\Mcp\Modules\Calendar\Tools\ListResources($resourceDirectory),
+            'calendar_check_resource_availability' => fn () => new \OCA\Mcp\Modules\Calendar\Tools\CheckResourceAvailability($resourceDirectory, $dates, new \OCA\Mcp\Modules\Calendar\Resources\ResourceAvailability($resourceDav, $attendees)),
+            'calendar_reserve_resource' => fn () => new \OCA\Mcp\Modules\Calendar\Tools\ReserveResource(new \OCA\Mcp\Modules\Calendar\Resources\ResourceReserver($access, $guard, $this->dav, $this->store, $repository, $resourceDirectory, $builder, $scheduling, $time, $attendees), $approval),
+            'calendar_search_events' => fn () => new \OCA\Mcp\Modules\Calendar\Tools\SearchEvents(new \OCA\Mcp\Modules\Calendar\Reading\EventSearch($access, $this->store, $this->store, $repository, $classification, new EventExpander(), $mapper, $dates, $time, $logger, $this->users())),
+            'calendar_read_event' => fn () => new \OCA\Mcp\Modules\Calendar\Tools\ReadEvent(new \OCA\Mcp\Modules\Calendar\Reading\EventDetailReader($access, $this->store, $repository, $classification, new EventExpander(), $dates, $references)),
+            'calendar_find_slots' => fn () => new \OCA\Mcp\Modules\Calendar\Tools\FindSlots(new \OCA\Mcp\Modules\Calendar\Scheduling\SlotFinder($availability, $attendeeAvailability, $attendees, $dates)),
+            'calendar_respond_to_invitation' => fn () => new \OCA\Mcp\Modules\Calendar\Tools\RespondToInvitation(new \OCA\Mcp\Modules\Calendar\Scheduling\InvitationResponse($access, $repository, $this->store, $this->dav, $attendees, $scheduling)),
+        ];
+        $this->module = \OCA\Mcp\Tests\Support\Calendar\CalendarModuleFactory::create($listCalendars, $listEvents, $availability, $createEvent, $updateEvent, $moveEvent, $deleteEvent, $transferEvent, $approval, \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this), $extensions);
         $policy = $this->createMock(\OCA\Mcp\Access\Grants\GrantPolicy::class);
         $policy->method('granted')->willReturn(true);
         $policy->method('toolGranted')->willReturn(true);
@@ -209,6 +247,7 @@ abstract class CalendarTestCase extends TestCase {
      */
     private function users(): IUserManager {
         $users = $this->createMock(IUserManager::class);
+        $users->method('getByEmail')->willReturn([]);
         $users->method('get')->willReturnCallback(function ($uid): ?IUser {
             $names = ['alice' => 'Alice Silva', 'bob' => 'Roberto Almeida', 'carla' => 'Carla Dias', 'dave' => 'Dave Lima'];
             if (!is_string($uid) || !isset($names[$uid])) {

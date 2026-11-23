@@ -9,6 +9,9 @@ namespace OCA\Mcp\Modules\Calendar\Execution;
 
 use OCA\Mcp\Modules\Calendar\Events\EventBuilder;
 use OCA\Mcp\Modules\Calendar\Events\StoredEvent;
+use OCA\Mcp\Modules\Calendar\Events\EventDates;
+use OCA\Mcp\Modules\Calendar\Events\EventExpander;
+use OCA\Mcp\Modules\Calendar\Events\EventOccurrenceResolver;
 use OCA\Mcp\Modules\Calendar\Execution\PreparedEventWrite as PreparedCalendarWrite;
 use OCA\Mcp\Modules\Calendar\Execution\CalendarException;
 use OCA\Mcp\Modules\Calendar\Scheduling\Scheduling;
@@ -38,6 +41,7 @@ final class EventApproval
         private SharedGuard $sharedGuard,
         private PlanWarnings $warnings,
         private ?UserTimezone $zones = null,
+        private ?EventOccurrenceResolver $occurrences = null,
     )
     {
     }
@@ -61,8 +65,13 @@ final class EventApproval
     ): array
     {
         [$prepared, $shared] = $this->prepare($tool, $arguments, $userId);
-        return ['requiresConfirmation' => true, 'message' => \OCA\Mcp\Modules\Calendar\Execution\ApprovalMessages::approvalPrompt()] + $this->plan($name, $prepared, $arguments) + ['timezone' => $this->zones?->forUser($userId)->getName()] + ['shared' => $shared] + ($this->warnings->applies($name) ? $this->warnings->forWrite(
-            $name,
+        $warningsOperation = match ($name) {
+            'calendar_create_event_with_external_attendees' => 'calendar_create_event',
+            'calendar_update_event_with_external_attendees' => 'calendar_update_event',
+            default => $name,
+        };
+        return ['requiresConfirmation' => true, 'message' => \OCA\Mcp\Modules\Calendar\Execution\ApprovalMessages::approvalPrompt()] + $this->plan($name, $prepared, $arguments) + ['timezone' => $this->zones?->forUser($userId)->getName()] + ['shared' => $shared] + ($this->warnings->applies($warningsOperation) ? $this->warnings->forWrite(
+            $warningsOperation,
             $prepared,
             $arguments,
             $userId
@@ -103,6 +112,13 @@ final class EventApproval
      * @return array{0: PreparedCalendarWrite, 1: list<array<string, mixed>>} the prepared write and the shared notices
      * @throws CalendarException when the write would be refused
      */
+    public function assertExternalAttendeesEnabled(): void
+    {
+        if (!$this->scheduling->externalAttendeesEnabled()) {
+            throw CalendarException::blocked(\OCA\Mcp\L10n\Translator::t('External attendees are disabled by the administrator.'));
+        }
+    }
+
     private function prepare(
         EventWriteOperation $tool,
         array $arguments,
@@ -136,14 +152,16 @@ final class EventApproval
         array $arguments,
     ): array
     {
-        $before = $this->event($prepared->before?->vcalendar);
-        $after = $this->event($prepared->after);
+        $recurrenceId = isset($arguments['recurrence_id']) && is_string($arguments['recurrence_id']) ? $arguments['recurrence_id'] : null;
+        $cancelOccurrence = $name === 'calendar_delete_event' && $recurrenceId !== null;
+        $before = $this->event($prepared->before?->vcalendar, $recurrenceId);
+        $after = $cancelOccurrence ? ($before === null ? null : $before + ['cancellation' => 'EXDATE']) : $this->event($prepared->after, $recurrenceId);
         $old = $before['attendees'] ?? [];
         $new = $after['attendees'] ?? [];
-        $notify = ($arguments['send_invitations'] ?? false) === true;
+        $notify = $name === 'calendar_reserve_resource' || ($arguments['send_invitations'] ?? false) === true;
         $moving = $prepared->target !== null;
-        $deleting = $name === 'calendar_delete_event';
-        return [
+        $deleting = $name === 'calendar_delete_event' && !$cancelOccurrence;
+        $plan = [
             'action' => $name,
             'calendar' => (array) $prepared->source,
             'destination' => $prepared->target === null ? null : (array) $prepared->target,
@@ -159,15 +177,17 @@ final class EventApproval
                 'names' => $this->names($prepared->before?->vcalendar, $prepared->after),
             ],
             'recoverable' => $deleting,
-            'consequence' => $deleting ? \OCA\Mcp\Modules\Calendar\Execution\ApprovalMessages::previewTrash() : null,
+            'consequence' => $deleting ? \OCA\Mcp\Modules\Calendar\Execution\ApprovalMessages::previewTrash() : ($cancelOccurrence ? \OCA\Mcp\Modules\Calendar\Execution\ApprovalMessages::previewCancelOccurrence() : null),
             'scheduling' => [
                 'requested' => $notify,
                 'imipEnabled' => $this->scheduling->imipEnabled(),
                 'participantsNotified' => false,
-                'message' => $moving ? \OCA\Mcp\Modules\Calendar\Scheduling\SchedulingMessages::participantsNotNotified() : ($notify ? $deleting ? \OCA\Mcp\Modules\Calendar\Execution\ApprovalMessages::previewCancel() : \OCA\Mcp\Modules\Calendar\Execution\ApprovalMessages::previewInvitations() : \OCA\Mcp\Modules\Calendar\Execution\ApprovalMessages::previewSuppressed()),
+                'message' => $moving ? \OCA\Mcp\Modules\Calendar\Scheduling\SchedulingMessages::participantsNotNotified() : ($notify ? $deleting ? \OCA\Mcp\Modules\Calendar\Execution\ApprovalMessages::previewCancel() : ($cancelOccurrence ? \OCA\Mcp\Modules\Calendar\Execution\ApprovalMessages::previewOccurrenceScheduling() : \OCA\Mcp\Modules\Calendar\Execution\ApprovalMessages::previewInvitations()) : \OCA\Mcp\Modules\Calendar\Execution\ApprovalMessages::previewSuppressed()),
                 'proofScope' => \OCA\Mcp\Modules\Calendar\Execution\ApprovalMessages::previewInvitationProof(),
             ],
         ];
+        if ($recurrenceId !== null) $plan['recurrence_id'] = $recurrenceId;
+        return $plan;
     }
     /**
      * Reads the name each guest goes by (the CN of the ATTENDEE), so the plan can show a person instead of an address.
@@ -198,7 +218,12 @@ final class EventApproval
      * @return array{summary:string, location:string, description:string, start:string, end:string, allDay:bool, timeZone:string|null, attendees:list<string>, organizer:string|null, recurring:bool}|null event details for the review payload
      * @throws CalendarException when a calendar has no master VEVENT
      */
-    private function event(?VCalendar $calendar): ?array
+    private function occurrenceResolver(): EventOccurrenceResolver
+    {
+        return $this->occurrences ?? new EventOccurrenceResolver(new EventExpander(), new EventDates(), $this->builder);
+    }
+
+    private function event(?VCalendar $calendar, ?string $recurrenceId = null): ?array
     {
         if ($calendar === null) {
             return null;
@@ -213,27 +238,31 @@ final class EventApproval
         if ($master === null) {
             throw CalendarException::notFound();
         }
-        $timing = $this->builder->timing($master);
+        $event = $recurrenceId === null ? $master : $this->occurrenceResolver()->find($calendar, $recurrenceId);
+        if (!$event instanceof \Sabre\VObject\Component\VEvent) throw CalendarException::notFound();
+        $timing = $this->builder->timing($event);
         $attendees = [];
         // The series preview includes guests on overrides, not just the master.
-        foreach ($calendar->select('VEVENT') as $event) {
-            foreach ($event->select('ATTENDEE') as $attendee) {
+        foreach ($calendar->select('VEVENT') as $component) {
+            foreach ($component->select('ATTENDEE') as $attendee) {
                 $attendees[] = strtolower((string) $attendee);
             }
         }
         $attendees = array_values(array_unique($attendees));
         sort($attendees);
-        return [
-            'summary' => (string) $master->SUMMARY,
-            'location' => (string) $master->LOCATION,
-            'description' => (string) $master->DESCRIPTION,
+        $result = [
+            'summary' => (string) $event->SUMMARY,
+            'location' => (string) $event->LOCATION,
+            'description' => (string) $event->DESCRIPTION,
             'start' => $timing['start']->format($timing['allDay'] ? 'Y-m-d' : \DateTimeInterface::ATOM),
             'end' => $timing['end']->format($timing['allDay'] ? 'Y-m-d' : \DateTimeInterface::ATOM),
             'allDay' => $timing['allDay'],
             'timeZone' => $timing['timeZone']?->getName(),
             'attendees' => $attendees,
-            'organizer' => isset($master->ORGANIZER) ? (string) $master->ORGANIZER : null,
+            'organizer' => isset($event->ORGANIZER) ? (string) $event->ORGANIZER : null,
             'recurring' => $stored->recurring(),
         ];
+        if (isset($master->RRULE)) $result['recurrenceRule'] = (string)$master->RRULE;
+        return $result;
     }
 }

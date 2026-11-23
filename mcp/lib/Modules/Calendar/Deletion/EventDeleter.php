@@ -12,10 +12,18 @@ use OCA\Mcp\Platform\Dav\CalDav\CalDavWriter as CalendarDav;
 use OCA\Mcp\Modules\Calendar\Execution\CalendarException;
 use OCA\Mcp\Platform\Dav\CalDav\ObjectStore as CalendarStore;
 use OCA\Mcp\Modules\Calendar\Events\EventRepository;
+use OCA\Mcp\Modules\Calendar\Events\EventBuilder;
+use OCA\Mcp\Modules\Calendar\Events\EventDates;
+use OCA\Mcp\Modules\Calendar\Events\EventExpander;
+use OCA\Mcp\Modules\Calendar\Events\EventOccurrenceResolver;
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCA\Mcp\Modules\Calendar\Scheduling\Scheduling;
 use OCA\Mcp\Mcp\Confirmation\SharedCollectionNotice as SharedGuard;
 use OCA\Mcp\Modules\Calendar\Presentation\CalendarResult as ToolSchema;
 use OCA\Mcp\Platform\Dav\CalDav\TrashPolicy;
+use OCA\Mcp\Modules\Calendar\Resources\ResourceAttendeeDetector;
+use OCA\Mcp\Platform\Dav\CalDav\ResourceAwareCalDavWriter;
+use Sabre\VObject\Reader;
 /**
  * calendar_delete_event: deletes a whole event series into the CalDAV trash, never permanently.
  *
@@ -41,6 +49,10 @@ final class EventDeleter implements \OCA\Mcp\Modules\Calendar\Execution\EventWri
         private EventRepository $events,
         private TrashPolicy $trash,
         private Scheduling $scheduling,
+        private ?EventBuilder $builder = null,
+        private ?EventDates $dates = null,
+        private ?EventOccurrenceResolver $occurrences = null,
+        private ?ITimeFactory $time = null,
     )
     {
     }
@@ -68,9 +80,8 @@ final class EventDeleter implements \OCA\Mcp\Modules\Calendar\Execution\EventWri
         if (($confirmation = ($arguments['confirm_shared'] ?? false) === true ? null : $this->guard->forCollection($calendar, $userId)) !== null) {
             return \OCA\Mcp\Mcp\Tools\Results\ToolResult::json($confirmation);
         }
-        if (!$this->trash->recoverable()) {
-            throw CalendarException::blocked(\OCA\Mcp\Modules\Calendar\Events\EventMessages::trashDisabled());
-        }
+        $recurrenceId = $arguments['recurrence_id'] ?? null;
+        if ($recurrenceId !== null && !is_string($recurrenceId)) throw new \OCA\Mcp\Modules\Calendar\Execution\CalendarArgumentException('recurrence_id must be an ISO date or timestamp.', 'recurrence_id', 'invalid');
         $stored = $this->events->forChange(
             $calendar,
             $arguments['uid'],
@@ -78,13 +89,43 @@ final class EventDeleter implements \OCA\Mcp\Modules\Calendar\Execution\EventWri
             $arguments['etag'] ?? null
         );
         $notify = (bool) ($arguments['send_invitations'] ?? false);
+        if ($recurrenceId !== null) {
+            if (!$stored->recurring()) throw CalendarException::notFound();
+            $builder=$this->builder ?? new EventBuilder();
+            $resolver=$this->occurrenceResolver($builder);
+            // Keep the approval snapshot intact: the reviewer needs to resolve the selected
+            // occurrence from the original series, while the proposed copy carries its EXDATE.
+            $proposed = Reader::read($stored->vcalendar->serialize(), Reader::OPTION_FORGIVING);
+            $master=$proposed->VEVENT ?? throw CalendarException::notFound();
+            $resolver->excludeOccurrence($proposed,$master,$recurrenceId);
+            $builder->touch($master,$this->time?->now() ?? new \DateTimeImmutable('now'));
+            return new \OCA\Mcp\Modules\Calendar\Execution\PreparedEventWrite(
+                $calendar,null,$stored,$proposed,
+                function () use ($calendar,$stored,$proposed,$notify,$userId,$recurrenceId,$resolver): array {
+                    if ($notify && ResourceAttendeeDetector::contains($stored->vcalendar)) {
+                        if (!($this->dav instanceof ResourceAwareCalDavWriter)) throw CalendarException::blocked('This server cannot schedule cancellations to a native room or resource.');
+                        $this->dav->updateWithResourcePrincipals($userId,$calendar->uri,$stored->uri,$stored->etag,$proposed->serialize(),true);
+                    } else {
+                        $this->dav->update($userId,$calendar->uri,$stored->uri,$stored->etag,$proposed->serialize(),$notify);
+                    }
+                    $row=$this->store->object($calendar->id,$stored->uri) ?? throw new \RuntimeException(\OCA\Mcp\Modules\Calendar\Events\EventMessages::DAV_FAILURE);
+                    $written=$this->events->parse($row['data']) ?? throw new \RuntimeException(\OCA\Mcp\Modules\Calendar\Events\EventMessages::DAV_FAILURE);
+                    if ($resolver->find($written,$recurrenceId)!==null) throw new \RuntimeException(\OCA\Mcp\Modules\Calendar\Events\EventMessages::DAV_FAILURE);
+                    return ToolSchema::json(['uid'=>(string)$stored->master()?->UID,'calendar'=>$calendar->path,'recurrence_id'=>$recurrenceId,'cancelled'=>true,'cancellation'=>'EXDATE','scheduling'=>$this->scheduling->report($notify,$written),'etag'=>$row['etag']]);
+                }
+            );
+        }
+        if (!$this->trash->recoverable()) throw CalendarException::blocked(\OCA\Mcp\Modules\Calendar\Events\EventMessages::trashDisabled());
         return new \OCA\Mcp\Modules\Calendar\Execution\PreparedEventWrite(
             $calendar,
             null,
             $stored,
             null,
             function () use ($calendar, $stored, $notify, $userId, $arguments): array {
-                $this->dav->delete(
+                if ($notify && ResourceAttendeeDetector::contains($stored->vcalendar)) {
+                    if (!($this->dav instanceof ResourceAwareCalDavWriter)) throw CalendarException::blocked('This server cannot schedule cancellations to a native room or resource.');
+                    $this->dav->deleteWithResourcePrincipals($userId,$calendar->uri,$stored->uri,$stored->etag,true);
+                } else $this->dav->delete(
                     $userId,
                     $calendar->uri,
                     $stored->uri,
@@ -108,5 +149,9 @@ final class EventDeleter implements \OCA\Mcp\Modules\Calendar\Execution\EventWri
                 );
             }
         );
+    }
+    private function occurrenceResolver(EventBuilder $builder): EventOccurrenceResolver
+    {
+        return $this->occurrences ?? new EventOccurrenceResolver(new EventExpander(), $this->dates ?? new EventDates(), $builder);
     }
 }

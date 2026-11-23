@@ -34,6 +34,8 @@ La supressió «només si està buida» no és atòmica: Deck no comprova `delet
 
 La creació i l'edició de targetes accepten `duedate` com `YYYY-MM-DD` o `YYYY-MM-DDTHH:MM[:SS]` amb `Z` o desplaçament numèric opcionals. L'entrada sense desplaçament utilitza la zona horària del compte; una data sense hora significa la mitjanit local d'aquell dia. Es rebutgen hores locals explícites inexistents per un canvi de zona horària. Una hora repetida selecciona el primer instant, tret que el desplaçament indicat resolgui l'ambigüitat. En desar es converteix a UTC abans de cridar Deck. Les respostes conserven `duedate` basat en dies, el venciment i `dueBefore`, i afegeixen `dueAt` amb el desplaçament del compte. Les edicions no relacionades conserven l'instant existent.
 
+Si la mitjanit es repeteix, la confirmació mostra la zona horària i el desplaçament UTC. El 3 de novembre de 2024 a `America/Havana`, `2024-11-03T00:00-04:00` i `2024-11-03T00:00-05:00` corresponien a instants separats per una hora. Les dates sense hora segueixen les regles del servidor per a la mitjanit local. El servidor aplica les seves regles de zona horària per ajustar una mitjanit que no existeix.
+
 Algunes escriptures MCP anteriors afectades poden haver desat un dia incorrecte. Revisa aquelles targetes segons la data prevista i corregeix-les explícitament a Deck o amb una nova edició confirmada. No desplacis tots els terminis existents: les dates introduïdes per altres clients ja poden ser correctes. No es reescriu cap data històrica automàticament.
 
 ## Etiquetes i fitxers visibles de targetes

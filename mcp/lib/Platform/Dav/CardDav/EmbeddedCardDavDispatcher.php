@@ -48,6 +48,149 @@ class EmbeddedCardDavDispatcher implements ContactDav
     {
     }
     /**
+     * Creates an address book through native CardDAV extended MKCOL.
+     */
+    public function createAddressBook(string $userId, string $uri, string $displayName): DavResult
+    {
+        if ($this->session->uid() !== $userId) {
+            throw new RuntimeException('CardDAV session mismatch');
+        }
+        foreach ([$userId, $uri] as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..' || preg_match('/[\x00-\x1f\x7f]/', $segment) || str_contains($segment, '/') || str_contains($segment, '\\')) {
+                throw new ToolFailure(FileAccessMessages::notFound());
+            }
+        }
+        $xmlName = htmlspecialchars($displayName, ENT_QUOTES | ENT_XML1, 'UTF-8');
+        $body = '<?xml version="1.0" encoding="utf-8"?>'
+            . '<d:mkcol xmlns:d="DAV:" xmlns:card="urn:ietf:params:xml:ns:carddav">'
+            . '<d:set><d:prop><d:resourcetype><d:collection/><card:addressbook/></d:resourcetype>'
+            . '<d:displayname>' . $xmlName . '</d:displayname></d:prop></d:set></d:mkcol>';
+        CapturingSapi::reset();
+        $server = ($this->serverFactory)();
+        $auth = $server->getPlugin('auth');
+        if (!$auth instanceof AuthPlugin || !method_exists($auth, 'setCurrentPrincipal')) {
+            throw new RuntimeException('CardDAV principal cannot be pinned');
+        }
+        $principal = self::PRINCIPAL_PREFIX . $userId;
+        $auth->setCurrentPrincipal($principal);
+        if ($auth->getCurrentPrincipal() !== $principal) {
+            throw new RuntimeException('CardDAV principal mismatch');
+        }
+        $base = $server->getBaseUri();
+        $path = 'addressbooks/users/' . rawurlencode($userId) . '/' . rawurlencode($uri);
+        $request = new Request('MKCOL', $base . $path, [
+            'Content-Type' => 'application/xml; charset=utf-8',
+            'Content-Length' => (string) strlen($body),
+        ], $body);
+        $request->setBaseUrl($base);
+        $response = new Response();
+        $server->httpRequest = $request;
+        $server->httpResponse = $response;
+        $server->sapi = new CapturingSapi();
+        try {
+            $server->invokeMethod($request, $response, false);
+        } catch (DavException $error) {
+            $this->logger->error('MCP CardDAV address book create refused', [
+                'app' => 'mcp',
+                'exception_class' => $error::class,
+                'http_code' => $error->getHTTPCode(),
+            ]);
+            $message = match ($error->getHTTPCode()) {
+                403 => FileAccessMessages::forbidden(),
+                404 => FileAccessMessages::notFound(),
+                405, 409, 412 => FileAccessMessages::conflict(),
+                400, 415 => Translator::t('The server refused the address book metadata.'),
+                default => Translator::t('Unexpected error while accessing Nextcloud.'),
+            };
+            throw new ToolFailure($message, $error->getHTTPCode(), $error);
+        } catch (Throwable $error) {
+            $this->logger->error('MCP CardDAV address book creation failed', [
+                'app' => 'mcp',
+                'exception_class' => $error::class,
+            ]);
+            throw new RuntimeException('CardDAV address book creation failed', 0, $error);
+        }
+        $actual = $response->getStatus() ?? CapturingSapi::$lastStatus;
+        if ($actual !== 201) {
+            throw new RuntimeException('Unexpected CardDAV status');
+        }
+        return new DavResult($actual);
+    }
+    /**
+     * Adds or updates one share through Nextcloud's native CardDAV sharing POST extension.
+     */
+    public function shareAddressBook(string $userId, string $bookUri, string $shareeId, string $displayName, ?bool $readOnly): DavResult
+    {
+        if ($this->session->uid() !== $userId) {
+            throw new RuntimeException('CardDAV session mismatch');
+        }
+        foreach ([$userId, $bookUri, $shareeId] as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..' || preg_match('/[\x00-\x1f\x7f]/', $segment)
+                || str_contains($segment, '/') || str_contains($segment, '\\')) {
+                throw new ToolFailure(FileAccessMessages::notFound());
+            }
+        }
+        $href = htmlspecialchars('principal:' . self::PRINCIPAL_PREFIX . rawurlencode($shareeId), ENT_QUOTES | ENT_XML1, 'UTF-8');
+        $commonName = htmlspecialchars($displayName, ENT_QUOTES | ENT_XML1, 'UTF-8');
+        $shareAction = $readOnly === null
+            ? '<oc:remove><d:href>' . $href . '</d:href></oc:remove>'
+            : '<oc:set><d:href>' . $href . '</d:href><oc:common-name>' . $commonName . '</oc:common-name>'
+                . ($readOnly ? '' : '<oc:read-write/>') . '</oc:set>';
+        $body = '<?xml version="1.0" encoding="utf-8"?>'
+            . '<oc:share xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">'
+            . $shareAction . '</oc:share>';
+        CapturingSapi::reset();
+        $server = ($this->serverFactory)();
+        $auth = $server->getPlugin('auth');
+        if (!$auth instanceof AuthPlugin || !method_exists($auth, 'setCurrentPrincipal')) {
+            throw new RuntimeException('CardDAV principal cannot be pinned');
+        }
+        $principal = self::PRINCIPAL_PREFIX . $userId;
+        $auth->setCurrentPrincipal($principal);
+        if ($auth->getCurrentPrincipal() !== $principal) {
+            throw new RuntimeException('CardDAV principal mismatch');
+        }
+        $base = $server->getBaseUri();
+        $path = 'addressbooks/users/' . rawurlencode($userId) . '/' . rawurlencode($bookUri);
+        $request = new Request('POST', $base . $path, [
+            'Content-Type' => 'application/xml; charset=utf-8',
+            'Content-Length' => (string) strlen($body),
+        ], $body);
+        $request->setBaseUrl($base);
+        $response = new Response();
+        $server->httpRequest = $request;
+        $server->httpResponse = $response;
+        $server->sapi = new CapturingSapi();
+        try {
+            $server->invokeMethod($request, $response, false);
+        } catch (DavException $error) {
+            $this->logger->error('MCP CardDAV address book share refused', [
+                'app' => 'mcp',
+                'exception_class' => $error::class,
+                'http_code' => $error->getHTTPCode(),
+            ]);
+            $message = match ($error->getHTTPCode()) {
+                403 => FileAccessMessages::forbidden(),
+                404 => FileAccessMessages::notFound(),
+                409, 412 => FileAccessMessages::conflict(),
+                400, 415 => Translator::t('The server refused the address book share.'),
+                default => Translator::t('Unexpected error while accessing Nextcloud.'),
+            };
+            throw new ToolFailure($message, $error->getHTTPCode(), $error);
+        } catch (Throwable $error) {
+            $this->logger->error('MCP CardDAV address book sharing failed', [
+                'app' => 'mcp',
+                'exception_class' => $error::class,
+            ]);
+            throw new RuntimeException('CardDAV address book sharing failed', 0, $error);
+        }
+        $actual = $response->getStatus() ?? CapturingSapi::$lastStatus;
+        if ($actual !== 200) {
+            throw new RuntimeException('Unexpected CardDAV status');
+        }
+        return new DavResult($actual);
+    }
+    /**
      * Creates a contact through native CardDAV without overwriting an existing object.
      *
      * @param string $userId authenticated user UID

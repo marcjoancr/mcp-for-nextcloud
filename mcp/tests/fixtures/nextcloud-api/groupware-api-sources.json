@@ -1,0 +1,167 @@
+{
+  "31": {
+    "server": "31.0.0",
+    "files": {
+      "lib/public/Accounts/IAccountManager.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/Accounts/IAccountManager.php",
+        "sha256": "2fccdbd3d2800e8ad7bae3439e55f6b75be923b30bbf853bc966da801a6d3a3e"
+      },
+      "lib/public/Calendar/Resource/IResourceMetadata.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/Calendar/Resource/IResourceMetadata.php",
+        "sha256": "62f60f44ddef628cc02c0d1aaf069b888439629eba4c76a9bf1dedae5fcf1356"
+      },
+      "lib/public/Calendar/Room/IRoomMetadata.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/Calendar/Room/IRoomMetadata.php",
+        "sha256": "422d625b5210c87b289d460fb228cf7be808f16f36eec91cecf3b080c9b7394b"
+      },
+      "lib/public/Profile/IProfileManager.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/lib/public/Profile/IProfileManager.php",
+        "sha256": "71337179ea413f222817ec05e37f504d2860c15c083ba4097849d5c61959eaa9"
+      },
+      "apps/dav/lib/CalDAV/ResourceBooking/ResourcePrincipalBackend.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/apps/dav/lib/CalDAV/ResourceBooking/ResourcePrincipalBackend.php",
+        "sha256": "eec15d46ca938ea864dc1f5718f119d382745bdd6a6df00704c0397b8d07876f"
+      },
+      "apps/dav/lib/CalDAV/ResourceBooking/RoomPrincipalBackend.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/apps/dav/lib/CalDAV/ResourceBooking/RoomPrincipalBackend.php",
+        "sha256": "4ca361c035beab7c28ed25821bbad56bbaf78e9e6f01c95fb6fe12ced5698476"
+      },
+      "apps/dav/lib/DAV/Sharing/Plugin.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v31.0.0/apps/dav/lib/DAV/Sharing/Plugin.php",
+        "sha256": "0f165bd877724e3aee960bb72e1de5d000157599f17a2f70702872050f6550e8"
+      }
+    }
+  },
+  "32": {
+    "server": "32.0.0",
+    "files": {
+      "lib/public/Accounts/IAccountManager.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/Accounts/IAccountManager.php",
+        "sha256": "2011b4fd92983e93c8d7aaf109fe34d3c4eafb3cdbf6b89fdbbc2c076548bd40"
+      },
+      "lib/public/Calendar/Resource/IResourceMetadata.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/Calendar/Resource/IResourceMetadata.php",
+        "sha256": "756e5fefd0cfd81a42d299d466ed06577701eb7ce0b56ddf7f77e595b15d6a82"
+      },
+      "lib/public/Calendar/Room/IRoomMetadata.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/Calendar/Room/IRoomMetadata.php",
+        "sha256": "4e4c9d662b6e1df20773222b574d630055ed1020bcbe35d0afd2347ab1686436"
+      },
+      "lib/public/Profile/IProfileManager.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/lib/public/Profile/IProfileManager.php",
+        "sha256": "ec1cf30192ccc2358aa291ed93d29068ce7455cb29b608a6762393bceb4356c8"
+      },
+      "apps/dav/lib/CalDAV/ResourceBooking/ResourcePrincipalBackend.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/apps/dav/lib/CalDAV/ResourceBooking/ResourcePrincipalBackend.php",
+        "sha256": "e07e3c170ebe8ccee43d0c9434a1aad086faf437ba5b7bd8f0807c4b8776c74e"
+      },
+      "apps/dav/lib/CalDAV/ResourceBooking/RoomPrincipalBackend.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/apps/dav/lib/CalDAV/ResourceBooking/RoomPrincipalBackend.php",
+        "sha256": "ff9d3db991557f01de8aa6b448cc7635707a9957e9807fc0ce504d190d3a528c"
+      },
+      "apps/dav/lib/DAV/Sharing/Plugin.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v32.0.0/apps/dav/lib/DAV/Sharing/Plugin.php",
+        "sha256": "15dbc39f8049b13a351346a6a959f2613d4bfd9b428bb043a85f35163dd4d603"
+      }
+    }
+  },
+  "33": {
+    "server": "33.0.0",
+    "files": {
+      "lib/public/Accounts/IAccountManager.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/Accounts/IAccountManager.php",
+        "sha256": "2011b4fd92983e93c8d7aaf109fe34d3c4eafb3cdbf6b89fdbbc2c076548bd40"
+      },
+      "lib/public/Calendar/Resource/IResourceMetadata.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/Calendar/Resource/IResourceMetadata.php",
+        "sha256": "756e5fefd0cfd81a42d299d466ed06577701eb7ce0b56ddf7f77e595b15d6a82"
+      },
+      "lib/public/Calendar/Room/IRoomMetadata.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/Calendar/Room/IRoomMetadata.php",
+        "sha256": "4e4c9d662b6e1df20773222b574d630055ed1020bcbe35d0afd2347ab1686436"
+      },
+      "lib/public/Profile/IProfileManager.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/lib/public/Profile/IProfileManager.php",
+        "sha256": "ec1cf30192ccc2358aa291ed93d29068ce7455cb29b608a6762393bceb4356c8"
+      },
+      "apps/dav/lib/CalDAV/ResourceBooking/ResourcePrincipalBackend.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/apps/dav/lib/CalDAV/ResourceBooking/ResourcePrincipalBackend.php",
+        "sha256": "e07e3c170ebe8ccee43d0c9434a1aad086faf437ba5b7bd8f0807c4b8776c74e"
+      },
+      "apps/dav/lib/CalDAV/ResourceBooking/RoomPrincipalBackend.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/apps/dav/lib/CalDAV/ResourceBooking/RoomPrincipalBackend.php",
+        "sha256": "ff9d3db991557f01de8aa6b448cc7635707a9957e9807fc0ce504d190d3a528c"
+      },
+      "apps/dav/lib/DAV/Sharing/Plugin.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v33.0.0/apps/dav/lib/DAV/Sharing/Plugin.php",
+        "sha256": "15dbc39f8049b13a351346a6a959f2613d4bfd9b428bb043a85f35163dd4d603"
+      }
+    }
+  },
+  "34": {
+    "server": "34.0.0",
+    "files": {
+      "lib/public/Accounts/IAccountManager.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/Accounts/IAccountManager.php",
+        "sha256": "2011b4fd92983e93c8d7aaf109fe34d3c4eafb3cdbf6b89fdbbc2c076548bd40"
+      },
+      "lib/public/Calendar/Resource/IResourceMetadata.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/Calendar/Resource/IResourceMetadata.php",
+        "sha256": "756e5fefd0cfd81a42d299d466ed06577701eb7ce0b56ddf7f77e595b15d6a82"
+      },
+      "lib/public/Calendar/Room/IRoomMetadata.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/Calendar/Room/IRoomMetadata.php",
+        "sha256": "4e4c9d662b6e1df20773222b574d630055ed1020bcbe35d0afd2347ab1686436"
+      },
+      "lib/public/Profile/IProfileManager.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/lib/public/Profile/IProfileManager.php",
+        "sha256": "ec1cf30192ccc2358aa291ed93d29068ce7455cb29b608a6762393bceb4356c8"
+      },
+      "apps/dav/lib/CalDAV/ResourceBooking/ResourcePrincipalBackend.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/apps/dav/lib/CalDAV/ResourceBooking/ResourcePrincipalBackend.php",
+        "sha256": "732c7294216cee92701867283f1bbf4c0ebcc9a6d0286211e03d48b65c696ee9"
+      },
+      "apps/dav/lib/CalDAV/ResourceBooking/RoomPrincipalBackend.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/apps/dav/lib/CalDAV/ResourceBooking/RoomPrincipalBackend.php",
+        "sha256": "80b0caaec1c60e1a296f9bcbe564afee9ffed587f808d060ad699c47f7555006"
+      },
+      "apps/dav/lib/DAV/Sharing/Plugin.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v34.0.0/apps/dav/lib/DAV/Sharing/Plugin.php",
+        "sha256": "387eb8225f3e86b2354b7c185b3fce197cc8594624bfb59ffbc98ca9b2208326"
+      }
+    }
+  },
+  "35": {
+    "server": "35.0.0",
+    "files": {
+      "lib/public/Accounts/IAccountManager.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/Accounts/IAccountManager.php",
+        "sha256": "df269433899e185a8121a8072d16f1cea36c5d6b84f1f5a9ae29f817ebc3acf7"
+      },
+      "lib/public/Calendar/Resource/IResourceMetadata.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/Calendar/Resource/IResourceMetadata.php",
+        "sha256": "763165cd2a32e6684ab67a4d0724473ecbf13847724f2fb09f0953b1aae52301"
+      },
+      "lib/public/Calendar/Room/IRoomMetadata.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/Calendar/Room/IRoomMetadata.php",
+        "sha256": "75ebc4ec690e75171fd6129bdc5cb119e6336808a4da8edd8061b7d0d5992dec"
+      },
+      "lib/public/Profile/IProfileManager.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/lib/public/Profile/IProfileManager.php",
+        "sha256": "ec1cf30192ccc2358aa291ed93d29068ce7455cb29b608a6762393bceb4356c8"
+      },
+      "apps/dav/lib/CalDAV/ResourceBooking/ResourcePrincipalBackend.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/apps/dav/lib/CalDAV/ResourceBooking/ResourcePrincipalBackend.php",
+        "sha256": "0e0c77351eab4185abbf525d5a466c792f67e90494997f3604b59cb4c9d2a630"
+      },
+      "apps/dav/lib/CalDAV/ResourceBooking/RoomPrincipalBackend.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/apps/dav/lib/CalDAV/ResourceBooking/RoomPrincipalBackend.php",
+        "sha256": "b920fb2d7072dbb3baef96cfa1517ea8162ddfcee9e33a444114f3cf2ba1ec54"
+      },
+      "apps/dav/lib/DAV/Sharing/Plugin.php": {
+        "url": "https://raw.githubusercontent.com/nextcloud/server/v35.0.0/apps/dav/lib/DAV/Sharing/Plugin.php",
+        "sha256": "e8dff6ed55fff36a36e1dab429295dccf9dada9f4260568622c1cb887c0e298e"
+      }
+    }
+  }
+}

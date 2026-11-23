@@ -16,7 +16,7 @@ use OCP\DB\QueryBuilder\IQueryBuilder;
  * Only translates arguments and result shapes; it deliberately holds no business rule.
  * Line numbers refer to apps/dav/lib/CalDAV/CalDavBackend.php on branch stable33.
  */
-class DavReadStore implements CalendarStore, \OCA\Mcp\Platform\Dav\CalDav\CollectionStore
+class DavReadStore implements CalendarStore, \OCA\Mcp\Platform\Dav\CalDav\CollectionStore, CalendarTrashStore
 {
     /** Value of `calendarobjects.calendartype` for regular calendars (CalDavBackend::CALENDAR_TYPE_CALENDAR). */
     private const CALENDAR_TYPE_CALENDAR = 0;
@@ -167,6 +167,44 @@ class DavReadStore implements CalendarStore, \OCA\Mcp\Platform\Dav\CalDav\Collec
             'deleted' => $row['deleted_at'] !== null,
         ];
     }
+    /** @inheritDoc */
+    public function deletedForPrincipal(string $principalUri): array
+    {
+        return array_values($this->backend()->getDeletedCalendarObjectsByPrincipal($principalUri));
+    }
+
+    /** @inheritDoc */
+    public function deletedByIdForPrincipal(int $objectId, string $principalUri): ?array
+    {
+        $backend = $this->backend();
+        if (method_exists($backend, 'getDeletedCalendarObjectByIdForPrincipal')) {
+            return $backend->getDeletedCalendarObjectByIdForPrincipal($objectId, $principalUri);
+        }
+        // Nextcloud 31–33.0.0 expose actor-filtered trash listing but not the by-ID helper.
+        // Resolve the ID only within that native ACL-filtered result, then load its trashed row.
+        foreach ($backend->getDeletedCalendarObjectsByPrincipal($principalUri) as $entry) {
+            if ((int)($entry['id'] ?? 0) !== $objectId) continue;
+            $row = $backend->getCalendarObject((int)$entry['calendarid'], (string)$entry['uri']);
+            if ($row === null || (int)($row['id'] ?? 0) !== $objectId || $this->deletedAt($row) === null) return null;
+            return $row + $entry;
+        }
+        return null;
+    }
+
+    private function deletedAt(array $row): mixed
+    {
+        return $row['deleted_at'] ?? $row['{http://nextcloud.com/ns}deleted-at'] ?? null;
+    }
+
+    /** @inheritDoc */
+    public function restoreByIdForPrincipal(int $objectId, string $principalUri): void
+    {
+        // Do not accept a caller-supplied row: resolve it again through the native actor ACL immediately before restore.
+        $object = $this->deletedByIdForPrincipal($objectId, $principalUri);
+        if ($object === null) throw new \RuntimeException('The calendar trash entry is no longer accessible.');
+        $this->backend()->restoreCalendarObject($object);
+    }
+
     /**
      * Assumes `public function getShares(int $resourceId): array`, whose rows carry `href`
      * ("principal:principals/users/<uid>" or ".../groups/<gid>") and `readOnly`.

@@ -90,6 +90,13 @@ precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 MCP for Nextcloud contributors"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
 
+# Match the Catalan JavaScript catalog attribution for its JSON counterpart.
+[[annotations]]
+path = ["mcp/l10n/ca.json"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 MCP for Nextcloud contributors"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
 # Fork-owned qualification planning inputs; JSON cannot carry SPDX comments.
 [[annotations]]
 path = [

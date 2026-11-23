@@ -25,6 +25,13 @@ final class TrashedObject
         $info = pathinfo($uri);
         return isset($info['extension']) && $info['extension'] !== '' ? $info['filename'] . '-deleted.' . $info['extension'] : $info['filename'] . '-deleted';
     }
+    /** Core restoreCalendarObject removes exactly the native "-deleted.ics" suffix. */
+    public static function originalUri(string $trashedUri): ?string
+    {
+        $uri = str_replace('-deleted.ics', '.ics', $trashedUri);
+        return $uri === $trashedUri || $uri === '.ics' ? null : $uri;
+    }
+
     /**
      * @param CalendarStore $store calendar storage
      * @param int $calendarId backend calendar id

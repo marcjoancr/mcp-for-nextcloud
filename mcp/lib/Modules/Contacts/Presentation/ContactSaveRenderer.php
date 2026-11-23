@@ -25,7 +25,7 @@ final class ContactSaveRenderer
             if ($field === 'name') {
                 continue;
             }
-            $value = $this->text->value($after[$field] ?? null, in_array($field, ContactsPlanText::LISTS, true));
+            $value = $this->fieldValue($field, $after[$field] ?? null);
             if ($value !== null) {
                 $lines[] = '- ' . $this->text->label($field) . ': ' . $value;
             }
@@ -50,13 +50,40 @@ final class ContactSaveRenderer
             ),
         ];
         foreach (ContactsPlanText::FIELDS as $field) {
-            $from = $this->text->value($before[$field] ?? null, in_array($field, ContactsPlanText::LISTS, true));
-            $to = $this->text->value($after[$field] ?? null, in_array($field, ContactsPlanText::LISTS, true));
+            $from = $this->fieldValue($field, $before[$field] ?? null);
+            $to = $this->fieldValue($field, $after[$field] ?? null);
             if ($from === $to) {
                 continue;
             }
             $lines[] = '- ' . $this->text->label($field) . ': ' . ($from ?? Translator::t('empty')) . ' → ' . ($to ?? Translator::t('empty'));
         }
         return implode("\n", $lines);
+    }
+    private function fieldValue(string $field, mixed $value): ?string
+    {
+        if ($field === 'addresses') {
+            if (!is_array($value)) {
+                return null;
+            }
+            $formatted = [];
+            foreach ($value as $address) {
+                if (!is_array($address)) {
+                    continue;
+                }
+                $parts = array_filter([
+                    $address['type'] ?? '',
+                    $address['street'] ?? '',
+                    $address['locality'] ?? '',
+                    $address['region'] ?? '',
+                    $address['postalCode'] ?? '',
+                    $address['country'] ?? '',
+                ], static fn(mixed $part): bool => is_scalar($part) && trim((string) $part) !== '');
+                if ($parts !== []) {
+                    $formatted[] = implode(', ', $parts);
+                }
+            }
+            return $this->text->value($formatted, true);
+        }
+        return $this->text->value($value, in_array($field, ContactsPlanText::LISTS, true));
     }
 }
