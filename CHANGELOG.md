@@ -2,6 +2,12 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.9.4
+
+- Add the complete Catalan UI catalog, including all tool titles, plural forms and confirmation messages; refresh the Catalan operational documentation and Mail reference. The initial assisted Catalan translation remains pending human linguistic review.
+- Translate the Forms submission-form and single-own-response tool titles in Spanish, Brazilian Portuguese and German.
+- Check every registered module's tool titles against all shipped UI catalogs to prevent untranslated technical-name fallbacks.
+
 ## 2.9.3
 
 - Keep the 65 Forms permission entries available during the full web/MCP application bootstrap when Guests 4.10.1 registers its virtual group.
@@ -31,13 +37,6 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 - Freeze Mail bodies according to the native editor mode, excluding inactive stale content and empty HTML alternatives. Keep the delivery preview consistent with the MIME content.
 - Require the corresponding Mail 5.12.5.12 native dependency for new guarded delivery; retain the immutable v11 manifest and existing frozen delivery receipts. Status reads never retransmit a running or uncertain attempt.
-
-## Unreleased
-
-- Add the complete Catalan UI catalog, including all tool titles, plural forms and confirmation messages; refresh the Catalan operational documentation and Mail reference.
-
-- Translate the Forms submission-form and single-own-response tool titles in Spanish, Brazilian Portuguese and German.
-- Check every registered module's tool titles against all shipped UI catalogs to prevent untranslated technical-name fallbacks.
 
 ## 2.8.0
 
