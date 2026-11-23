@@ -14,14 +14,23 @@ final class ContactsPlanText
     public const EXCERPT = 200;
     public const FIELDS = [
         'name',
+        'familyName',
+        'givenName',
+        'additionalName',
+        'namePrefix',
+        'nameSuffix',
         'organization',
         'title',
+        'birthday',
+        'preferredEmail',
+        'categories',
+        'addresses',
         'emails',
         'phones',
         'url',
         'note',
     ];
-    public const LISTS = ['emails', 'phones'];
+    public const LISTS = ['emails', 'phones', 'categories'];
     public function shared(
         string $body,
         array $plan,
@@ -78,8 +87,17 @@ final class ContactsPlanText
         // One literal per call: the translation tool extracts the source texts from here.
         return match ($field) {
             'name' => Translator::t('Name'),
+            'familyName' => Translator::t('Family name'),
+            'givenName' => Translator::t('Given name'),
+            'additionalName' => Translator::t('Additional name'),
+            'namePrefix' => Translator::t('Name prefix'),
+            'nameSuffix' => Translator::t('Name suffix'),
             'organization' => Translator::t('Organization'),
             'title' => Translator::t('Job title'),
+            'birthday' => Translator::t('Birthday'),
+            'preferredEmail' => Translator::t('Preferred e-mail'),
+            'categories' => Translator::t('Groups'),
+            'addresses' => Translator::t('Addresses'),
             'emails' => Translator::t('E-mails'),
             'phones' => Translator::t('Phones'),
             'url' => Translator::t('Website'),

@@ -8,7 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tests\Support\Dav;
 use OCA\Mcp\Tests\Support\Dav\FakeCalendarStore;
 
-use OCA\Mcp\Platform\Dav\CalDav\CalDavWriter as CalendarDav;
+use OCA\Mcp\Platform\Dav\CalDav\ResourceAwareCalDavWriter as CalendarDav;
 use OCA\Mcp\Modules\Calendar\Execution\CalendarException;
 use OCA\Mcp\Platform\Dav\Transport\DavResult;
 use Throwable;
@@ -23,6 +23,8 @@ use Throwable;
 final class FakeCalendarDav implements CalendarDav, \OCA\Mcp\Platform\Dav\CalDav\CalendarAdministration, \OCA\Mcp\Platform\Dav\CalDav\CalendarAclProbe {
     /** @var list<array{0:string, 1:array<string, mixed>}> dispatched calls: [operation, arguments] */
     public array $calls = [];
+    /** @var list<array{operation:string,calendarUri:string,objectUri:string,scheduling:bool}> resource-aware scheduling calls */
+    public array $resourcePrincipalCalls = [];
     public bool $selftestMode = false;
     public ?\Closure $afterMkcalendar = null;
     public ?\Closure $schedule = null;
@@ -60,6 +62,11 @@ final class FakeCalendarDav implements CalendarDav, \OCA\Mcp\Platform\Dav\CalDav
         });
     }
 
+    public function updateWithResourcePrincipals(string $userId, string $calendarUri, string $objectUri, string $etag, string $ics, bool $scheduling = false, ?int $sizeLimit = null, array $acceptedStatuses = [204]): DavResult {
+        $this->resourcePrincipalCalls[] = ['operation'=>'update','calendarUri'=>$calendarUri,'objectUri'=>$objectUri,'scheduling'=>$scheduling];
+        return $this->update($userId, $calendarUri, $objectUri, $etag, $ics, $scheduling, $sizeLimit, $acceptedStatuses);
+    }
+
     /** @inheritDoc */
     public function delete(string $userId, string $calendarUri, string $objectUri, ?string $etag = null, bool $scheduling = false, array $acceptedStatuses = [204]): DavResult {
         return $this->apply('delete', [$calendarUri, $objectUri, $etag, $scheduling], function () use ($userId, $calendarUri, $objectUri, $scheduling): DavResult {
@@ -71,6 +78,11 @@ final class FakeCalendarDav implements CalendarDav, \OCA\Mcp\Platform\Dav\CalDav
             $this->store->applyDelete($this->calendarId($calendarUri), $objectUri);
             return new DavResult(204);
         });
+    }
+
+    public function deleteWithResourcePrincipals(string $userId, string $calendarUri, string $objectUri, ?string $etag = null, bool $scheduling = false, array $acceptedStatuses = [204]): DavResult {
+        $this->resourcePrincipalCalls[] = ['operation'=>'delete','calendarUri'=>$calendarUri,'objectUri'=>$objectUri,'scheduling'=>$scheduling];
+        return $this->delete($userId, $calendarUri, $objectUri, $etag, $scheduling, $acceptedStatuses);
     }
 
     /** @inheritDoc */
@@ -93,6 +105,16 @@ final class FakeCalendarDav implements CalendarDav, \OCA\Mcp\Platform\Dav\CalDav
             if ($this->selftestMode) { $this->store->addCalendar('principals/users/' . $userId, count($this->store->objects) + 100, $calendarUri, 'principals/users/' . $userId); }
             if ($this->afterMkcalendar !== null) { ($this->afterMkcalendar)(); }
             return new DavResult(201);
+        });
+    }
+
+    /** @inheritDoc */
+    public function shareCalendar(string $userId, string $calendarUri, string $shareeId, string $displayName, ?bool $readOnly): DavResult {
+        return $this->apply('shareCalendar', [$calendarUri, $shareeId, $readOnly], function () use ($calendarUri, $shareeId, $readOnly): DavResult {
+            $id = $this->calendarId($calendarUri);
+            $this->store->shares[$id] = array_values(array_filter($this->store->shares[$id] ?? [], static fn (array $share): bool => $share['principal'] !== 'principals/users/' . $shareeId));
+            if ($readOnly !== null) $this->store->addShare($id, 'principals/users/' . $shareeId, $readOnly);
+            return new DavResult(200);
         });
     }
 

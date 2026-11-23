@@ -49,9 +49,11 @@ final class WriteGateContractTest extends TestCase {
             ], fn () => $this->build(\OCA\Mcp\Access\Logs\LogsAccess::class), fn () => $this->build(\OCA\Mcp\Modules\Logs\Audit\LogAudit::class));
         }
         if ($class === \OCA\Mcp\Modules\People\PeopleModule::class) {
-            return new \OCA\Mcp\Modules\People\PeopleModule([
-                'users_search' => fn () => $this->build(\OCA\Mcp\Modules\People\Tools\SearchUsers::class),
-            ]);
+            $factories = [];
+            foreach (\OCA\Mcp\Modules\People\PeopleToolCatalog::classes(true) as $tool) {
+                $factories[$tool::definition()->name] = fn () => $this->build($tool);
+            }
+            return new \OCA\Mcp\Modules\People\PeopleModule($factories, circlesAvailable: true);
         }
         if ($class === \OCA\Mcp\Modules\Notes\NotesModule::class) {
             $factories = [];
@@ -100,7 +102,7 @@ final class WriteGateContractTest extends TestCase {
             foreach (\OCA\Mcp\Modules\Calendar\CalendarToolCatalog::classes() as $tool) {
                 $factories[$tool::definition()->name] = fn () => $this->build($tool);
             }
-            return new \OCA\Mcp\Modules\Calendar\CalendarModule($factories, (\OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this))->assertAvailable(...));
+            return new \OCA\Mcp\Modules\Calendar\CalendarModule($factories, (\OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this))->assertAvailable(...), static fn (): bool => true);
         }
         if ($class === \Closure::class) { return static fn () => null; }
         if ($class === \OCA\Mcp\Db\LogsGroupsMapper::class) {
@@ -151,7 +153,8 @@ final class WriteGateContractTest extends TestCase {
         }
         $apps = $this->createMock(IAppManager::class);
         $apps->method('isEnabledForUser')->willReturn(true);
-        $apps->method('getAppVersion')->willReturnCallback(static fn (string $app): string => \OCA\Mcp\Access\AppAvailability\AppEnablement::MINIMUM_VERSIONS[$app] ?? '1.0.0');
+        $apps->method('getAppVersion')->willReturnCallback(static fn (string $app): string =>
+            $app === 'calendar' ? '6.6.2' : (\OCA\Mcp\Access\AppAvailability\AppEnablement::MINIMUM_VERSIONS[$app] ?? '1.0.0'));
         $users = $this->createMock(IUserManager::class);
         $users->method('get')->willReturn($this->createMock(IUser::class));
 
@@ -187,7 +190,9 @@ final class WriteGateContractTest extends TestCase {
         return match ($type) {
             'integer', 'number' => $rule['minimum'] ?? 1,
             'boolean' => false,
-            'array' => ($rule['minItems'] ?? 0) > 0 && isset($rule['items']) ? [$this->dummyValue((array)$rule['items'])] : [],
+            'array' => ($rule['minItems'] ?? 0) > 0 && isset($rule['items'])
+                ? array_fill(0, $rule['minItems'], $this->dummyValue((array)$rule['items']))
+                : [],
             'object' => $this->dummyArguments($rule),
             default => substr(str_pad('dummy', max(5, (int)($rule['minLength'] ?? 0)), 'x'), 0, (int)($rule['maxLength'] ?? PHP_INT_MAX)),
         };

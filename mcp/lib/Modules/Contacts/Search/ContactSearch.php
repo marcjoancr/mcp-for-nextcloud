@@ -30,10 +30,15 @@ final class ContactSearch
     {
         $path = $arguments['addressbook'] ?? null;
         $term = trim((string) ($arguments['query'] ?? ''));
+        $group = trim((string) ($arguments['group'] ?? ''));
+        $groupFilter = mb_strtolower($group);
         $books = [];
         $accounts = [];
         if ($path !== null && $this->access->isSystemPath($userId, $path)) {
             if ($this->system->bookName($userId) === null) {
+                throw new ToolFailure(FileAccessMessages::notFound());
+            }
+            if ($groupFilter !== '') {
                 throw new ToolFailure(FileAccessMessages::notFound());
             }
             if (mb_strlen($term) < SystemContacts::MIN_QUERY) {
@@ -63,7 +68,8 @@ final class ContactSearch
             $books,
             mb_strtolower($term),
             $accounts,
-            $accountIds
+            $accountIds,
+            $groupFilter
         ) as $item) {
             if ($matched++ < $offset) {
                 continue;
@@ -87,6 +93,7 @@ final class ContactSearch
         string $query,
         array $accounts,
         array $accountIds,
+        string $groupFilter,
     ): \Generator
     {
         $seen = [];
@@ -97,11 +104,16 @@ final class ContactSearch
                 } catch (ToolFailure) {
                     continue;
                 }
+                $categories = $item['categories'] ?? [];
+                if ($groupFilter !== '' && !in_array($groupFilter, array_map('mb_strtolower', $categories), true)) {
+                    continue;
+                }
                 $search = implode(' ', [
                     $item['name'],
                     $item['organization'],
                     ...$item['emails'],
                     ...$item['phones'],
+                    ...$categories,
                 ]);
                 if ($query !== '' && !str_contains(mb_strtolower($search), $query)) {
                     continue;
@@ -117,6 +129,9 @@ final class ContactSearch
                 }
                 yield $item;
             }
+        }
+        if ($groupFilter !== '') {
+            return;
         }
         foreach ($accounts as $account) {
             foreach ($account['emails'] as $email) {

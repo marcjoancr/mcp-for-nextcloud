@@ -48,13 +48,13 @@ class GrantPolicy implements ScopeReader {
         'files' => ['read', 'edit', 'create', 'move', 'restore', 'share', 'link', 'description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link'],
         'notes' => ['read', 'create', 'edit', 'move', 'delete'],
         'deck' => ['read', 'create', 'edit', 'move', 'delete', 'read_comments', 'comment', 'search'],
-        'contacts' => ['read', 'create', 'edit', 'delete'],
+        'contacts' => ['read', 'create', 'edit', 'delete', 'share'],
         'tasks' => ['read', 'create', 'edit', 'delete'],
-        'calendar' => ['read', 'create', 'edit', 'move', 'delete', 'transfer', 'availability'],
+        'calendar' => ['read', 'create', 'edit', 'move', 'delete', 'transfer', 'availability', 'share', 'restore'],
         // 'create' is what talk_create_group asks for: opening a conversation invites people, so it is denied by
         // default like every other operation that is not a read.
-        // Account search; read only, so the model can find who to invite or message.
-        'people' => ['read'],
+        // Team membership changes require their own tool assignments.
+        'people' => ['read', 'edit'],
         'talk' => ['read', 'reply', 'attach', 'quote', 'create', 'publish_summary', 'search'],
         // Reading the server log; read only, and a read that starts denied (see DENIED_READS).
         'logs' => ['read'],

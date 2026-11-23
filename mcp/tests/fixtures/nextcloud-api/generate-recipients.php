@@ -47,7 +47,8 @@ try {
     $fixture = require __DIR__ . '/' . $major . '.php';
     $parser = new SourceParser($tree);
     foreach (['OCA\\Deck\\Db\\AclMapper', 'OCA\\Deck\\Service\\CirclesService',
-        'OCA\\Circles\\CirclesManager', 'OCA\\Circles\\Model\\Member', 'OCA\\Circles\\Model\\Circle'] as $class) {
+        'OCA\\Circles\\CirclesManager', 'OCA\\Circles\\Model\\Member', 'OCA\\Circles\\Model\\Circle',
+        'OCA\\Circles\\Model\\Probes\\CircleProbe', 'OCA\\Circles\\Model\\Probes\\DataProbe'] as $class) {
         $surface = $parser->surface($class);
         if ($surface === null) {
             throw new RuntimeException('Official source lacks ' . $class);

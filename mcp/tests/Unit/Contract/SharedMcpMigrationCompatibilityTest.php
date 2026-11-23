@@ -110,13 +110,16 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
     }
 
     /** Public only for the one-time external baseline capture command. */
-    public function capture(?string $selectedLocale = null): array {
+    public function capture(?string $selectedLocale = null, bool $includeProtocol = true): array {
         $modules = [];
         foreach (Application::MODULES as $class) {
             if ($class === \OCA\Mcp\Modules\Logs\LogsModule::class) {
                 $access = $this->createMock(\OCA\Mcp\Access\Logs\LogsAccess::class);
                 $access->method('permits')->willReturn(true);
                 $modules[] = new $class(['logs_list' => static fn () => throw new \LogicException('No reads during discovery'), 'logs_analyze' => static fn () => throw new \LogicException('No reads during discovery')], static fn () => $access, static fn () => throw new \LogicException('No audit during discovery'));
+            } elseif ($class === \OCA\Mcp\Modules\People\PeopleModule::class) {
+                $names = array_keys(\OCA\Mcp\Modules\People\PeopleToolCatalog::definitions());
+                $modules[] = new $class(array_fill_keys($names, static fn () => throw new \LogicException('No reads during discovery')));
             } else {
                 // Catalog and guide notes are static; no feature operation may run here.
                 $modules[] = (new \ReflectionClass($class))->newInstanceWithoutConstructor();
@@ -147,18 +150,6 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
             $publication[$locale]['protocol'] = $protocol->handle('{"jsonrpc":"2.0","id":1,"method":"tools/list"}', \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION, 'all');
         }
         Translator::reset();
-        $protocolCases = [];
-        $requests = ['{bad', '{"jsonrpc":"2.0","method":"notifications/initialized"}', '{"jsonrpc":"2.0","id":null,"method":"ping"}'];
-        foreach (['ping', 'tools/list', 'tools/call', 'prompts/list', 'prompts/get', 'resources/list', 'resources/templates/list', 'resources/read', 'missing', 'server/discover'] as $method) {
-            foreach ([[], ['name' => 'mcp_status'], ['name' => 'mcp_guide', 'arguments' => ['bad field /private' => true]], ['uri' => 'nc://files/private']] as $params) {
-                $requests[] = json_encode(['jsonrpc' => '2.0', 'id' => 'synthetic', 'method' => $method, 'params' => $params]);
-            }
-        }
-        foreach (['', \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION, \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::MODERN_VERSION, 'garbage'] as $header) {
-            foreach ($requests as $raw) {
-                $protocolCases[] = $protocol->handle($raw, $header, 'all');
-            }
-        }
         $results = [];
         foreach ($selectedLocale === null ? ['en', 'pt_BR', 'es'] : [$selectedLocale] as $locale) {
             Translator::use(new JsonL10n($locale));
@@ -175,7 +166,29 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
             $results[$locale]['unexpected'] = $registry->call('files_read', [], 'alice');
             $this->failure = null;
         }
-        return ['publication' => $publication, 'protocol' => $protocolCases, 'results' => $results];
+        $capture = ['publication' => $publication];
+        if ($includeProtocol) {
+            $capture['protocol'] = $this->captureProtocol($protocol);
+        }
+        return $capture + ['results' => $results];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function captureProtocol(McpProtocol $protocol): array {
+        Translator::reset();
+        $protocolCases = [];
+        $requests = ['{bad', '{"jsonrpc":"2.0","method":"notifications/initialized"}', '{"jsonrpc":"2.0","id":null,"method":"ping"}'];
+        foreach (['ping', 'tools/list', 'tools/call', 'prompts/list', 'prompts/get', 'resources/list', 'resources/templates/list', 'resources/read', 'missing', 'server/discover'] as $method) {
+            foreach ([[], ['name' => 'mcp_status'], ['name' => 'mcp_guide', 'arguments' => ['bad field /private' => true]], ['uri' => 'nc://files/private']] as $params) {
+                $requests[] = json_encode(['jsonrpc' => '2.0', 'id' => 'synthetic', 'method' => $method, 'params' => $params]);
+            }
+        }
+        foreach (['', \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::VERSION, \OCA\Mcp\Mcp\Protocol\ProtocolMetadata::MODERN_VERSION, 'garbage'] as $header) {
+            foreach ($requests as $raw) {
+                $protocolCases[] = $protocol->handle($raw, $header, 'all');
+            }
+        }
+        return $protocolCases;
     }
 
     public static function captureLocales(): array { return ['English' => ['en'], 'Portuguese' => ['pt_BR'], 'Spanish' => ['es']]; }
@@ -187,7 +200,8 @@ final class SharedMcpMigrationCompatibilityTest extends TestCase {
         $garbageCollectionWasEnabled = gc_enabled();
         gc_enable();
         try {
-            $capture = $this->capture($locale);
+            // The synthetic protocol matrix resets the translator before every capture.
+            $capture = $this->capture($locale, includeProtocol: $locale === 'en');
             foreach ($capture as $name => $data) {
                 $expected = file_get_contents(dirname(__DIR__, 2).'/Support/Mcp/Compatibility/'.$name.'.json');
                 if ($name !== 'protocol') { $decoded = json_decode($expected, false, 512, JSON_THROW_ON_ERROR); $expected = json_encode([$locale => $decoded->{$locale}], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)."\n"; }

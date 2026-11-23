@@ -129,7 +129,7 @@ final class ContactsModuleTest extends \OCA\Mcp\Tests\Support\Contacts\ContactsT
             'contacts_delete_contact',
             array_column($this->module->definitions(), 'name')
         );
-        self::assertCount(6, $this->module->definitions());
+        self::assertCount(18, $this->module->definitions());
         $this->dav->expects(self::never())->method('put');
         $result = $this->json(
             $this->module->call(

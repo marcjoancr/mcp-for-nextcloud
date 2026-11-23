@@ -24,7 +24,8 @@ final class SearchContacts implements \OCA\Mcp\Mcp\Tools\Tool
                 'type' => 'object',
                 'properties' => (object) [
                     'addressbook' => DavCollectionSchema::text('Address book path returned by List address books. Omit to search all of them.', 1, 1024),
-                    'query' => DavCollectionSchema::text('Case-insensitive search text.', 0, 1024),
+                    'query' => DavCollectionSchema::text('Case-insensitive search text across contact name, organization, email, phone and categories.', 0, 1024),
+                    'group' => DavCollectionSchema::text('Return only contacts carrying this exact vCard CATEGORIES group, case-insensitive.', 1, 255),
                     'limit' => DavCollectionSchema::limit(),
                     'offset' => DavCollectionSchema::offset(),
                 ],

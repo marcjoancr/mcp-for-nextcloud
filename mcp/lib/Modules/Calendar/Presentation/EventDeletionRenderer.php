@@ -22,7 +22,8 @@ final class EventDeletionRenderer
             return null;
         }
         $summary = $this->text->summary($before);
-        $header = Translator::t('Delete event in *%s*: **%s**', [$calendarName, $summary]);
+        $occurrence = is_string($plan['recurrence_id'] ?? null) ? $plan['recurrence_id'] : null;
+        $header = $occurrence === null ? Translator::t('Delete event in *%s*: **%s**', [$calendarName, $summary]) : Translator::t('Cancel one occurrence in *%s*: **%s**', [$calendarName, $summary]);
         $lines = [$header];
         $timing = $this->text->formatTiming(
             $before['start'] ?? null,
@@ -35,6 +36,7 @@ final class EventDeletionRenderer
             return null;
         }
         $lines[] = Translator::t('- When: %s', [$timing]);
+        if ($occurrence !== null) $lines[] = Translator::t('- Original occurrence: %s', [PlanText::inline($occurrence)]);
         $consequence = PlanText::inline($this->text->text($plan['consequence'] ?? null), CalendarPlanText::LONG_TEXT);
         if ($consequence !== '') {
             $lines[] = Translator::t('- Consequence: %s', [$consequence]);

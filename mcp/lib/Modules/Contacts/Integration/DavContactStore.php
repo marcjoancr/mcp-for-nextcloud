@@ -66,6 +66,14 @@ class DavContactStore implements ContactStore
         return array_values(array_map([$this, 'row'], $this->backend()->getCards($bookId)));
     }
     /**
+     * Lists native shares of an address book. Callers must first prove the acting user owns it.
+     * @return list<array<string, mixed>>
+     */
+    public function shares(int $bookId): array
+    {
+        return array_values($this->backend()->getShares($bookId));
+    }
+    /**
      * Reads one contact object, returning null when it no longer exists.
      *
      * @param int $bookId ID of an authorized address book

@@ -23,6 +23,8 @@ final class CalendarApprovalTest extends CalendarTestCase {
         return [
             'create' => ['calendar_create_event', ['calendar' => self::PERSONAL, 'summary' => 'Draft', 'start' => '2026-10-02', 'end' => '2026-10-03', 'allDay' => true]],
             'update' => ['calendar_update_event', $event + ['summary' => 'After']],
+            'create with external attendees' => ['calendar_create_event_with_external_attendees', ['calendar' => self::PERSONAL, 'summary' => 'Draft', 'start' => '2026-10-02', 'end' => '2026-10-03', 'allDay' => true, 'external_attendees' => ['guest@example.test']]],
+            'edit attendees by email' => ['calendar_update_event_with_external_attendees', $event + ['add_attendee_emails' => ['guest@example.test']]],
             'delete' => ['calendar_delete_event', $event],
             'move' => ['calendar_move_event', $event + ['targetCalendar' => self::WORK]],
             'transfer' => ['calendar_transfer_event', $event + ['targetCalendar' => self::TEAM, 'confirm_shared' => true]],
@@ -30,7 +32,7 @@ final class CalendarApprovalTest extends CalendarTestCase {
     }
 
     public static function existingEventWrites(): array {
-        return array_diff_key(self::writes(), ['create' => true]);
+        return array_diff_key(self::writes(), ['create' => true, 'create with external attendees' => true]);
     }
 
     /** Every write tool of the module renders a plan of its own: none falls back to the generic field list. */
@@ -39,6 +41,33 @@ final class CalendarApprovalTest extends CalendarTestCase {
         foreach (self::writes() as [$tool, $arguments]) {
             $plans[$tool] = $this->module->preview($tool, $arguments, 'alice');
         }
+        $this->store->addObject(1, 'invite.ics', self::ics(
+            "UID:invite\nSUMMARY:Invitation\nDTSTART:20261001T120000Z\nDTEND:20261001T130000Z\n"
+            . "ORGANIZER:mailto:bob@example.invalid\nATTENDEE;PARTSTAT=NEEDS-ACTION:mailto:alice@example.invalid",
+        ));
+        $plans['calendar_respond_to_invitation'] = $this->module->preview(
+            'calendar_respond_to_invitation', ['calendar' => self::PERSONAL, 'uid' => 'invite', 'response' => 'accepted'], 'alice',
+        );
+        $plans['calendar_reserve_resource'] = $this->module->preview(
+            'calendar_reserve_resource', ['calendar' => self::PERSONAL, 'uid' => 'event', 'type' => 'ROOM', 'resource' => self::ROOM], 'alice',
+        );
+        self::assertTrue($plans['calendar_reserve_resource']['scheduling']['requested']);
+        $plans += [
+            'calendar_import_ics' => [
+                'source' => '/events.ics', 'calendar' => self::PERSONAL,
+                'events' => [['uid' => 'meeting', 'summary' => 'Imported meeting', 'status' => 'create']],
+            ],
+            'calendar_set_event_reminders' => ['summary' => 'Meeting', 'before' => [], 'after' => [15], 'shared' => []],
+            'calendar_create_calendar' => ['displayName' => 'Project', 'path' => '/calendar/project/'],
+            'calendar_share_calendar' => [
+                'calendar' => self::PERSONAL, 'shareWith' => 'bob', 'displayName' => 'Bob',
+                'access' => 'read', 'existingAccess' => null,
+            ],
+            'calendar_restore_trashed_event' => [
+                'calendar' => self::PERSONAL, 'summary' => 'Original meeting',
+                'start' => '2026-12-01T09:00:00Z', 'end' => '2026-12-01T10:00:00Z',
+            ],
+        ];
         $this->assertEveryWriteToolHasAReadablePlan($this->module, $plans);
         $this->assertNoWrites();
     }
@@ -59,6 +88,7 @@ final class CalendarApprovalTest extends CalendarTestCase {
 
     #[DataProvider('writes')]
     public function testConfirmTrueDispatchesOnceWithTheNormalResult(string $tool, array $args): void {
+        $args = $this->withRequiredEtag($tool, $args);
         $result = $this->registry->call($tool, $args + ['confirm' => true, 'confirm_shared' => true], 'alice');
         self::assertArrayNotHasKey('isError', $result);
         self::assertArrayNotHasKey('requiresConfirmation', self::json($result));
@@ -71,6 +101,7 @@ final class CalendarApprovalTest extends CalendarTestCase {
      */
     #[DataProvider('writes')]
     public function testTheModuleDoesNotCheckConfirmASecondTime(string $tool, array $args): void {
+        $args = $this->withRequiredEtag($tool, $args);
         $result = $this->module->call($tool, $args + ['confirm_shared' => true], 'alice');
         self::assertArrayNotHasKey('isError', $result, $result['content'][0]['text'] ?? '');
         self::assertCount(1, $this->dav->calls);
@@ -95,12 +126,20 @@ final class CalendarApprovalTest extends CalendarTestCase {
 
     #[DataProvider('writes')]
     public function testPermissionsStillApplyToThePlanAndToTheConfirmedCall(string $tool, array $args): void {
-        $readOnly = array_replace($args, ['calendar' => self::READONLY]);
+        $readOnly = array_replace($this->withRequiredEtag($tool, $args), ['calendar' => self::READONLY]);
         foreach ([[], ['confirm' => true, 'confirm_shared' => true]] as $extra) {
             $result = $this->registry->call($tool, $readOnly + $extra, 'alice');
             self::assertTrue($result['isError'] ?? false);
         }
         $this->assertNoWrites();
+    }
+
+    /** @param array<string,mixed> $args @return array<string,mixed> */
+    private function withRequiredEtag(string $tool, array $args): array {
+        if ($tool === 'calendar_update_event_with_external_attendees') {
+            $args['etag'] = $this->store->objects[1]['event.ics']['etag'];
+        }
+        return $args;
     }
 
     public function testTimingAndParticipantsAreDisplayedWithInvitationConsequences(): void {
@@ -194,7 +233,7 @@ final class CalendarApprovalTest extends CalendarTestCase {
     /** The gate is for calendars of other people only: between her own calendars no acknowledgement is asked. */
     #[DataProvider('writesBetweenOwnCalendars')]
     public function testConfirmedWriteOnOwnCalendarsNeedsNoSharedAcknowledgement(string $tool, array $args): void {
-        self::assertArrayNotHasKey('isError', $this->registry->call($tool, $args + ['confirm' => true], 'alice'));
+        self::assertArrayNotHasKey('isError', $this->registry->call($tool, $this->withRequiredEtag($tool, $args) + ['confirm' => true], 'alice'));
         self::assertCount(1, $this->dav->calls);
     }
 

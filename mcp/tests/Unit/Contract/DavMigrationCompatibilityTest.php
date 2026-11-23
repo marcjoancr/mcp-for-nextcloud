@@ -20,14 +20,19 @@ final class DavMigrationCompatibilityTest extends TestCase
         foreach ([\OCA\Mcp\Modules\Contacts\ContactsModule::class, \OCA\Mcp\Modules\Tasks\TasksModule::class] as $class) {
             $modules[] = (new \ReflectionClass($class))->newInstanceWithoutConstructor();
         }
+        $path = __DIR__ . '/../../Support/Dav/Compatibility/definitions.json';
+        $expected = file_get_contents($path);
+        $baseline = json_decode($expected, true, 512, JSON_THROW_ON_ERROR);
         $actual = [];
-        foreach ($modules as $module) {
-            $raw = $module->definitions();
+        foreach ($modules as $index => $module) {
+            // New definitions are covered by the catalog tests. Keep comparing the legacy tool surface here.
+            $names = array_column($baseline[$index]['raw'], 'name');
+            $raw = array_values(array_filter($module->definitions(), static fn (array $definition): bool =>
+                in_array($definition['name'], $names, true)));
             $published = array_map(fn($d) => \OCA\Mcp\Mcp\Tools\Discovery\ToolPublication::present($d), $raw);
             $actual[] = ['raw' => $raw, 'published' => $published,
                 'guide' => (new ToolGuide([$module]))->result($published, ['module' => $raw[0]['module']])];
         }
-        $expected = file_get_contents(__DIR__ . '/../../Support/Dav/Compatibility/definitions.json');
         self::assertSame($expected, json_encode($actual, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
     }
 
@@ -136,7 +141,10 @@ final class DavMigrationCompatibilityTest extends TestCase
             $tools = (new \ReflectionProperty($module, 'factories'))->getValue($module);
             $container = $this->createMock(\Psr\Container\ContainerInterface::class);
             $references = \OCA\Mcp\Tests\Support\Platform\FileAccess\References\OutputReferenceFilters::inactive($this);
-            $container->method('get')->willReturnCallback(static function (string $id) use ($tools, $references): object {
+            $apps = $this->createMock(\OCP\App\IAppManager::class);
+            $apps->method('getAppVersion')->with('calendar')->willReturn('');
+            $container->method('get')->willReturnCallback(static function (string $id) use ($tools, $references, $apps): object {
+                if ($id === \OCP\App\IAppManager::class) { return $apps; }
                 if ($id === \OCA\Mcp\Platform\FileAccess\References\OutputReferenceFilter::class) { return $references; }
                 if (!is_a($id, \OCA\Mcp\Mcp\Tools\Tool::class, true)) { throw new \LogicException('Unexpected dependency '.$id); }
                 $tool = $tools[$id::definition()->name]();

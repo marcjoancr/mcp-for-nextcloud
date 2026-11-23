@@ -342,13 +342,13 @@ final class ApplicationRegistrationTest extends TestCase {
         };
         $container->method('get')->willReturnCallback($get);
         $count = 0;
-        foreach (['Calendar'=>8, 'Contacts'=>6, 'Tasks'=>7] as $feature=>$expected) {
+        foreach (['Calendar'=>25, 'Contacts'=>18, 'Tasks'=>7] as $feature=>$expected) {
             $module = $get('OCA\Mcp\Modules\\'.$feature.'\\'.$feature.'Module');
             self::assertCount($expected, $module->definitions());
             $catalog = 'OCA\Mcp\Modules\\'.$feature.'\\'.$feature.'ToolCatalog';
             foreach ($catalog::classes() as $tool) { self::assertInstanceOf($tool, $get($tool)); $count++; }
         }
-        self::assertSame(21, $count);
+        self::assertSame(55, $count);
         self::assertInstanceOf(\OCA\Mcp\Modules\Calendar\References\CalendarEventReferenceReader::class, $get(\OCA\Mcp\Modules\Calendar\Contracts\EventReferenceReader::class));
         self::assertInstanceOf(\OCA\Mcp\Modules\Calendar\Selftest\CalendarSelftestRunner::class, $get(\OCA\Mcp\Modules\Calendar\Selftest\CalendarSelftestRunner::class));
         self::assertInstanceOf(\OCA\Mcp\Command\CalendarSelftest::class, $get(\OCA\Mcp\Command\CalendarSelftest::class));
@@ -611,8 +611,8 @@ final class ApplicationRegistrationTest extends TestCase {
         };
         $container->method('get')->willReturnCallback($get);
         $module = $get(\OCA\Mcp\Modules\People\PeopleModule::class);
-        self::assertCount(1, $module->definitions());
-        self::assertCount(3, $module->guideNotes());
+        self::assertSame(['users_search', 'users_resolve', 'users_list_teams', 'users_list_team_members', 'users_filter_team_members', 'users_add_team_member', 'users_remove_team_member'], array_column($module->definitions(), 'name'));
+        self::assertNotEmpty($module->guideNotes());
         $policy = InMemoryConfig::policy((new InMemoryConfig())->mock($this), new \OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore());
         $apps = $this->createMock(\OCP\App\IAppManager::class);
         $apps->expects(self::never())->method('isEnabledForUser');

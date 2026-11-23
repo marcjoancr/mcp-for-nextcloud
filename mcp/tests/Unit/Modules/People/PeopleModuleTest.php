@@ -16,6 +16,12 @@ use OCA\Mcp\Mcp\Tools\Validation\ArgumentValidator;
 use OCA\Mcp\Modules\People\PeopleModule;
 use OCA\Mcp\Modules\People\Tools\SearchUsers;
 use OCA\Mcp\Modules\People\Search\PeopleSearch;
+use OCA\Mcp\Modules\People\Search\PeopleResolver;
+use OCA\Mcp\Modules\People\Tools\ResolveUsers;
+use OCP\Accounts\IAccountManager;
+use OCP\IUserManager;
+use OCP\IUserSession;
+use OCP\Profile\IProfileManager;
 use OCA\Mcp\Mcp\Tools\Discovery\ToolPresentation;
 use OCP\Collaboration\Collaborators\ISearch;
 use OCP\Share\IShare;
@@ -36,6 +42,12 @@ final class PeopleModuleTest extends TestCase {
         return ['label' => $name, 'value' => ['shareType' => IShare::TYPE_GROUP, 'shareWith' => $gid]];
     }
 
+    private function resolveUsersTool(): ResolveUsers {
+        return new ResolveUsers(new PeopleResolver($this->createMock(ISearch::class), $this->createMock(IUserManager::class),
+            $this->createMock(IUserSession::class), $this->createMock(IProfileManager::class), $this->createMock(IAccountManager::class),
+            $this->createMock(LoggerInterface::class)));
+    }
+
     /** @param array<string, mixed> $result */
     private function module(array $result, ?array &$captured = null): PeopleModule {
         $search = $this->createMock(ISearch::class);
@@ -43,7 +55,7 @@ final class PeopleModuleTest extends TestCase {
             $captured = [$term, $types, $lookup, $limit, $offset];
             return [$result, false];
         });
-        return new PeopleModule(['users_search' => fn () => new SearchUsers(new PeopleSearch($search, $this->createMock(LoggerInterface::class)))]);
+        return new PeopleModule(['users_search' => fn () => new SearchUsers(new PeopleSearch($search, $this->createMock(LoggerInterface::class))), 'users_resolve' => fn () => $this->resolveUsersTool()]);
     }
 
     /** @return list<array<string, string>> */
@@ -53,9 +65,10 @@ final class PeopleModuleTest extends TestCase {
     }
 
     public function testDefinitionIsAnAppLessReadTool(): void {
-        $definitions = (new PeopleModule(['users_search' => fn () => new SearchUsers(new PeopleSearch($this->createMock(ISearch::class), $this->createMock(LoggerInterface::class)))]))->definitions();
-        self::assertCount(1, $definitions);
+        $definitions = (new PeopleModule(['users_search' => fn () => new SearchUsers(new PeopleSearch($this->createMock(ISearch::class), $this->createMock(LoggerInterface::class))), 'users_resolve' => fn () => $this->resolveUsersTool()]))->definitions();
+        self::assertCount(2, $definitions);
         self::assertSame('users_search', $definitions[0]['name']);
+        self::assertSame('users_resolve', $definitions[1]['name']);
         self::assertSame('people', $definitions[0]['module']);
         self::assertSame('read', $definitions[0]['operation']);
         self::assertArrayNotHasKey('app', $definitions[0]);
@@ -72,7 +85,7 @@ final class PeopleModuleTest extends TestCase {
     }
 
     public function testIncludeGroupsIsValidatedAsABooleanByTheSchema(): void {
-        $schema = (new PeopleModule(['users_search' => fn () => new SearchUsers(new PeopleSearch($this->createMock(ISearch::class), $this->createMock(LoggerInterface::class)))]))->definitions()[0]['inputSchema'];
+        $schema = (new PeopleModule(['users_search' => fn () => new SearchUsers(new PeopleSearch($this->createMock(ISearch::class), $this->createMock(LoggerInterface::class))), 'users_resolve' => fn () => $this->resolveUsersTool()]))->definitions()[0]['inputSchema'];
         self::assertFalse(ArgumentValidator::validate($schema, ['query' => 've'])['include_groups']);
         self::assertTrue(ArgumentValidator::validate($schema, ['query' => 've', 'include_groups' => true])['include_groups']);
         $this->expectException(InvalidArgumentException::class);
@@ -202,7 +215,8 @@ final class PeopleModuleTest extends TestCase {
 
     public function testReadGrantIsOnByDefaultAndCanBeDenied(): void {
         $policy = InMemoryConfig::policy((new InMemoryConfig())->mock($this), new InMemoryOAuthStore());
-        self::assertSame(['read'], GrantPolicy::CATALOG['people']);
+        self::assertSame(['read', 'edit'], GrantPolicy::CATALOG['people']);
+        self::assertFalse($policy->granted('alice', 'people', 'edit'));
         self::assertTrue($policy->granted('alice', 'people', 'read'));
         $policy->setGrant('alice', 'people', 'read', false);
         self::assertFalse($policy->granted('alice', 'people', 'read'));
@@ -213,11 +227,11 @@ final class PeopleModuleTest extends TestCase {
         self::assertStringContainsString('Never invent an ID', ToolPresentation::INSTRUCTIONS);
         self::assertStringContainsString('Search people', ToolPresentation::INSTRUCTIONS);
         self::assertSame('Search people', ToolPresentation::title('users_search'));
-        self::assertStringContainsString('users_search', implode(' ', (new PeopleModule(['users_search' => fn () => new SearchUsers(new PeopleSearch($this->createMock(ISearch::class), $this->createMock(LoggerInterface::class)))]))->guideNotes()));
+        self::assertStringContainsString('users_search', implode(' ', (new PeopleModule(['users_search' => fn () => new SearchUsers(new PeopleSearch($this->createMock(ISearch::class), $this->createMock(LoggerInterface::class))), 'users_resolve' => fn () => $this->resolveUsersTool()]))->guideNotes()));
     }
 
     public function testTheModelIsToldHowToShareWithAGroup(): void {
-        $module = new PeopleModule(['users_search' => fn () => new SearchUsers(new PeopleSearch($this->createMock(ISearch::class), $this->createMock(LoggerInterface::class)))]);
+        $module = new PeopleModule(['users_search' => fn () => new SearchUsers(new PeopleSearch($this->createMock(ISearch::class), $this->createMock(LoggerInterface::class))), 'users_resolve' => fn () => $this->resolveUsersTool()]);
         $description = $module->definitions()[0]['description'];
         self::assertStringContainsString('include_groups', $description);
         self::assertStringContainsString('group:', $description);
@@ -241,7 +255,7 @@ final class PeopleModuleTest extends TestCase {
                 $logged[] = $args;
             });
         }
-        $module = new PeopleModule(['users_search' => fn () => new SearchUsers(new PeopleSearch($search, $logger))]);
+        $module = new PeopleModule(['users_search' => fn () => new SearchUsers(new PeopleSearch($search, $logger)), 'users_resolve' => fn () => $this->resolveUsersTool()]);
 
         try {
             $module->call('users_search', ['query' => $term, 'limit' => 10], 'alice');

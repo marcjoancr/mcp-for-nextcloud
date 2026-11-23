@@ -220,12 +220,26 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Talk\Execution\PreviewBoundary::class)
         ));
         $context->registerService(\OCA\Mcp\Platform\Dav\CalDav\CollectionStore::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Platform\Dav\CalDav\DavReadStore::class));
+        $context->registerService(\OCA\Mcp\Platform\Dav\CalDav\CalendarTrashStore::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Platform\Dav\CalDav\DavReadStore::class));
+        $context->registerService(\OCA\Mcp\Platform\Dav\CalDav\CalendarCollectionWriter::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Platform\Dav\CalDav\EmbeddedCalDavDispatcher::class));
         $context->registerService(\OCA\Mcp\Platform\Dav\CalDav\CalendarAdministration::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Platform\Dav\CalDav\EmbeddedCalDavDispatcher::class));
         $context->registerService(\OCA\Mcp\Platform\Dav\CalDav\CalendarAclProbe::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Platform\Dav\CalDav\EmbeddedCalDavDispatcher::class));
         $context->registerService(\OCA\Mcp\Modules\Calendar\Reading\EventRangeQuery::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Calendar\Integration\DavEventRangeQuery(static fn () => $c->get(\OCA\DAV\CalDAV\CalDavBackend::class)));
         $context->registerService(\OCA\Mcp\Platform\Dav\CalDav\DavReadStore::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Platform\Dav\CalDav\DavReadStore(static fn () => $c->get(\OCA\DAV\CalDAV\CalDavBackend::class), static fn () => $c->get(\OCP\IDBConnection::class)));
         $context->registerService(\OCA\Mcp\Modules\Contacts\ContactsModule::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Contacts\ContactsModule([
             'contacts_list_addressbooks' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\ListAddressBooks::class),
+            'contacts_list_groups' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\ListContactGroups::class),
+            'contacts_update_categories' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\UpdateContactCategories::class),
+            'contacts_create_addressbook' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\CreateAddressBook::class),
+            'contacts_copy_contact' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\CopyContact::class),
+            'contacts_move_contact' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\MoveContact::class),
+            'contacts_list_addressbook_shares' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\ListAddressBookShares::class),
+            'contacts_share_addressbook' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\ShareAddressBook::class),
+            'contacts_find_duplicates' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\FindContactDuplicates::class),
+            'contacts_export_vcf' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\ExportVcf::class),
+            'contacts_import_vcf' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\ImportVcf::class),
+            'contacts_reconcile_vcf' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\ReconcileVcf::class),
+            'contacts_merge_contacts' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\MergeContacts::class),
             'contacts_search_contacts' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\SearchContacts::class),
             'contacts_read_contact' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\ReadContact::class),
             'contacts_create_contact' => static fn () => $c->get(\OCA\Mcp\Modules\Contacts\Tools\CreateContact::class),
@@ -250,9 +264,99 @@ class Application extends App implements IBootstrap {
             'calendar_move_event' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\MoveEvent::class),
             'calendar_delete_event' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\DeleteEvent::class),
             'calendar_transfer_event' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\TransferEvent::class),
-        ], static fn (string $uid) => $c->get(\OCA\Mcp\Platform\FileAccess\References\OutputReferenceFilter::class)->assertAvailable($uid)));
+            'calendar_create_event_with_external_attendees' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\CreateEventWithExternalAttendees::class),
+            'calendar_update_event_with_external_attendees' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\UpdateEventWithExternalAttendees::class),
+            'calendar_search_events' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\SearchEvents::class),
+            'calendar_read_event' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\ReadEvent::class),
+            'calendar_find_slots' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\FindSlots::class),
+            'calendar_respond_to_invitation' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\RespondToInvitation::class),
+            'calendar_list_resources' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\ListResources::class),
+            'calendar_check_resource_availability' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\CheckResourceAvailability::class),
+            'calendar_reserve_resource' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\ReserveResource::class),
+            'calendar_list_appointments' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\ListAppointmentConfigs::class),
+            'calendar_create_appointment' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\CreateAppointmentConfig::class),
+            'calendar_update_appointment' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\UpdateAppointmentConfig::class),
+            'calendar_delete_appointment' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\DeleteAppointmentConfig::class),
+            'calendar_list_appointment_bookings' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\ListAppointmentBookings::class),
+            'calendar_import_ics' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\ImportIcs::class),
+            'calendar_export_ics' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\ExportIcs::class),
+            'calendar_set_event_reminders' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\SetEventReminders::class),
+            'calendar_create_calendar' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\CalendarCreate::class),
+            'calendar_list_calendar_shares' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\ListCalendarShares::class),
+            'calendar_share_calendar' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\ShareCalendar::class),
+            'calendar_list_trashed_events' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\ListTrashedEvents::class),
+            'calendar_restore_trashed_event' => static fn () => $c->get(\OCA\Mcp\Modules\Calendar\Tools\RestoreTrashedEvent::class),
+        ], static fn (string $uid) => $c->get(\OCA\Mcp\Platform\FileAccess\References\OutputReferenceFilter::class)->assertAvailable($uid),
+            static fn (): bool => \OCA\Mcp\Modules\Calendar\Appointments\AppointmentGateway::supportsVersion(
+                $c->get(\OCP\App\IAppManager::class)->getAppVersion('calendar'),
+            ),
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Calendar\Appointments\AppointmentGateway::class,
+            static fn (ContainerInterface $c): \OCA\Mcp\Modules\Calendar\Appointments\AppointmentGateway => new \OCA\Mcp\Modules\Calendar\Appointments\AppointmentGateway(
+                $c->get(\OCP\App\IAppManager::class),
+                $c->get(\OCP\IUserSession::class),
+                $c->get(\OCA\Mcp\Platform\Dav\CalDav\ScopedCollectionAccess::class),
+                static fn (): object => $c->get('OCA\\Calendar\\Service\\Appointments\\AppointmentConfigService'),
+                static fn (string $token): string => $c->get(\OCP\IURLGenerator::class)->linkToRouteAbsolute('calendar.appointment.show', ['token' => $token]),
+                $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
+            ));
         $context->registerService(CalendarSelftestReader::class, static fn (ContainerInterface $c): CalendarSelftestReader => new DavCalendarSelftestReader(static fn () => $c->get(\OCA\DAV\CalDAV\CalDavBackend::class)));
         $context->registerService(CalendarDav::class, static fn (ContainerInterface $c): CalendarDav => $c->get(EmbeddedDavDispatcher::class));
+        $context->registerService(\OCA\Mcp\Platform\Dav\CalDav\ResourceAwareCalDavWriter::class, static fn (ContainerInterface $c) => $c->get(EmbeddedDavDispatcher::class));
+        $context->registerService(\OCA\Mcp\Modules\Calendar\Resources\CalendarResourceDirectory::class,
+            static function (ContainerInterface $c): \OCA\Mcp\Modules\Calendar\Resources\CalendarResourceDirectory {
+                $rooms = 'OCA\\DAV\\CalDAV\\ResourceBooking\\RoomPrincipalBackend';
+                $resources = 'OCA\\DAV\\CalDAV\\ResourceBooking\\ResourcePrincipalBackend';
+                return new \OCA\Mcp\Modules\Calendar\Resources\CalendarResourceDirectory(
+                    static fn () => class_exists($rooms) ? $c->get($rooms) : null,
+                    static fn () => class_exists($resources) ? $c->get($resources) : null,
+                    $c->get(\OCP\IUserSession::class),
+                    $c->get(\OCP\IUserManager::class),
+                );
+            });
+        $context->registerService(\OCA\Mcp\Modules\Calendar\Reading\EventSearch::class, static fn (ContainerInterface $c) =>
+            new \OCA\Mcp\Modules\Calendar\Reading\EventSearch(
+                $c->get(\OCA\Mcp\Platform\Dav\CalDav\ScopedCollectionAccess::class),
+                $c->get(CalendarStore::class),
+                $c->get(\OCA\Mcp\Modules\Calendar\Reading\EventRangeQuery::class),
+                $c->get(\OCA\Mcp\Modules\Calendar\Events\EventRepository::class),
+                $c->get(\OCA\Mcp\Modules\Calendar\Events\Classification::class),
+                $c->get(\OCA\Mcp\Modules\Calendar\Events\EventExpander::class),
+                $c->get(\OCA\Mcp\Modules\Calendar\Events\EventMapper::class),
+                $c->get(\OCA\Mcp\Modules\Calendar\Events\EventDates::class),
+                $c->get(\OCP\AppFramework\Utility\ITimeFactory::class),
+                $c->get(\Psr\Log\LoggerInterface::class),
+                $c->get(\OCP\IUserManager::class),
+            ));
+        $context->registerService(\OCA\Mcp\Modules\Calendar\Editing\EventEditor::class,
+            static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Calendar\Editing\EventEditor(
+                $c->get(\OCA\Mcp\Platform\Dav\CalDav\ScopedCollectionAccess::class),
+                $c->get(\OCA\Mcp\Mcp\Confirmation\SharedCollectionNotice::class),
+                $c->get(CalendarDav::class),
+                $c->get(\OCA\Mcp\Platform\Dav\CalDav\ObjectStore::class),
+                $c->get(\OCA\Mcp\Modules\Calendar\Events\EventRepository::class),
+                $c->get(\OCA\Mcp\Modules\Calendar\Events\EventBuilder::class),
+                $c->get(\OCA\Mcp\Modules\Calendar\Events\EventMapper::class),
+                $c->get(\OCA\Mcp\Modules\Calendar\Events\EventDates::class),
+                $c->get(\OCA\Mcp\Modules\Calendar\Scheduling\AttendeeResolver::class),
+                $c->get(\OCA\Mcp\Modules\Calendar\Scheduling\Scheduling::class),
+                $c->get(\OCP\AppFramework\Utility\ITimeFactory::class),
+                resourceDirectory: $c->get(\OCA\Mcp\Modules\Calendar\Resources\CalendarResourceDirectory::class),
+            ));
+        $context->registerService(\OCA\Mcp\Modules\Contacts\Exchange\VcfExchange::class, static fn (ContainerInterface $c) =>
+            new \OCA\Mcp\Modules\Contacts\Exchange\VcfExchange(
+                $c->get(\OCA\Mcp\Modules\Contacts\AddressBooks\ContactAccess::class),
+                $c->get(\OCA\Mcp\Modules\Contacts\AddressBooks\ContactStore::class),
+                $c->get(\OCA\Mcp\Modules\Contacts\Cards\ContactRepository::class),
+                $c->get(\OCA\Mcp\Modules\Contacts\Cards\ContactCard::class),
+                $c->get(\OCA\Mcp\Platform\Dav\CardDav\ContactDav::class),
+                $c->get(\OCA\Mcp\Modules\Contacts\Exchange\VcfBundle::class),
+                $c->get(\OCP\Files\IRootFolder::class),
+                $c->get(\OCA\Mcp\Access\ResourceScope\FilesAccessGuard::class),
+                $c->get(\OCA\Mcp\Mcp\Confirmation\SharedCollectionNotice::class),
+                $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
+                $c->get(\OCA\Mcp\Modules\Contacts\Deletion\ContactBackup::class),
+            ));
         $context->registerService(\OCA\Mcp\Modules\Contacts\AddressBooks\ContactStore::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Contacts\Integration\DavContactStore(static fn () => $c->get(\OCA\DAV\CardDAV\CardDavBackend::class)));
         $context->registerService(\OCA\Mcp\Modules\Tasks\Reading\TaskQuery::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Tasks\Integration\DavTaskQuery(static fn () => $c->get(\OCA\DAV\CalDAV\CalDavBackend::class)));
         $context->registerService(\OCA\Mcp\Platform\Dav\CardDav\ContactDav::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Platform\Dav\CardDav\EmbeddedCardDavDispatcher(
@@ -266,6 +370,7 @@ class Application extends App implements IBootstrap {
                 static fn () => $c->get(\OCA\DAV\CardDAV\Security\CardDavRateLimitingPlugin::class),
                 static fn () => $c->get(\OCA\DAV\CardDAV\Validation\CardDavValidatePlugin::class),
                 static fn () => new \OCA\DAV\AppInfo\PluginManager($c->get(\OCP\IServerContainer::class), $c->get(\OCP\App\IAppManager::class)),
+                static fn () => $c->get('OCA\\DAV\\DAV\\Sharing\\Plugin'),
             ))->create(),
             new Session($c->get(IUserSession::class)), $c->get(\OCP\IAppConfig::class), $c->get(LoggerInterface::class),
         ));
@@ -276,7 +381,11 @@ class Application extends App implements IBootstrap {
         $context->registerService(EmbeddedDavDispatcher::class, static fn (ContainerInterface $c): EmbeddedDavDispatcher => new EmbeddedDavDispatcher(
             // The non-public embedded server, the one that takes a principal from CustomPrincipalPlugin instead of
             // answering with principals/system/public; the factory knows the Nextcloud 31 class as well.
-            static fn (): \Sabre\DAV\Server => (new EmbeddedCalDavServerFactory(static fn () => $c->get(\OCP\IAppConfig::class), static fn () => $c->get(EmbeddedCalDavServerFactory::IMIP_PLUGIN)))->create(),
+            static fn (bool $withSharing = false): \Sabre\DAV\Server => (new EmbeddedCalDavServerFactory(
+                static fn () => $c->get(\OCP\IAppConfig::class),
+                static fn () => $c->get(EmbeddedCalDavServerFactory::IMIP_PLUGIN),
+                sharingProvider: static fn () => $c->get('OCA\\DAV\\DAV\\Sharing\\Plugin'),
+            ))->create($withSharing),
             new Session($c->get(IUserSession::class)),
             $c->get(IConfig::class),
             $c->get(LoggerInterface::class),
@@ -626,7 +735,29 @@ class Application extends App implements IBootstrap {
         $context->registerService(\OCA\Mcp\Modules\People\PeopleModule::class,
             static fn (ContainerInterface $c): \OCA\Mcp\Modules\People\PeopleModule => new \OCA\Mcp\Modules\People\PeopleModule([
                 'users_search' => static fn () => $c->get(\OCA\Mcp\Modules\People\Tools\SearchUsers::class),
-            ]));
+                'users_resolve' => static fn () => $c->get(\OCA\Mcp\Modules\People\Tools\ResolveUsers::class),
+                'users_list_teams' => static fn () => $c->get(\OCA\Mcp\Modules\People\Tools\ListTeams::class),
+                'users_list_team_members' => static fn () => $c->get(\OCA\Mcp\Modules\People\Tools\ListTeamMembers::class),
+                'users_filter_team_members' => static fn () => $c->get(\OCA\Mcp\Modules\People\Tools\FilterTeamMembers::class),
+                'users_add_team_member' => static fn () => $c->get(\OCA\Mcp\Modules\People\Tools\AddTeamMember::class),
+                'users_remove_team_member' => static fn () => $c->get(\OCA\Mcp\Modules\People\Tools\RemoveTeamMember::class),
+            ], circlesAvailable: true));
+        $context->registerService(\OCA\Mcp\Modules\People\Circles\CirclesDirectory::class,
+            static fn (ContainerInterface $c): \OCA\Mcp\Modules\People\Circles\CirclesDirectory => new \OCA\Mcp\Modules\People\Circles\CirclesDirectory(
+                $c->get(\OCP\App\IAppManager::class),
+                $c->get(\OCP\IUserManager::class),
+                $c->get(\OCP\IUserSession::class),
+                static fn () => $c->get('OCA\\Circles\\CirclesManager'),
+                static fn () => $c->get('OCA\\Circles\\Model\\Probes\\CircleProbe'),
+                static fn () => $c->get('OCA\\Circles\\Model\\Probes\\DataProbe')
+                    ->add(constant('OCA\\Circles\\Model\\Probes\\DataProbe::OWNER'))
+                    ->add(constant('OCA\\Circles\\Model\\Probes\\DataProbe::MEMBER'))
+                    ->add(constant('OCA\\Circles\\Model\\Probes\\DataProbe::INITIATOR')),
+                $c->get(\Psr\Log\LoggerInterface::class),
+                $c->get(\OCP\Profile\IProfileManager::class),
+                $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
+                $c->get(\OCP\Collaboration\Collaborators\ISearch::class),
+            ));
         $context->registerService(\OCA\Mcp\Modules\People\Tools\SearchUsers::class,
             static fn (ContainerInterface $c): \OCA\Mcp\Modules\People\Tools\SearchUsers => new \OCA\Mcp\Modules\People\Tools\SearchUsers(
                 $c->get(\OCA\Mcp\Modules\People\Search\PeopleSearch::class),

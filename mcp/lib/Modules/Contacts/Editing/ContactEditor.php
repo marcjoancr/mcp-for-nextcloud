@@ -40,6 +40,15 @@ final class ContactEditor
                 'url',
                 'emails',
                 'phones',
+                'familyName',
+                'givenName',
+                'additionalName',
+                'namePrefix',
+                'nameSuffix',
+                'addresses',
+                'categories',
+                'birthday',
+                'preferredEmail',
             ]
         ) === []) {
             throw new InvalidArgumentException(Translator::t('Provide at least one field to change.'));

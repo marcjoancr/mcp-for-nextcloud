@@ -60,6 +60,8 @@ final class NextcloudApiUsage {
      */
     public const OUTSIDE_FIXTURES = [
         'guests' => ['OCA\\Guests\\AppWhitelist', 'OCA\\Guests\\Config', 'OCA\\Guests\\GuestManager', 'OCA\\Guests\\RestrictionManager'],
+        // Calendar is independently pinned, not part of the server tree; AppointmentGateway admits only 6.6.2 and 6.6.3.
+        'calendar' => ['OCA\\Calendar\\Service\\Appointments\\AppointmentConfigService'],
     ];
 
     /**
@@ -78,6 +80,8 @@ final class NextcloudApiUsage {
         'OCA\\Mail\\Db\\Tag',
         'OCA\\Circles\\Model\\Circle',
         'OCA\\Talk\\Participant',
+        'OCA\\Circles\\Model\\Probes\\CircleProbe',
+        'OCA\\Circles\\Model\\Probes\\DataProbe',
         'OCP\\FilesMetadata\\Model\\IFilesMetadata',
         'OCA\\DAV\\CalDAV\\Schedule\\Plugin',
         'OCP\\Log\\IWriter',
@@ -390,6 +394,7 @@ final class NextcloudApiUsage {
      * @var array<string, array{missing: list<string>, fallback: string, by: string, elsewhere?: array<string, string>}>
      */
     public const VERSION_GATED = [
+        'OCA\\DAV\\CalDAV\\CalDavBackend::getDeletedCalendarObjectByIdForPrincipal' => ['missing'=>['31','32','33'],'fallback'=>'OCA\\DAV\\CalDAV\\CalDavBackend::getDeletedCalendarObjectsByPrincipal','by'=>\OCA\Mcp\Platform\Dav\CalDav\DavReadStore::class],
         'OCA\\Mail\\Sync\\CacheSnapshot' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
         'OCA\\Mail\\Service\\GuardedMailboxRefresh' => ['missing'=>['31','32','33','34','35'],'fallback'=>'OCP\\App\\IAppManager::isEnabledForUser','by'=>\OCA\Mcp\Modules\Mail\Integration\MailServices::class],
         // Custom dependency, absent from every pinned stock Mail. Fingerprints admit the separately tested native artifact.
@@ -453,6 +458,11 @@ final class NextcloudApiUsage {
             'missing' => ['31'],
             'fallback' => 'OCA\\DAV\\CalDAV\\InvitationResponse\\InvitationResponseServer',
             'by' => \OCA\Mcp\Platform\Dav\CalDav\EmbeddedCalDavServerFactory::class,
+        ],
+        'OCA\\Circles\\CirclesManager::probeCircle' => [
+            'missing' => ['31', '32'],
+            'fallback' => 'OCP\\App\\IAppManager::isEnabledForUser',
+            'by' => \OCA\Mcp\Modules\People\Circles\CirclesDirectory::class,
         ],
         'OCP\\App\\IAppManager::isEnabledForAnyone' => [
             'missing' => ['31'],

@@ -24,6 +24,15 @@ final class CalDavBackendContractTest extends TestCase {
     /** Directories under lib/ whose classes talk to the DAV backends. */
     private const SCANNED = ['Platform/Dav', 'Modules/Calendar/Integration', 'Modules/Contacts/Integration', 'Modules/Tasks/Integration'];
 
+    /** Official pinned releases 31.0.0, 32.0.0 and 33.0.0 lack this helper; DavReadStore falls back to the native actor-filtered trash listing. */
+    private const CALDAV_GATES = [
+        'CalDavBackend::getDeletedCalendarObjectByIdForPrincipal' => [
+            'missing' => ['31', '32', '33'],
+            'fallback' => ['getDeletedCalendarObjectsByPrincipal', 'getCalendarObject'],
+            'handler' => 'Platform/Dav/CalDav/DavReadStore.php',
+        ],
+    ];
+
     /**
      * Collects `backend()->method(` and `container->get(XxxBackend::class)->method(` calls per backend class.
      *
@@ -102,8 +111,19 @@ final class CalDavBackendContractTest extends TestCase {
      */
     #[DataProvider('calledMethods')]
     public function testEveryBackendMethodTheAdaptersCallExists(string $class, string $method, array $files): void {
+        $short = ($class === self::CALDAV_CLASS ? 'CalDavBackend' : 'CardDavBackend') . '::' . $method;
+        $gate = self::CALDAV_GATES[$short] ?? null;
         foreach (self::checkedMajors() as $major) {
-            self::assertContains($method, self::publicMethods($class, $major), sprintf('%s::%s() is called from %s but is not a public method of Nextcloud %s', $class, $method, implode(', ', $files), $major));
+            $public = self::publicMethods($class, $major);
+            $message = sprintf('%s::%s() is called from %s but is not a public method of Nextcloud %s', $class, $method, implode(', ', $files), $major);
+            if ($gate !== null && in_array($major, $gate['missing'], true)) {
+                self::assertNotContains($method, $public, "$short must remain absent in Nextcloud $major");
+                foreach ($gate['fallback'] as $fallback) self::assertContains($fallback, $public, "$fallback fallback for $short in Nextcloud $major");
+                $handler = (string)file_get_contents(dirname(__DIR__, 3) . '/lib/' . $gate['handler']);
+                foreach ($gate['fallback'] as $fallback) self::assertStringContainsString($fallback, $handler, "$fallback is the actual fallback for $short");
+                continue;
+            }
+            self::assertContains($method, $public, $message);
         }
     }
 

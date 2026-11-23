@@ -32,7 +32,7 @@ final class EventExpander
      * @param VCalendar $vcalendar parsed calendar object
      * @param DateTimeImmutable $from inclusive window start
      * @param DateTimeImmutable $to exclusive window end
-     * @return list<array{event: VEvent, start: DateTimeImmutable, end: DateTimeImmutable}>
+     * @return list<array{event: VEvent, start: DateTimeImmutable, end: DateTimeImmutable, recurrenceId: DateTimeImmutable|null}>
      * @throws CalendarException when a series exceeds the occurrence or iteration limit
      */
     public function occurrences(
@@ -70,7 +70,7 @@ final class EventExpander
      * @param string $uid series UID
      * @param DateTimeImmutable $from inclusive window start
      * @param DateTimeImmutable $to exclusive window end
-     * @return list<array{event: VEvent, start: DateTimeImmutable, end: DateTimeImmutable}>
+     * @return list<array{event: VEvent, start: DateTimeImmutable, end: DateTimeImmutable, recurrenceId: DateTimeImmutable|null}>
      * @throws CalendarException when the series exceeds a limit
      */
     private function series(
@@ -86,6 +86,10 @@ final class EventExpander
             return [];
         }
         $out = [];
+        $recurring = false;
+        foreach ($vcalendar->select('VEVENT') as $component) {
+            if ((string)($component->UID ?? '') === $uid && (isset($component->RRULE) || isset($component->RDATE) || isset($component->{'RECURRENCE-ID'}))) { $recurring = true; break; }
+        }
         $steps = 0;
         try {
             while ($iterator->valid()) {
@@ -102,7 +106,14 @@ final class EventExpander
                     if (count($out) >= self::MAX_OCCURRENCES_PER_SERIES) {
                         throw CalendarException::limit(\OCA\Mcp\Modules\Calendar\Events\EventMessages::occurrenceLimit());
                     }
-                    $out[] = ['event' => $event, 'start' => $start, 'end' => $end];
+                    $recurrenceId = null;
+                    if ($recurring) {
+                        $property = $event->{'RECURRENCE-ID'} ?? null;
+                        $recurrenceId = $property !== null
+                            ? DateTimeImmutable::createFromInterface($property->getDateTime(new DateTimeZone('UTC')))
+                            : $start;
+                    }
+                    $out[] = ['event' => $event, 'start' => $start, 'end' => $end, 'recurrenceId' => $recurrenceId];
                 }
                 $iterator->next();
             }

@@ -34,11 +34,60 @@ final class EmbeddedCardDavDispatcherTest extends TestCase {
     private Server $server;
     /** How many times a native DAV server was built: a refusal that costs none happened before any DAV call. */
     private int $serversBuilt = 0;
+    private array $sharePosts = [];
     private const CARD = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:c1\r\nFN:Alice Contact\r\nN:Contact;Alice;;;\r\nEND:VCARD\r\n";
 
     protected function setUp(): void {
         $this->backend = new MemoryCardBackend();
         $this->dav = $this->dispatcher('alice');
+    }
+
+    public function testCreateAddressBookUsesNativeExtendedMkcol(): void {
+        $result = $this->dav->createAddressBook('alice', 'family', 'Family & Friends');
+
+        self::assertSame(201, $result->status);
+        self::assertSame('principals/users/alice', $this->server->getPlugin('auth')->getCurrentPrincipal());
+        self::assertSame([], $this->backend->cards);
+    }
+
+    public function testCreateAddressBookRefusesUnsafeUriBeforeServerCreation(): void {
+        try {
+            $this->dav->createAddressBook('alice', '../outside', 'Family');
+            self::fail('unsafe book URI reached DAV');
+        } catch (ToolFailure $failure) {
+            self::assertSame(0, $this->serversBuilt);
+        }
+    }
+
+    public function testShareAddressBookUsesNativeNextcloudPostAndEscapesRecipientName(): void {
+        $result = $this->dav->shareAddressBook('alice', 'personal', 'bob', 'Bob & Friends', false);
+
+        self::assertSame(200, $result->status);
+        self::assertSame('principals/users/alice', $this->server->getPlugin('auth')->getCurrentPrincipal());
+        self::assertCount(1, $this->sharePosts);
+        self::assertSame('POST', $this->sharePosts[0]['method']);
+        self::assertSame('addressbooks/users/alice/personal', $this->sharePosts[0]['path']);
+        self::assertStringContainsString('<d:href>principal:principals/users/bob</d:href>', $this->sharePosts[0]['body']);
+        self::assertStringContainsString('Bob &amp; Friends', $this->sharePosts[0]['body']);
+        self::assertStringContainsString('<oc:read-write/>', $this->sharePosts[0]['body']);
+    }
+
+    public function testShareAddressBookRejectsUnsafeShareeBeforeServerCreation(): void {
+        try {
+            $this->dav->shareAddressBook('alice', 'personal', '../bob', 'Bob', true);
+            self::fail('unsafe sharee reached DAV');
+        } catch (ToolFailure) {
+            self::assertSame(0, $this->serversBuilt);
+        }
+    }
+
+    public function testShareAddressBookRemovesAnExistingShareThroughNativePost(): void {
+        $result = $this->dav->shareAddressBook('alice', 'personal', 'bob', 'Bob Reader', null);
+
+        self::assertSame(200, $result->status);
+        self::assertCount(1, $this->sharePosts);
+        self::assertStringContainsString('<oc:remove><d:href>principal:principals/users/bob</d:href></oc:remove>', $this->sharePosts[0]['body']);
+        self::assertStringNotContainsString('<oc:set>', $this->sharePosts[0]['body']);
     }
 
     public function testCreateEditDeleteUseNativePipelineAndEtag(): void {
@@ -259,6 +308,10 @@ final class EmbeddedCardDavDispatcherTest extends TestCase {
         $server->addPlugin(new PinnedCardPrincipal());
         $server->addPlugin(new AclPlugin());
         $server->addPlugin(new Plugin());
+        $server->addPlugin(new SharePostRecorder(function (\Sabre\HTTP\RequestInterface $request, \Sabre\HTTP\ResponseInterface $response): void {
+            $this->sharePosts[] = ['method' => $request->getMethod(), 'path' => $request->getPath(), 'body' => $request->getBodyAsString()];
+            $response->setStatus(200);
+        }));
         return $this->server = $server;
     }
 }
@@ -317,5 +370,16 @@ final class MemoryCardBackend extends AbstractBackend {
     public function deleteCard($addressBookId, $cardUri) {
         unset($this->cards[$cardUri]);
         return true;
+    }
+}
+
+final class SharePostRecorder extends \Sabre\DAV\ServerPlugin {
+    public function __construct(private \Closure $record) {}
+    public function initialize(\Sabre\DAV\Server $server): void {
+        $server->on('method:POST', [$this, 'post']);
+    }
+    public function post(\Sabre\HTTP\RequestInterface $request, \Sabre\HTTP\ResponseInterface $response): bool {
+        ($this->record)($request, $response);
+        return false;
     }
 }

@@ -37,4 +37,6 @@ interface ContactStore
      * @throws ContainerExceptionInterface when the core backend cannot be resolved
      */
     public function card(int $bookId, string $uri): ?array;
+    /** @return list<array<string, mixed>> native shares of an owned address book */
+    public function shares(int $bookId): array;
 }

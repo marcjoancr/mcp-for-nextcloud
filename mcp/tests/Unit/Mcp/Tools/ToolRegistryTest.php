@@ -217,6 +217,7 @@ final class ToolRegistryTest extends TestCase {
             'spreed' => '21.1.4',
             'deck' => '1.15.0',
             'forms' => '5.3.0',
+            'calendar' => '6.6.2',
             default => '',
         });
         $users = $this->createMock(IUserManager::class);
@@ -224,7 +225,13 @@ final class ToolRegistryTest extends TestCase {
         foreach (\OCA\Mcp\AppInfo\Application::MODULES as $class) {
             // Definitions are independent of constructor collaborators. Use the real catalog, replacing
             // only schemas so this test focuses on the registry envelope rather than resource validation.
-            $definitions = (new \ReflectionClass($class))->newInstanceWithoutConstructor()->definitions();
+            $definitions = match ($class) {
+                \OCA\Mcp\Modules\People\PeopleModule::class =>
+                    array_values(\OCA\Mcp\Modules\People\PeopleToolCatalog::definitions(circlesAvailable: true)),
+                \OCA\Mcp\Modules\Calendar\CalendarModule::class =>
+                    array_values(\OCA\Mcp\Modules\Calendar\CalendarToolCatalog::definitions()),
+                default => (new \ReflectionClass($class))->newInstanceWithoutConstructor()->definitions(),
+            };
             $module = new class($definitions) implements ToolModule {
                 public function __construct(private array $definitions) {}
                 public function definitions(): array {

@@ -19,13 +19,14 @@ final class DeleteEvent implements \OCA\Mcp\Mcp\Tools\WriteTool
             name: 'calendar_delete_event',
             module: 'calendar',
             operation: 'delete',
-            description: 'Deletes an event (the entire series), moving it to the calendar trash bin. Requires confirm: true. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.',
+            description: 'Deletes an event series to recoverable trash, or cancels one occurrence when recurrence_id is supplied. Requires confirm: true. Attendees are only notified with send_invitations: true, depending on server configuration; sending does not confirm receipt. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.',
             inputSchema: [
                 'type' => 'object',
                 'properties' => (object) [
                     'calendar' => DavCollectionSchema::calendar('calendar path, as returned by calendar_list_calendars'),
                     'uid' => DavCollectionSchema::uid(),
                     'etag' => DavCollectionSchema::etag(),
+                    'recurrence_id' => DavCollectionSchema::text('original occurrence start as ISO date or timestamp', 10, 40),
                     'send_invitations' => [
                         'type' => 'boolean',
                         'default' => false,

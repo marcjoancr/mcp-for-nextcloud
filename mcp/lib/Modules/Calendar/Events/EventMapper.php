@@ -34,6 +34,7 @@ final class EventMapper
         DateTimeImmutable $end,
         Calendar $calendar,
         string $visibility,
+        ?DateTimeImmutable $recurrenceId = null,
     ): array
     {
         $allDay = $this->isAllDay($event);
@@ -46,6 +47,9 @@ final class EventMapper
             'location' => $busy ? '' : (string) ($event->LOCATION ?? ''),
             'allDay' => $allDay,
         ];
+        if ($recurrenceId !== null) {
+            $item['recurrence_id'] = $this->format($recurrenceId, $allDay);
+        }
         $timeZone = $allDay ? null : $this->timeZone($event);
         if ($timeZone !== null) {
             $item['timeZone'] = $timeZone;

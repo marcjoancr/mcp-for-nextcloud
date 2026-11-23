@@ -60,6 +60,14 @@ final class FakeImipPlugin extends ServerPlugin {
     }
 }
 
+final class FakeSharingPlugin extends ServerPlugin {
+    public function initialize(Server $server): void {}
+
+    public function getPluginName(): string {
+        return 'sharing';
+    }
+}
+
 /**
  * The embedded CalDAV server of Nextcloud 32+ is used as is; on Nextcloud 31, which only has its predecessor, the
  * server gets the IMipPlugin the newer class loads, under the same switch, so invitations keep going out by e-mail.
@@ -97,6 +105,15 @@ final class EmbeddedCalDavServerFactoryTest extends TestCase {
         $this->assertSame([false], FakeEmbeddedCalDavServer::$built, 'the non-public server, the one that takes a pinned principal');
         $this->assertSame([], FakeInvitationResponseServer::$built);
         $this->assertNull($server->getPlugin('imip'));
+        $this->assertNull($server->getPlugin('sharing'), 'share plugin stays lazy for ordinary calendar requests');
+    }
+
+    public function testCalendarShareCanLoadTheNativeSharingPluginOnDemand(): void {
+        $factory = $this->factory($this->container('yes', null), FakeEmbeddedCalDavServer::class, FakeInvitationResponseServer::class);
+
+        $server = $factory->create(withSharing: true);
+
+        $this->assertInstanceOf(FakeSharingPlugin::class, $server->getPlugin('sharing'));
     }
 
     public function testNextcloud31UsesThePredecessorAndAddsTheImipPlugin(): void {
@@ -139,6 +156,6 @@ final class EmbeddedCalDavServerFactoryTest extends TestCase {
         $this->assertSame('OCA\\DAV\\CalDAV\\Schedule\\IMipPlugin', EmbeddedCalDavServerFactory::IMIP_PLUGIN);
     }
     private function factory(ContainerInterface $container, string $embedded, string $legacy): EmbeddedCalDavServerFactory {
-        return new EmbeddedCalDavServerFactory(static fn () => $container->get(IAppConfig::class), static fn () => $container->get(EmbeddedCalDavServerFactory::IMIP_PLUGIN), $embedded, $legacy);
+        return new EmbeddedCalDavServerFactory(static fn () => $container->get(IAppConfig::class), static fn () => $container->get(EmbeddedCalDavServerFactory::IMIP_PLUGIN), $embedded, $legacy, static fn () => new FakeSharingPlugin());
     }
 }

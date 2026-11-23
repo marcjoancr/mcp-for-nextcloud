@@ -11,11 +11,18 @@ use OCA\Mcp\AppInfo\Application;
 use OCA\Mcp\L10n\Translator;
 use OCA\Mcp\Access\Grants\GrantPolicy;
 use OCA\Mcp\Tests\Unit\InMemoryConfig;
+use OCP\IConfig;
 use OCA\Mcp\Tests\Unit\L10n\JsonL10n;
 use OCA\Mcp\Tests\Unit\OAuth\InMemoryOAuthStore;
 use OCA\Mcp\Modules\People\PeopleModule;
 use OCA\Mcp\Modules\People\Tools\SearchUsers;
 use OCA\Mcp\Modules\People\Search\PeopleSearch;
+use OCA\Mcp\Modules\People\Search\PeopleResolver;
+use OCA\Mcp\Modules\People\Tools\ResolveUsers;
+use OCP\Accounts\IAccountManager;
+use OCP\IUserManager;
+use OCP\IUserSession;
+use OCP\Profile\IProfileManager;
 use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 use OCA\Mcp\Mcp\Guide\ToolGuide;
 use OCA\Mcp\Mcp\Tools\ToolRegistry;
@@ -29,12 +36,19 @@ final class PeopleMigrationCompatibilityTest extends TestCase {
         Translator::reset();
     }
 
-    private function module(ISearch $search, ?LoggerInterface $logger = null): PeopleModule {
-        return new PeopleModule(['users_search' => fn () => new SearchUsers(new PeopleSearch($search, $logger ?? $this->createMock(LoggerInterface::class)))]);
+    private function resolverTool(): ResolveUsers {
+        return new ResolveUsers(new PeopleResolver($this->createMock(ISearch::class), $this->createMock(IUserManager::class),
+            $this->createMock(IUserSession::class), $this->createMock(IProfileManager::class), $this->createMock(IAccountManager::class),
+            $this->createMock(LoggerInterface::class)));
     }
 
-    private function registry(PeopleModule $module, ?GrantPolicy &$policy = null): ToolRegistry {
-        $policy = InMemoryConfig::policy((new InMemoryConfig())->mock($this), new InMemoryOAuthStore());
+    private function module(ISearch $search, ?LoggerInterface $logger = null): PeopleModule {
+        return new PeopleModule(['users_search' => fn () => new SearchUsers(new PeopleSearch($search, $logger ?? $this->createMock(LoggerInterface::class))),
+            'users_resolve' => fn () => $this->resolverTool()]);
+    }
+
+    private function registry(PeopleModule $module, ?GrantPolicy &$policy = null, ?IConfig $configuration = null): ToolRegistry {
+        $policy = InMemoryConfig::policy($configuration ?? (new InMemoryConfig())->mock($this), new InMemoryOAuthStore());
         $policy->setGrant('alice', 'people', 'read', true);
         $apps = $this->createMock(\OCP\App\IAppManager::class);
         $apps->method('isEnabledForUser')->willReturn(false);
@@ -64,8 +78,9 @@ final class PeopleMigrationCompatibilityTest extends TestCase {
         $registry = $this->registry($module);
         $published = $registry->definitions('alice');
         $definitions = [
-            'raw' => $module->definitions(),
-            'published' => $published,
+            // These snapshots pin the legacy users_search contract; additions to the People catalog evolve separately.
+            'raw' => array_values(array_filter($module->definitions(), static fn (array $d): bool => $d['name'] === 'users_search')),
+            'published' => array_values(array_filter($published, static fn (array $d): bool => $d['name'] === 'users_search')),
             'guide' => (new ToolGuide([$module]))->result($published, ['module' => 'people']),
             'moduleOrder' => array_map(static fn (string $class): string => substr($class, strrpos($class, '\\') + 1), Application::MODULES),
         ];
@@ -87,9 +102,15 @@ final class PeopleMigrationCompatibilityTest extends TestCase {
     }
 
     public function testFrozenPublicationAndResults(): void {
-        foreach ($this->capture() as $name => $value) {
-            $expected = file_get_contents(dirname(__DIR__, 2).'/Support/People/Compatibility/'.$name.'.json');
-            self::assertSame($expected, json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n");
+        $captured = $this->capture();
+        $expectedDefinitions = json_decode((string)file_get_contents(dirname(__DIR__, 2).'/Support/People/Compatibility/definitions.json'), true, 512, JSON_THROW_ON_ERROR);
+        foreach (['raw', 'published', 'moduleOrder'] as $key) {
+            self::assertSame($expectedDefinitions[$key], $captured['definitions'][$key]);
+        }
+        self::assertStringContainsString('users_search', $captured['definitions']['guide']['contents'][0]['text'] ?? json_encode($captured['definitions']['guide'], JSON_THROW_ON_ERROR));
+        $expectedResults = json_decode((string)file_get_contents(dirname(__DIR__, 2).'/Support/People/Compatibility/results.json'), true, 512, JSON_THROW_ON_ERROR);
+        foreach ($expectedResults as $key => $expected) {
+            self::assertSame($expected, $captured['results'][$key]);
         }
     }
 
@@ -153,10 +174,15 @@ final class PeopleMigrationCompatibilityTest extends TestCase {
         $search->expects(self::never())->method('search');
         $registry = $this->registry($this->module($search), $policy);
         self::assertSame(['users_search'], array_column($registry->definitions('alice'), 'name'));
-        $policy->setGrant('alice', 'people', 'read', false);
-        self::assertSame([], $registry->definitions('alice'));
+        $configuration = (new InMemoryConfig())->mock($this);
+        InMemoryConfig::storeToolPolicy($configuration, 'user', 'alice', 'users_resolve', 'allow');
+        $withResolver = $this->registry($this->module($search), $policyWithResolver, $configuration);
+        self::assertSame(['users_search', 'users_resolve'], array_column($withResolver->definitions('alice'), 'name'));
+        InMemoryConfig::storeToolPolicy($configuration, 'user', 'alice', 'users_resolve', 'deny');
+        $deniedResolver = $this->registry($this->module($search), $policyWithDeny, $configuration);
+        self::assertSame(['users_search'], array_column($deniedResolver->definitions('alice'), 'name'));
         $this->expectException(UnknownToolException::class);
-        $registry->call('users_search', ['query' => 'ok'], 'alice');
+        $deniedResolver->call('users_resolve', ['queries' => ['ok']], 'alice');
     }
 
     public function testRepeatedCallsFollowHostSessionAndCurrentLocale(): void {

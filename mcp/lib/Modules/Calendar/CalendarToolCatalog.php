@@ -23,6 +23,28 @@ final class CalendarToolCatalog
             Tools\MoveEvent::class,
             Tools\DeleteEvent::class,
             Tools\TransferEvent::class,
+            Tools\CreateEventWithExternalAttendees::class,
+            Tools\UpdateEventWithExternalAttendees::class,
+            Tools\SearchEvents::class,
+            Tools\ReadEvent::class,
+            Tools\FindSlots::class,
+            Tools\RespondToInvitation::class,
+            Tools\ListResources::class,
+            Tools\CheckResourceAvailability::class,
+            Tools\ReserveResource::class,
+            Tools\ListAppointmentConfigs::class,
+            Tools\CreateAppointmentConfig::class,
+            Tools\UpdateAppointmentConfig::class,
+            Tools\DeleteAppointmentConfig::class,
+            Tools\ListAppointmentBookings::class,
+            Tools\ImportIcs::class,
+            Tools\ExportIcs::class,
+            Tools\SetEventReminders::class,
+            Tools\CalendarCreate::class,
+            Tools\ListCalendarShares::class,
+            Tools\ShareCalendar::class,
+            Tools\ListTrashedEvents::class,
+            Tools\RestoreTrashedEvent::class,
         ];
     }
     /** @return array<string, array<string, mixed>> */
@@ -50,6 +72,9 @@ final class CalendarToolCatalog
             ];
             if ($d->destructiveHint !== null) {
                 $raw['destructiveHint'] = $d->destructiveHint;
+            }
+            if ($d->grantAllOf !== null) {
+                $raw['grantAllOf'] = $d->grantAllOf;
             }
             $result[$d->name] = $raw;
         }

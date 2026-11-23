@@ -33,6 +33,7 @@ final class EventBuilder
         array $text,
         EventTiming $timing,
         DateTimeImmutable $now,
+        ?array $recurrence = null,
     ): VCalendar
     {
         $vcalendar = new VCalendar(['PRODID' => self::PRODID]);
@@ -44,6 +45,9 @@ final class EventBuilder
         $event->add('SEQUENCE', 0);
         $this->setTiming($event, $timing);
         $this->setText($event, $text);
+        if ($recurrence !== null) {
+            (new RecurrenceRule(new EventDates()))->apply($event, $recurrence, $timing);
+        }
         return $vcalendar;
     }
     /**

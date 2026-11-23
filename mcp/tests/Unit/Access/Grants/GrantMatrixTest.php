@@ -27,7 +27,7 @@ final class GrantMatrixTest extends TestCase {
     }
 
     public function testCalendarCatalogOffersEveryOperationWithoutAnySelftest(): void {
-        self::assertSame(['read', 'create', 'edit', 'move', 'delete', 'transfer', 'availability'], $this->fx->matrix()->page('', '', 1)['catalog']['calendar']);
+        self::assertSame(['read', 'create', 'edit', 'move', 'delete', 'transfer', 'availability', 'share', 'restore'], $this->fx->matrix()->page('', '', 1)['catalog']['calendar']);
     }
 
     public function testCalendarWritesAreDeniedByDefault(): void {
@@ -44,10 +44,14 @@ final class GrantMatrixTest extends TestCase {
         self::assertArrayNotHasKey('tasks', $this->fx->matrix()->page('', '', 1)['catalog']);
         $this->fx->enabledApps[] = 'tasks';
         $page=$this->fx->matrix()->page('', '', 1);
-        foreach (['contacts','tasks'] as $module) {
-            self::assertSame(['read','create','edit','delete'], $page['catalog'][$module]);
-            self::assertTrue($page['users'][0]['grants'][$module]['read']);
-            foreach (['create','edit','delete'] as $operation) { self::assertFalse($page['users'][0]['grants'][$module][$operation]); }
+        foreach ([
+            'contacts' => ['read', 'create', 'edit', 'delete', 'share'],
+            'tasks' => ['read', 'create', 'edit', 'delete'],
+        ] as $module => $operations) {
+            self::assertSame($operations, $page['catalog'][$module]);
+            foreach ($operations as $operation) {
+                self::assertSame($operation === 'read', $page['users'][0]['grants'][$module][$operation]);
+            }
         }
     }
 

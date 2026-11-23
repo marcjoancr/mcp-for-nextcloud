@@ -40,6 +40,7 @@ abstract class ContactsTestCase extends TestCase {
     /** @var array{uri:string, etag:string, data:string} what the store answers for the contact, changeable to play another client */
     protected array $card;
     protected ContactBackup $backup;
+    protected IUserManager $users;
     protected SystemContacts $system;
 
     protected function setUp(): void {
@@ -75,14 +76,25 @@ abstract class ContactsTestCase extends TestCase {
         $this->dav = $this->createMock(ContactDav::class);
         $this->backup = $this->createMock(ContactBackup::class);
         $this->system = $this->createMock(SystemContacts::class);
+        $this->users = $this->createMock(IUserManager::class);
         $this->module = \OCA\Mcp\Tests\Support\Contacts\ContactsModuleFactory::create(
             new ContactAccess($this->store),
             $this->store,
             $this->dav,
             new ContactCard(),
-            new SharedGuard($this->createMock(IUserManager::class)),
+            new SharedGuard($this->users),
             $this->backup,
-            $this->system
+            $this->system,
+            $this->users,
+            $this->createMock(\OCP\Collaboration\Collaborators\ISearch::class),
+            $this->testPlanState()
         );
+    }
+
+    private function testPlanState(): \OCA\Mcp\Mcp\Confirmation\PlanState
+    {
+        $config = $this->createMock(\OCP\IConfig::class);
+        $config->method('getSystemValueString')->with('secret', '')->willReturn('contacts-test-secret');
+        return new \OCA\Mcp\Mcp\Confirmation\PlanState($config);
     }
 }

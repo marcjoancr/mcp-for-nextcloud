@@ -44,6 +44,7 @@ final class EmbeddedCardDavServer
         private \Closure $rateLimiter,
         private \Closure $validator,
         private \Closure $pluginManager,
+        private \Closure $sharingPlugin,
     )
     {
     }
@@ -71,6 +72,7 @@ final class EmbeddedCardDavServer
         $server->addPlugin(new LockPlugin());
         $server->addPlugin(new ExceptionLoggerPlugin('webdav', $logger));
         $server->addPlugin(new SyncPlugin());
+        $server->addPlugin(($this->sharingPlugin)());
         $server->addPlugin(new Plugin());
         $server->addPlugin(new VCFExportPlugin());
         $server->addPlugin(new MultiGetExportPlugin());

@@ -23,7 +23,8 @@ final class RecipientGeneratorTest extends TestCase {
             $before = require $directory . '/35.php';
             $pins = [];
             $classes = ['deck' => ['OCA\\Deck\\Db\\AclMapper', 'OCA\\Deck\\Service\\CirclesService'],
-                'circles' => ['OCA\\Circles\\CirclesManager', 'OCA\\Circles\\Model\\Member', 'OCA\\Circles\\Model\\Circle']];
+                'circles' => ['OCA\\Circles\\CirclesManager', 'OCA\\Circles\\Model\\Member', 'OCA\\Circles\\Model\\Circle',
+                    'OCA\\Circles\\Model\\Probes\\CircleProbe', 'OCA\\Circles\\Model\\Probes\\DataProbe']];
             foreach ($classes as $name => $entries) {
                 $archive = new \PharData($root . '/archives/' . $name . '-1.0.0.tar');
                 $archive->addFromString($name . '/appinfo/info.xml', '<info><version>1.0.0</version></info>');

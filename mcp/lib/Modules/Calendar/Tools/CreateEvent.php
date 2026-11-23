@@ -19,7 +19,7 @@ final class CreateEvent implements \OCA\Mcp\Mcp\Tools\WriteTool
             name: 'calendar_create_event',
             module: 'calendar',
             operation: 'create',
-            description: 'Creates a simple event (no recurrence) in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone\'s ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.',
+            description: 'Creates a simple event, optionally with a finite weekly or monthly recurrence in a writable calendar. Attendees are Nextcloud account IDs; call users_search first if you are not sure of someone\'s ID. This call may send invitations to other people. If the resource belongs to someone else, the agent MUST ask the user before sending confirm_shared: true. First returns a detailed plan without writing. Show it to the user and wait for explicit approval; then repeat the same arguments with confirm=true, adding the etag returned in the plan when it has one.',
             inputSchema: [
                 'type' => 'object',
                 'properties' => (object) [
@@ -46,6 +46,18 @@ final class CreateEvent implements \OCA\Mcp\Mcp\Tools\WriteTool
                         'maxItems' => 50,
                         'uniqueItems' => true,
                         'description' => 'Nextcloud account IDs (not emails); if you are not sure of someone\'s ID, call users_search first. Replaces the attendee list.',
+                    ],
+                    'recurrence' => [
+                        'type' => 'object',
+                        'description' => 'Optional finite recurrence. WEEKLY accepts byDay codes; MONTHLY repeats on the start day of month. until is inclusive, at most one year after start.',
+                        'properties' => [
+                            'frequency' => ['type' => 'string', 'enum' => ['WEEKLY', 'MONTHLY']],
+                            'interval' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 4, 'default' => 1],
+                            'byDay' => ['type' => 'array', 'items' => ['type' => 'string', 'enum' => ['MO','TU','WE','TH','FR','SA','SU']], 'minItems' => 1, 'maxItems' => 7, 'uniqueItems' => true],
+                            'until' => DavCollectionSchema::text('inclusive final civil date', 10, 10),
+                        ],
+                        'required' => ['frequency', 'until'],
+                        'additionalProperties' => false,
                     ],
                     'send_invitations' => [
                         'type' => 'boolean',
