@@ -120,6 +120,19 @@ export async function verifyFormsInstalled(directory, trustedDigest, sourceCommi
 }
 function run(command, args, cwd) { return execFileSync(command, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 16 * 1024 * 1024 }); }
 function archive(source, output, entries) { run('tar', ['--sort=name', '--mtime=@0', '--owner=0', '--group=0', '--numeric-owner', '--mode=u=rwX,go=rX', '-czf', output, '-C', source, '--', ...entries]); }
+/** Both Forms profiles pin MCP code used by the native group and sharing paths. */
+export async function assertFormsMcpSourcePins(repository, runtimeFiles) {
+  const guard = path.join(repository, 'native/forms-guard');
+  const groups = JSON.parse(await fs.readFile(path.join(guard, 'standalone/GroupSources.json'), 'utf8'));
+  const finalShares = JSON.parse(await fs.readFile(path.join(guard, 'src/Service/FinalShareSources.json'), 'utf8'));
+  for (const file of ['lib/AppInfo/Application.php', 'lib/Listener/GroupLifecycleListener.php']) {
+    const installed = 'custom_apps/mcp/' + file;
+    const sha = runtimeFiles[file]?.sha256;
+    if (!isDigest(sha) || groups.native?.[installed] !== sha || finalShares[installed] !== sha) {
+      throw new Error(`Forms source profile differs from packaged MCP: ${file}`);
+    }
+  }
+}
 async function assemble(repository, original, directory, expected) {
   await fs.mkdir(directory);const upstream = path.join(directory, 'upstream'), forms = path.join(directory, 'forms');await fs.mkdir(upstream);
   run('tar', ['-xzf', original, '-C', upstream]);run(process.execPath, ['native/forms-guard/prepare.mjs', path.join(upstream, 'forms'), forms], repository);
@@ -138,6 +151,7 @@ export async function prepareFormsNativeCompanion(root, kit, kitDigest, original
     await fs.copyFile(original, runtime);await fs.copyFile(preferred, source);await fs.copyFile(path.join(kit, 'source.bundle'), bundle);
     if (await hashFile(runtime) !== formsUpstreamPins.upstreamRuntimeSha256 || await hashFile(source) !== formsUpstreamPins.upstreamSourceSha256 || await hashFile(bundle) !== mcp.files['source.bundle']?.sha256) throw new Error('Frozen Forms build input integrity mismatch');
     const repository = path.join(stage, 'source');run('git', ['clone', '--quiet', '--no-checkout', bundle, repository]);run('git', ['checkout', '--quiet', '--detach', mcp.sourceCommit], repository);
+    await assertFormsMcpSourcePins(repository, mcp.runtimeFiles);
     const pinFile = path.join(repository, 'mcp/lib/Modules/Forms/Integration/FormsGuardIdentity.php');
     if (await hashFile(pinFile) !== mcp.runtimeFiles['lib/Modules/Forms/Integration/FormsGuardIdentity.php']?.sha256) throw new Error('Forms compiled identity differs between source and MCP kit');
     const expected = readFormsCompiledPin(await fs.readFile(pinFile, 'utf8'));
