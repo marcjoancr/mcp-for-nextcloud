@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/deck.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: e173f62b256704dec83ee7cbcff2adf5df4a988d -->
 <!-- translation-review: pending -->
 
 **Traducción pendiente de revisión humana:** consulta la [versión en inglés](../../../en/reference/tools/deck.md).
@@ -33,6 +33,8 @@ La regla de eliminar «solo si está vacío» no es atómica: Deck no consulta `
 ## Vencimientos
 
 Crear y editar tarjetas admite `duedate` como `YYYY-MM-DD` o `YYYY-MM-DDTHH:MM[:SS]`, con `Z` o desplazamiento numérico opcionales. Sin desplazamiento se usa la zona horaria de la cuenta; una fecha sin hora significa la medianoche local de ese día. Se rechazan horas locales explícitas que no existan por una transición de zona horaria. Si una hora se repite, se elige el primer instante salvo que el desplazamiento proporcionado resuelva la ambigüedad. Al guardar se convierte a UTC antes de llamar a Deck. Las respuestas conservan `duedate` por día, el estado vencido y `dueBefore`, y añaden `dueAt` con el desplazamiento de la cuenta. Las ediciones no relacionadas conservan el instante existente.
+
+Si la medianoche se repite, la confirmación muestra la zona horaria y el desplazamiento UTC. El 3 de noviembre de 2024 en `America/Havana`, `2024-11-03T00:00-04:00` y `2024-11-03T00:00-05:00` correspondían a instantes separados por una hora. Las fechas sin hora siguen las reglas del servidor para la medianoche local. El servidor aplica sus reglas de zona horaria para ajustar una medianoche que no existe.
 
 Las escrituras MCP anteriores afectadas pueden haber guardado el día equivocado. Revisa esas tarjetas frente a la fecha prevista y corrígelas explícitamente en Deck o con una nueva edición confirmada. No desplaces todos los vencimientos: los introducidos por otros clientes pueden ser correctos. No se reescriben automáticamente las fechas históricas.
 

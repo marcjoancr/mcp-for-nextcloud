@@ -3,7 +3,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/reference/tools/deck.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: e173f62b256704dec83ee7cbcff2adf5df4a988d -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../../en/reference/tools/deck.md).
@@ -36,6 +36,8 @@ A exclusão "somente quando vazia" não é atômica: o Deck não olha o `deleted
 ## Prazos
 
 Criar e editar cards aceita `duedate` como `YYYY-MM-DD` ou `YYYY-MM-DDTHH:MM[:SS]` com `Z` ou deslocamento numérico opcional. Entradas sem deslocamento usam o fuso da conta; somente a data significa meia-noite local daquele dia. Horários locais explícitos inexistentes por uma transição de fuso são recusados. Um horário repetido seleciona o primeiro instante, salvo se o deslocamento fornecido eliminar a ambiguidade. A persistência converte para UTC antes de chamar Deck. As respostas mantêm `duedate`, indicação de atraso e `dueBefore` baseados no dia e acrescentam `dueAt` com o deslocamento da conta. Edições não relacionadas preservam o instante existente.
+
+Quando a meia-noite se repete, a confirmação mostra o fuso horário e o deslocamento em relação ao UTC. Em 3 de novembro de 2024, em `America/Havana`, `2024-11-03T00:00-04:00` e `2024-11-03T00:00-05:00` correspondiam a instantes separados por uma hora. Datas sem horário seguem as regras do servidor para a meia-noite local. O servidor aplica as regras de fuso horário para ajustar uma meia-noite inexistente.
 
 Escritas MCP afetadas anteriormente podem ter armazenado o dia errado. Confira esses cards com a data pretendida e corrija-os explicitamente no Deck ou em uma nova edição confirmada. Não desloque todos os prazos existentes: datas inseridas por outros clientes podem estar corretas. Nenhuma data histórica é reescrita automaticamente.
 

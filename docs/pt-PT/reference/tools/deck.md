@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/deck.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: e173f62b256704dec83ee7cbcff2adf5df4a988d -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução ainda precisa de revisão humana. Consulte [English](../../../en/reference/tools/deck.md).
@@ -33,6 +33,8 @@ A exclusão "apenas quando vazia" não é atómica: o Deck não consulta o `dele
 ## Prazos
 
 A criação e a edição de cartões aceitam `duedate` como `YYYY-MM-DD` ou `YYYY-MM-DDTHH:MM[:SS]`, com `Z` ou desvio numérico opcionais. Sem desvio, usa-se o fuso horário da conta; uma data sem hora corresponde à meia-noite local desse dia. Horas locais explícitas inexistentes numa mudança de fuso horário são recusadas. Uma hora repetida seleciona o primeiro instante, salvo se o desvio fornecido resolver a ambiguidade. A persistência converte para UTC antes de chamar o Deck. As respostas mantêm `duedate` baseado no dia, a indicação de atraso e `dueBefore`, acrescentando `dueAt` com o desvio da conta. Edições não relacionadas preservam o instante existente.
+
+Quando a meia-noite se repete, a confirmação apresenta o fuso horário e o desvio em relação ao UTC. A 3 de novembro de 2024, em `America/Havana`, `2024-11-03T00:00-04:00` e `2024-11-03T00:00-05:00` correspondiam a instantes separados por uma hora. As datas sem hora seguem as regras do servidor para a meia-noite local. O servidor aplica as regras do fuso horário para ajustar uma meia-noite inexistente.
 
 Escritas MCP anteriores afetadas podem ter guardado o dia errado. Reveja esses cartões face à data pretendida e corrija-os explicitamente no Deck ou com uma nova edição confirmada. Não desloque todos os prazos existentes: datas introduzidas por outros clientes podem já estar corretas. Nenhuma data histórica é reescrita automaticamente.
 
