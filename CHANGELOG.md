@@ -2,6 +2,11 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.10.1
+
+- Rebuild the guarded Forms companion and group observer profile against the exact MCP source shipped with the groupware workflows.
+- Reject an incompatible Forms companion before packaging when its group or final sharing profile differs from the MCP package.
+
 ## 2.10.0
 
 - Expand Calendar with recurring events, invitation responses, availability and resource scheduling, appointment links and bookings, personal calendars, sharing, trash recovery, ICS exchange and event reminders.

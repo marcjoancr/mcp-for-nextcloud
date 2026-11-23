@@ -64,3 +64,22 @@ test('Forms preparation rejects a linked build root before reading any kit or wr
   await assert.rejects(m.prepareFormsNativeCompanion(repository,'must-not-be-read','bad','unused','unused',path.join(outside,'output')),/Forms build root/);
   assert.deepEqual(await fs.readdir(outside),[]);
 });
+
+test('Forms group and final sharing profiles bind to the exact MCP files in a release kit', async () => {
+  const m = await api();
+  const repository = path.resolve('..');
+  const application = 'lib/AppInfo/Application.php';
+  const groups = 'lib/Listener/GroupLifecycleListener.php';
+  const inventory = {
+    [application]: { sha256: await hashFile(path.join(repository, 'mcp', application)) },
+    [groups]: { sha256: await hashFile(path.join(repository, 'mcp', groups)) },
+  };
+
+  await assert.rejects(m.assertFormsMcpSourcePins(repository, {
+    ...inventory, [application]: { sha256: '0'.repeat(64) },
+  }), /Forms source profile differs.*Application\.php/);
+  await assert.rejects(m.assertFormsMcpSourcePins(repository, {
+    ...inventory, [groups]: undefined,
+  }), /Forms source profile differs.*GroupLifecycleListener\.php/);
+  await m.assertFormsMcpSourcePins(repository, inventory);
+});
