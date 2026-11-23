@@ -12,11 +12,13 @@ use PHPUnit\Framework\TestCase;
 /** A legacy comparison cannot hide changed grants when a new capability is added. */
 final class LegacyCatalogContractTest extends TestCase {
     public function testOnlyTheReviewedCatalogAdditionsAreAccepted(): void {
-        $baseline = ['files' => ['read', 'edit'], 'deck' => ['read', 'edit'], 'talk' => ['read', 'reply'], 'calendar' => ['read', 'create'], 'logs' => ['read']];
+        $baseline = ['files' => ['read', 'edit'], 'deck' => ['read', 'edit'], 'talk' => ['read', 'reply'], 'calendar' => ['read', 'create'], 'contacts' => ['read', 'create', 'edit', 'delete'], 'people' => ['read'], 'logs' => ['read']];
         $expected = $baseline;
         $expected['files'] = [...$expected['files'], 'description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link'];
         $expected['deck'] = [...$expected['deck'], 'read_comments', 'comment', 'search'];
-        $expected['calendar'] = [...$expected['calendar'], 'availability'];
+        $expected['calendar'] = [...$expected['calendar'], 'availability', 'share', 'restore'];
+        $expected['contacts'] = [...$expected['contacts'], 'share'];
+        $expected['people'] = [...$expected['people'], 'edit'];
         $expected['talk'] = [...$expected['talk'], 'publish_summary', 'search'];
         self::assertSame($baseline, LegacyCatalogContract::baseline($baseline, [...$expected, 'mail' => \OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['mail'], 'forms' => \OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['forms']]));
         foreach ([$baseline, ['files' => ['read'], 'logs' => ['read'], 'mail' => ['read']],
@@ -25,13 +27,24 @@ final class LegacyCatalogContractTest extends TestCase {
             try { LegacyCatalogContract::baseline($baseline, $current); self::fail('Changed catalog accepted'); }
             catch (\UnexpectedValueException) { self::assertTrue(true); }
         }
+        foreach ([
+            static function (array $current): array { unset($current['contacts'][array_key_last($current['contacts'])]); return $current; },
+            static function (array $current): array { $current['calendar'][] = 'write'; return $current; },
+            static function (array $current): array { unset($current['calendar'][array_key_last($current['calendar'])]); return $current; },
+            static function (array $current): array { $current['people'][] = 'admin'; return $current; },
+            static function (array $current): array { unset($current['people'][array_key_last($current['people'])]); return $current; },
+        ] as $mutate) {
+            $current = [...$expected, 'mail' => \OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['mail'], 'forms' => \OCA\Mcp\Access\Grants\GrantPolicy::CATALOG['forms']];
+            try { LegacyCatalogContract::baseline($baseline, $mutate($current)); self::fail('Unreviewed catalog operation accepted'); }
+            catch (\UnexpectedValueException) { self::assertTrue(true); }
+        }
         $this->expectException(\UnexpectedValueException::class);
         LegacyCatalogContract::baseline([...$baseline, 'mail' => ['read']], [...$baseline, 'mail' => ['read']]);
     }
 
     public function testOnlyExplicitlyDeniedNewOperationsAreRemovedAndAllOtherValuesSurvive(): void {
         $legacy = ['1' => ['globalEnabled' => true, 'users' => ['alice' => ['grants' => ['files' => ['read' => false]]]],
-            'matrix' => ['alice' => ['eligible' => true, 'connected' => false, 'grants' => ['files' => ['read' => false], 'deck' => ['read' => true], 'talk' => ['read' => true], 'calendar' => ['read' => true]]]]]];
+            'matrix' => ['alice' => ['eligible' => true, 'connected' => false, 'grants' => ['files' => ['read' => false], 'deck' => ['read' => true], 'talk' => ['read' => true], 'calendar' => ['read' => true], 'contacts' => ['read' => false], 'people' => ['read' => false]]]]]];
         $branch = $legacy;
         $files = ['description_read', 'description_edit', 'tags_read', 'tags_create', 'tags_edit', 'upload_link'];
         $branch['1']['matrix']['alice']['grants']['files'] += array_fill_keys($files, false);
@@ -40,6 +53,9 @@ final class LegacyCatalogContractTest extends TestCase {
         $branch['1']['matrix']['alice']['grants']['talk'] += ['publish_summary' => false, 'search' => false];
         $branch['1']['matrix']['alice']['grants']['deck'] += ['read_comments' => false, 'comment' => false, 'search' => false];
         $branch['1']['matrix']['alice']['grants']['calendar'] += ['availability' => false];
+        $branch['1']['matrix']['alice']['grants']['contacts'] = ['read' => false, 'share' => false];
+        $branch['1']['matrix']['alice']['grants']['calendar'] += ['share' => false, 'restore' => false];
+        $branch['1']['matrix']['alice']['grants']['people'] = ['read' => false, 'edit' => false];
         self::assertSame($legacy, LegacyCatalogContract::answers($branch));
         foreach ([['forms', 'summarize_responses'], ['forms', 'export_responses'], ['deck', 'search'], ['calendar', 'availability']] as [$module, $operation]) {
             $unsafe = $branch;
@@ -57,6 +73,20 @@ final class LegacyCatalogContractTest extends TestCase {
                 }
                 try { LegacyCatalogContract::answers($unsafe); self::fail("Unsafe Files $operation accepted"); }
                 catch (\UnexpectedValueException) { self::assertTrue(true); }
+            }
+        }
+        foreach (['contacts' => ['share'], 'calendar' => ['share', 'restore'], 'people' => ['edit']] as $module => $operations) {
+            foreach ($operations as $operation) {
+                foreach ([true, 0, null] as $invalid) {
+                    $unsafe = $branch;
+                    if ($invalid === null) {
+                        unset($unsafe['1']['matrix']['alice']['grants'][$module][$operation]);
+                    } else {
+                        $unsafe['1']['matrix']['alice']['grants'][$module][$operation] = $invalid;
+                    }
+                    try { LegacyCatalogContract::answers($unsafe); self::fail("Unsafe $module.$operation accepted"); }
+                    catch (\UnexpectedValueException) { self::assertTrue(true); }
+                }
             }
         }
         self::assertArrayHasKey('mail', $branch['1']['matrix']['alice']['grants'], 'The input must not be modified');
