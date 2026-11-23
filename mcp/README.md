@@ -4,13 +4,13 @@
 
 # Nextcloud MCP
 
-**Your Nextcloud, in the conversation.** Search files, work with notes, calendars, contacts and tasks, manage Deck cards and catch up on Talk from an MCP client. Mail reads owned messages and attachments and manages local unsent drafts without sending; Forms manages forms, questions, sharing, responses, files and complete exports through a qualified native extension; legacy page reads and CSV exports retain their contracts. Authorized operators can inspect server logs.
+**Your Nextcloud, in the conversation.** Search files, work with notes, calendars, contacts and tasks, manage Deck cards and catch up on Talk from an MCP client. Mail reads owned messages and attachments, manages local drafts and supports separately qualified delivery with explicit operator and user permissions; Forms manages forms, questions, sharing, responses, files and complete exports through a qualified native extension; legacy page reads and CSV exports retain their contracts. Authorized operators can inspect server logs.
 
 **English** · [Español](README.es.md) · [Català](README.ca.md) · [Português (Brasil)](README.pt-BR.md) · [Português (Portugal)](README.pt-PT.md)
 
 ## Get started
 
-Requires **Nextcloud 33–35** and **PHP 8.4+**. This independently maintained fork of [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declares version **2.9.0** and retains app ID `mcp`. The Nextcloud App Store edition is the original project; use this fork's reviewed package for installation or replacement.
+Requires **Nextcloud 33–35** and **PHP 8.4+**. This independently maintained fork of [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declares version **2.9.3** and retains app ID `mcp`. The Nextcloud App Store edition is the original project; use this fork's reviewed package for installation or replacement.
 
 1. [Install the application](../docs/en/installation.md).
 2. [Enable the service, user eligibility and personal connection](../docs/en/guides/permissions.md#enable-access).
@@ -19,7 +19,7 @@ Requires **Nextcloud 33–35** and **PHP 8.4+**. This independently maintained f
 
 ## Access stays under your control
 
-The catalogs cover eleven modules plus guide and status tools. Discovery filters them by installed native capabilities, tool assignments and connection selections. Native Nextcloud permissions apply on every request. Administrators can narrow access to selected folders, calendars and task lists and exclude tagged files. Write tools return a preview unless explicitly confirmed; the assistant must obtain the user's approval. General Files tools do not delete files. Confirmed Forms cleanup is limited to its managed files and retains recovery evidence. Mail, Forms and log tools require explicit grants. Mail drafts, attachment saving and all Forms writes require confirmation; logs remain read-only and Mail never sends messages.
+The catalogs cover eleven modules plus guide and status tools. Discovery filters them by installed native capabilities, tool assignments and connection selections. Native Nextcloud permissions apply on every request. Administrators can narrow access to selected folders, calendars and task lists and exclude tagged files. Write tools return a preview unless explicitly confirmed; the assistant must obtain the user's approval. General Files tools do not delete files. Confirmed Forms cleanup is limited to its managed files and retains recovery evidence. Mail, Forms and log tools require explicit grants. Mail drafts, attachment saving and all Forms writes require confirmation; logs remain read-only. Mail draft operations never send; transmission requires its separate qualified native workflow, explicit permissions and operator switch.
 
 Tool results are sent to the chosen AI client and are subject to its processing and retention policies.
 

@@ -24,7 +24,7 @@ A completed visible scan with no matching category adds a note explaining the
 literal filter and whether completed tasks were searched; an empty page caused
 only by offset does not. Hidden categories and task existence are never enumerated.
 
-There is no migration, approval_id, approval record, occ requirement, extra service or auxiliary database. Descriptions/ToolGuideNotes stay in English; titles and messages use Translator with de/pt_BR/es parity. Tests cover plans, backup, ACL, grants, ETag, preservation and real Sabre dispatch; they do not prove the internal plugins on a real Nextcloud installation.
+There is no migration, approval_id, approval record, occ requirement, extra service or auxiliary database. Descriptions/ToolGuideNotes stay in English; titles and messages use Translator with ca/de/pt_BR/es parity. Tests cover plans, backup, ACL, grants, ETag, preservation and real Sabre dispatch; they do not prove the internal plugins on a real Nextcloud installation.
 
 [Operational guides](../../guides/README.md).
 

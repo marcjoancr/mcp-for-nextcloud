@@ -5,7 +5,7 @@
 
 English is the canonical source. Operational documentation supports Spanish (`es`),
 Catalan (`ca`), Brazilian Portuguese (`pt-BR`) and European Portuguese (`pt-PT`).
-UI catalogs remain independent: English source text plus `de`, `es` and `pt_BR`.
+UI catalogs remain independent: English source text plus `ca`, `de`, `es` and `pt_BR`.
 German UI support does not create a German documentation tree. The German catalog
 and its rendering in the administration interface still require human review.
 
@@ -70,7 +70,7 @@ adapting Brazilian spelling alone does not establish European Portuguese review.
 
 Every registered tool needs a literal English title in
 `mcp/lib/Mcp/Tools/Discovery/ToolPresentation.php` and matching entries in each
-shipped UI catalog (`es`, `pt_BR`, `de`), in both JSON and JavaScript. Technical
+shipped UI catalog (`ca`, `es`, `pt_BR`, `de`), in both JSON and JavaScript. Technical
 tool names and permissions remain unchanged. The humanized-name fallback is for
 unknown tools; it does not translate a registered tool whose title is missing.
 
@@ -95,3 +95,11 @@ English tool descriptions and parameter schemas sent to the model are a separate
 contract; the model is instructed to explain them in the user's language. A
 passing coverage check verifies lookup and catalog consistency, not human review
 of the wording.
+
+The initial Catalan catalog covers every source key, with two plural forms. It
+was prepared from the Spanish catalog using the Apertium Spanish–Catalan IEC 2017
+linguistic data, followed by technical terminology and tool-title review. Keep
+interpolation fields, protocol identifiers and code examples unchanged. Automated
+key/placeholder checks do not replace the pending human linguistic review.
+Catalan operational documentation remains explicitly marked as pending review;
+contributor-only documentation may remain in English.

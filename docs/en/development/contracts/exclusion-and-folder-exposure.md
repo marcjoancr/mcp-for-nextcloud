@@ -40,7 +40,7 @@ activation stage. The filter has no HTTP client. Local/foreign Nextcloud-shaped
 URLs, aliases, public folder links, Calendar file-ID/filename parameters and nested
 alarms retain their explicit filter contracts; ordinary external URLs and free
 text are not a general data-loss-prevention service. Runtime catalogs include
-de/es/pt_BR with English source fallback.
+ca/de/es/pt_BR with English source fallback.
 
 ## Backup-origin visibility
 
