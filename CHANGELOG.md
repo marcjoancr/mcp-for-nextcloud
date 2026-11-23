@@ -2,6 +2,14 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.10.0
+
+- Expand Calendar with recurring events, invitation responses, availability and resource scheduling, appointment links and bookings, personal calendars, sharing, trash recovery, ICS exchange and event reminders.
+- Expand Contacts with address-book sharing, transfers, category changes, duplicate merging and VCF reconciliation with verified backups.
+- Add People identity resolution, team discovery, profile filtering and confirmed membership changes through Nextcloud Circles.
+- Document the new workflows in all five documentation languages and verify tool titles in every shipped interface catalog. Translated references remain pending human review.
+- Use historical time-zone transitions in the Deck deadline tests to cover skipped and repeated midnight.
+
 ## 2.9.4
 
 - Add the complete Catalan UI catalog, including all tool titles, plural forms and confirmation messages; refresh the Catalan operational documentation and Mail reference. The initial assisted Catalan translation remains pending human linguistic review.
