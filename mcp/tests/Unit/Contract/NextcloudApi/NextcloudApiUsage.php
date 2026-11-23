@@ -60,7 +60,7 @@ final class NextcloudApiUsage {
      */
     public const OUTSIDE_FIXTURES = [
         'guests' => ['OCA\\Guests\\AppWhitelist', 'OCA\\Guests\\Config', 'OCA\\Guests\\GuestManager', 'OCA\\Guests\\RestrictionManager'],
-        // Calendar is independently pinned, not part of the server tree; AppointmentGateway admits only 6.6.2 and 6.6.3.
+        // Calendar is pinned separately from the server tree. AppointmentGateway lists the qualified releases.
         'calendar' => ['OCA\\Calendar\\Service\\Appointments\\AppointmentConfigService'],
     ];
 

@@ -361,6 +361,15 @@ unpack_release_app() {
     docker exec -u www-data "$NC" tar -xzf "/mcp-it-tools/$app.tar.gz" -C /var/www/html/custom_apps
 }
 
+provision_calendar() {
+    unpack_release_app calendar calendar "$CAL_TAG" "$CAL_SHA"
+    docker exec -u www-data "$NC" php /mcp-it-src/mcp/tests/Integration/ci/check-app-manifest.php \
+        /var/www/html/custom_apps/calendar/appinfo/info.xml calendar "$MCP_IT_NC" "${CAL_TAG#v}"
+    occ app:enable calendar
+    actual=$(occ config:app:get calendar installed_version)
+    [ "$actual" = "${CAL_TAG#v}" ] || { echo "Unexpected installed Calendar $actual" >&2; return 1; }
+}
+
 # Verify Contacts identity, installed version and declared Nextcloud bounds before enabling it.
 provision_contacts() {
     unpack_release_app contacts contacts "$CONTACTS_TAG" "$CONTACTS_SHA"
@@ -382,7 +391,7 @@ provision_deck() {
 }
 
 # Release pinned per Nextcloud major: groupfolders, Talk and Notes each have one build per supported major. The Calendar
-# release below declares min-version 32 and max-version 35, so one build serves every major this matrix covers.
+# pins cover Nextcloud 32 through 35. The Nextcloud 35 cells exercise Calendar 6.6.4.
 # Contacts 8.3.21 supports NC32/33; Contacts 8.9.2 supports NC33–36 (release appinfo/info.xml).
 pin_releases() {
     case "$MCP_IT_NC" in
@@ -415,7 +424,7 @@ pin_releases() {
             GF_TAG=v23.0.1; GF_SHA=3949e6a45947188090c170c6983aae11a1d66134ec317ffe7b7609062f3aecf3
             TALK_TAG=v25.0.6; TALK_SHA=2b3e3eae42d9bf8ba8da2ab244d16347a3cfacbb8bff346bd99cf32cd6f9c65e
             NOTES_TAG=v6.0.2; NOTES_SHA=da362fb5a574b45cc0e10f4ea7f81547cc3dd10bf916f9d9b590358c1ed8e101
-            CAL_TAG=v6.6.2; CAL_SHA=7e83632d4436d3037a34d1c73cbc06d5ccb6e8fc10f096a86a43a0515588529c
+            CAL_TAG=v6.6.4; CAL_SHA=0557b6b5852a467cf3f746e59d56478d227f78bf7a66357b30dfc10cae4c7e3c
             CONTACTS_TAG=v8.9.2; CONTACTS_SHA=92f7c79c411273045ed6346f6988c05af673c3170a3adaba91a15066b8dce7c5
             ;;
         *)
@@ -476,7 +485,7 @@ cmd_provision() {
             files_external) step=provision_files_external ;;
             talk) step="install_release_app spreed spreed $TALK_TAG $TALK_SHA" ;;
             notes) step="install_release_app notes notes $NOTES_TAG $NOTES_SHA" ;;
-            calendar) step="install_release_app calendar calendar $CAL_TAG $CAL_SHA" ;;
+            calendar) step=provision_calendar ;;
             contacts) step=provision_contacts ;;
             tasks) step="install_release_app tasks tasks v0.18.1 0c988d50531c9bfa246e6c31f3f95369adde1629ba70d15194915ab56e24687b https://github.com/nextcloud/tasks/releases/download/v0.18.1/tasks.tar.gz" ;;
             deck) step=provision_deck ;;
@@ -529,6 +538,8 @@ cmd_report() {
     installed=$(occ config:app:get mcp installed_version)
     expected=$(cat "$WORK/expected-version")
     pin_releases
+    calendar=$(occ config:app:get calendar installed_version)
+    [ "$calendar" = "${CAL_TAG#v}" ] || { echo "Unexpected installed Calendar $calendar" >&2; return 1; }
     contacts="$(occ config:app:get contacts installed_version) (expected ${CONTACTS_TAG#v}; archive sha256 $CONTACTS_SHA)"
     fence='```'
     report="$ARTIFACTS/runtime.md"
@@ -541,6 +552,7 @@ Database: $database
 $php_version
 $status
 mcp installed_version: $installed (expected $expected)
+Calendar: $calendar (expected ${CAL_TAG#v}; archive sha256 $CAL_SHA)
 Contacts: $contacts
 Deck: $(occ config:app:get deck installed_version) (expected ${DECK_TAG#v}; archive sha256 $DECK_SHA)
 $fence

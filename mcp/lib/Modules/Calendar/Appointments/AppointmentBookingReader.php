@@ -12,7 +12,7 @@ use OCA\Mcp\Modules\Calendar\Events\EventDates;
 use OCP\DB\QueryBuilder\IQueryBuilder;
 use OCP\IDBConnection;
 
-/** Read-only projection of the stores of the two Calendar releases admitted by AppointmentGateway. */
+/** Read-only projection of the booking stores of Calendar releases admitted by AppointmentGateway. */
 final class AppointmentBookingReader {
     public function __construct(
         private AppointmentGateway $gateway,

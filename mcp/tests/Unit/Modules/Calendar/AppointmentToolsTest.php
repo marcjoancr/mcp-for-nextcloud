@@ -7,9 +7,11 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Tests\Unit\Modules\Calendar;
 
+use OCA\Mcp\Modules\Calendar\Appointments\AppointmentGateway;
 use OCA\Mcp\Modules\Calendar\Appointments\AppointmentPlanRenderer;
 use OCA\Mcp\Modules\Calendar\Tools\CreateAppointmentConfig;
 use OCA\Mcp\Modules\Calendar\Tools\DeleteAppointmentConfig;
+use OCA\Mcp\Modules\Calendar\Tools\ListAppointmentBookings;
 use OCA\Mcp\Modules\Calendar\Tools\ListAppointmentConfigs;
 use OCA\Mcp\Modules\Calendar\Tools\UpdateAppointmentConfig;
 use OCA\Mcp\Mcp\Tools\Validation\ArgumentValidator;
@@ -21,11 +23,12 @@ final class AppointmentToolsTest extends TestCase
     {
         $definitions = [
             ListAppointmentConfigs::definition(),
+            ListAppointmentBookings::definition(),
             CreateAppointmentConfig::definition(),
             UpdateAppointmentConfig::definition(),
             DeleteAppointmentConfig::definition(),
         ];
-        self::assertSame(['calendar_list_appointments', 'calendar_create_appointment', 'calendar_update_appointment', 'calendar_delete_appointment'], array_map(static fn($definition) => $definition->name, $definitions));
+        self::assertSame(['calendar_list_appointments', 'calendar_list_appointment_bookings', 'calendar_create_appointment', 'calendar_update_appointment', 'calendar_delete_appointment'], array_map(static fn($definition) => $definition->name, $definitions));
         foreach ($definitions as $definition) { self::assertSame('calendar', $definition->app); }
         self::assertFalse(CreateAppointmentConfig::definition()->inputSchema['properties']['visibility']['default'] === 'PUBLIC');
         self::assertSame('PRIVATE', CreateAppointmentConfig::definition()->inputSchema['properties']['visibility']['default']);
@@ -35,11 +38,18 @@ final class AppointmentToolsTest extends TestCase
         self::assertSame('edit', UpdateAppointmentConfig::definition()->operation);
         self::assertTrue(DeleteAppointmentConfig::definition()->destructiveHint);
         self::assertFalse($definitions[0]->destructiveHint ?? false);
-        self::assertTrue(\OCA\Mcp\Modules\Calendar\Appointments\AppointmentGateway::supportsVersion('6.6.2'));
-        self::assertTrue(\OCA\Mcp\Modules\Calendar\Appointments\AppointmentGateway::supportsVersion('6.6.3'));
-        self::assertFalse(\OCA\Mcp\Modules\Calendar\Appointments\AppointmentGateway::supportsVersion('6.6.1'));
-        self::assertFalse(\OCA\Mcp\Modules\Calendar\Appointments\AppointmentGateway::supportsVersion('6.6.4'));
-        self::assertFalse(\OCA\Mcp\Modules\Calendar\Appointments\AppointmentGateway::supportsVersion('6.7.0'));
+        self::assertFalse(ListAppointmentBookings::definition()->destructiveHint ?? false);
+    }
+
+    public function testAppointmentCompatibilityIsLimitedToQualifiedReleases(): void
+    {
+        self::assertTrue(AppointmentGateway::supportsVersion('6.6.2'));
+        self::assertTrue(AppointmentGateway::supportsVersion('6.6.3'));
+        self::assertFalse(AppointmentGateway::supportsVersion('6.6.1'));
+        self::assertTrue(AppointmentGateway::supportsVersion('6.6.4'));
+        self::assertFalse(AppointmentGateway::supportsVersion('6.6.4-rc.1'));
+        self::assertFalse(AppointmentGateway::supportsVersion('6.6.5'));
+        self::assertFalse(AppointmentGateway::supportsVersion('6.7.0'));
     }
 
     public function testCreateInputSchemaValidatesTheNativeWeeklyAvailabilityShape(): void

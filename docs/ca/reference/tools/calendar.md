@@ -57,7 +57,7 @@ Fes servir `calendar_list_resources` per descobrir les sales i els equips que te
 
 Fes servir `calendar_list_appointments` per trobar configuracions de reserva als teus calendaris visibles. Crea, edita o retira una configuració amb `calendar_create_appointment`, `calendar_update_appointment` i `calendar_delete_appointment`. Revisa la zona horària, l'horari setmanal, la durada de les cites, el període de reserva i la visibilitat. Les franges setmanals fan servir l'hora local HH:mm; les durades i els marges són en minuts, i l'horitzó de reserva és en dies. Repeteix l'escriptura aprovada amb el `plan_state` del pla.
 
-La visibilitat privada manté l'enllaç fora del perfil públic, però qualsevol persona que tingui l'URL pot reservar. La visibilitat pública també el mostra al perfil. En eliminar la configuració, es retira l'enllaç. Calendar 6.6.2 i 6.6.3 ofereixen aquestes eines quan l'administrador les concedeix i la connexió les selecciona.
+La visibilitat privada manté l'enllaç fora del perfil públic, però qualsevol persona que tingui l'URL pot reservar. La visibilitat pública també el mostra al perfil. En eliminar la configuració, es retira l'enllaç. Calendar 6.6.2, 6.6.3 i 6.6.4 ofereixen aquestes eines quan l'administrador les concedeix i la connexió les selecciona.
 
 ## Invitacions, recuperació i intercanvi
 
@@ -65,7 +65,7 @@ La visibilitat privada manté l'enllaç fora del perfil públic, però qualsevol
 - Fes servir `calendar_list_trashed_events` per trobar l'ID d'un esdeveniment suprimit i `calendar_restore_trashed_event` per restaurar-lo al calendari original. La recuperació depèn de la retenció i de l'abast dels calendaris propis. La restauració nativa conserva les dades sense enviar invitacions.
 - `calendar_create_calendar` crea un calendari personal quan l'abast de calendaris no està restringit. `calendar_list_calendar_shares` i `calendar_share_calendar` llisten i gestionen l'accés directe de comptes locals als calendaris propis: lectura, escriptura o retirada.
 - `calendar_import_ics` llegeix un document visible a Files i copia fins a 100 esdeveniments o 1 MiB en un calendari propi. La vista prèvia identifica duplicats i conflictes. La importació omet organitzadors, participants, alarmes i adjunts. `calendar_export_ics` retorna un document iCalendar dels UID seleccionats d'un calendari, incloses les excepcions de sèrie completament visibles.
-- `calendar_list_appointment_bookings` llista les reserves pendents i confirmades dels enllaços visibles de Calendar 6.6.2 o 6.6.3. Filtra per data i, opcionalment, per configuració. El resultat inclou el nom de la persona i la franja, i manté privats el correu i els tokens de confirmació.
+- `calendar_list_appointment_bookings` llista les reserves pendents i confirmades dels enllaços visibles de Calendar 6.6.2, 6.6.3 o 6.6.4. Filtra per data i, opcionalment, per configuració. El resultat inclou el nom de la persona i la franja, i manté privats el correu i els tokens de confirmació.
 - `calendar_set_event_reminders` substitueix les alarmes de visualització relatives a l'inici d'un esdeveniment o sèrie. Indica de zero a cinc antelacions en minuts. Es conserven les alarmes personalitzades, de correu, absolutes, repetides i específiques d'ocurrències.
 
 Les escriptures d'aquests fluxos requereixen `confirm: true` i el `plan_state` de la vista prèvia.
