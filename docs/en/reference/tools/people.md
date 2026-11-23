@@ -14,10 +14,13 @@ See the live `mcp_guide` for the authoritative schema and available operations.
 
 ## Resolving people and teams
 
-Use `users_resolve` for a batch of names, email addresses or account IDs. The result separates native exact matches from suggestions and marks ambiguous or incomplete results. Profile fields follow Nextcloud visibility.
+Use `users_search` to discover accounts or groups. Use `users_resolve` when you
+already have a batch of names, email addresses or account IDs. The result
+separates exact matches from suggestions and flags ambiguous or incomplete
+results. Ask the user to choose when more than one account matches, then use that
+account's UID. Profile fields follow Nextcloud visibility.
 
 `users_list_teams` and `users_list_team_members` require Circles. Team membership is read as the signed-in user. The result distinguishes local accounts and other member types. Use a local member's UID when inviting them to an event.
-
 
 [Operational guides](../../guides/README.md).
 

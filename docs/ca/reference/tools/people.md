@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/people.md -->
-<!-- translation-source-revision: c5ff622fac628b942d9945fe50aa21a4b7a49262 -->
+<!-- translation-source-revision: 43eaec06ad2748a8e6f546fbe8ebf9cd04ba8f52 -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../../en/reference/tools/people.md).
@@ -21,7 +21,7 @@ Consulta `mcp_guide` per obtenir l'esquema autoritatiu i les operacions disponib
 
 ## Resolució de persones i equips
 
-Fes servir `users_resolve` per consultar lots de noms, adreces electròniques o identificadors de compte. El resultat separa les coincidències exactes natives dels suggeriments i marca els casos ambigus o incomplets. Els camps del perfil segueixen la visibilitat de Nextcloud.
+Fes servir `users_search` per cercar comptes o grups. Fes servir `users_resolve` si ja tens una llista de noms, adreces electròniques o identificadors de compte. El resultat separa les coincidències exactes dels suggeriments i indica els casos ambigus o incomplets. Si hi ha més d’un compte que coincideix, demana a l’usuari que en triï un i fes servir l’UID d’aquell compte. Els camps del perfil respecten la visibilitat de Nextcloud.
 
 `users_list_teams` i `users_list_team_members` requereixen Circles. La pertinença als equips es consulta com a usuari connectat. El resultat diferencia els comptes locals dels altres tipus de membre. Fes servir l'UID d'un membre local per convidar-lo a un esdeveniment.
 

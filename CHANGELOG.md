@@ -2,6 +2,11 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.10.3
+
+- Update the People, Calendar and Contacts references in five documentation languages. Clarify permissions for appointment tools, contact card workflows and resolving accounts.
+- Improve 28 localized tool titles and verify all 55 groupware titles across the four shipped UI locales.
+
 ## 2.10.2
 
 - Qualify all five appointment tools on Calendar 6.6.4 and pin the official archive in the Nextcloud 35 integration matrix.

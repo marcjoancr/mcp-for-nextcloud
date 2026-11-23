@@ -3,7 +3,7 @@
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 
 <!-- translation-source: docs/en/reference/tools/contacts.md -->
-<!-- translation-source-revision: c5ff622fac628b942d9945fe50aa21a4b7a49262 -->
+<!-- translation-source-revision: 43eaec06ad2748a8e6f546fbe8ebf9cd04ba8f52 -->
 <!-- translation-review: pending -->
 
 > **Revisão humana pendente:** esta tradução aguarda revisão humana. Consulte [English](../../../en/reference/tools/contacts.md).
@@ -19,6 +19,13 @@
 Consulte `mcp_guide` para o esquema e as operações disponíveis.
 
 [Guias de operação](../../guides/README.md).
+
+## Buscar e manter fichas de contato
+
+- Use `contacts_list_addressbooks` para localizar os catálogos pessoais e compartilhados e, quando a administração o disponibilizar, o diretório de contas de somente leitura.
+- Pesquise com `contacts_search_contacts` e consulte a ficha escolhida com `contacts_read_contact`. Se precisar de uma conta do Nextcloud para um convite, use o `accountId` retornado quando estiver disponível.
+- Use `contacts_create_contact` para adicionar uma ficha ou `contacts_edit_contact` para alterá-la em um catálogo com permissão de gravação. `contacts_delete_contact` verifica um backup vCard antes de excluir a ficha e retorna o caminho do backup.
+- Revise a prévia e confirme a mesma alteração. Para editar ou excluir uma ficha, inclua o ETag do plano. Se o catálogo for compartilhado, confirme também a alteração no catálogo compartilhado com `confirm_shared: true`.
 
 ## Grupos, catálogos e vCard
 
