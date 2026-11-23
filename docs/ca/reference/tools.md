@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools.md -->
-<!-- translation-source-revision: c2cf0556c42976efdfa0f9ba3514f2ce70f5884d -->
+<!-- translation-source-revision: cc797180127431209c35634b3f30b65bb379504d -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../en/reference/tools.md).
@@ -34,7 +34,7 @@ A més:
 - **Títols d'eina entenedors** al client («Cerca fitxers», «Llista calendaris») i anotacions MCP (`readOnlyHint`, `destructiveHint`) perquè els clients puguin demanar confirmació abans d'accions arriscades.
 - **Confirmacions de seguretat** per als recursos d'altres persones: carpetes compartides, carpetes d'equip, taulers Deck i calendaris d'altres persones. El servidor rebutja la primera crida i retorna un missatge preparat; l'assistent ha de demanar autorització a l'usuari abans de repetir-la amb `confirm_shared: true`. *(Deck i Calendar des de la versió 0.6.6; Files i Notes des de la 0.7.0.)*
 - **Respecte per les aplicacions opcionals**: s'amaguen les eines i les columnes de la matriu d'administració de les aplicacions desactivades (per a tothom o per a un usuari concret).
-- **Interfície localitzada**: la matriu d'administració, la pàgina personal, la pantalla de consentiment i tots els missatges que mostra una eina segueixen l'idioma del compte Nextcloud. Es cobreixen tots els mòduls (Files, Notes, Calendar, Contacts, Tasks, Deck, Talk, els missatges compartits, les pàgines de checkout i l'autoprova de Calendar). S'inclouen el text font anglès i catàlegs d'interfície alemany, portuguès brasiler i castellà. Alguns missatges nous encara necessiten revisió lingüística humana, inclosa la interfície alemanya d'administració renderitzada. La documentació operativa també conserva esborranys en català i portuguès europeu amb la seva procedència pendent; les descripcions de les eines continuen en anglès perquè les llegeix el model.
+- **Interfície localitzada**: la matriu d'administració, la pàgina personal, la pantalla de consentiment i tots els missatges que mostra una eina segueixen l'idioma del compte Nextcloud. Es cobreixen tots els mòduls (Files, Notes, Calendar, Contacts, Tasks, Deck, Talk, els missatges compartits, les pàgines de checkout i l'autoprova de Calendar). S'inclouen el text font anglès i catàlegs d'interfície català, alemany, portuguès brasiler i castellà. Alguns missatges nous encara necessiten revisió lingüística humana, inclosa la interfície alemanya d'administració renderitzada. La documentació operativa també conserva esborranys en català i portuguès europeu amb la seva procedència pendent; les descripcions de les eines continuen en anglès perquè les llegeix el model.
 - **Dues versions de MCP**: MCP sense estat `2026-07-28` (`server/discover`) i el flux clàssic `initialize` (`2025-06-18` i versions anteriors) al mateix punt d'accés.
 
 - [Fitxers](tools/files.md)

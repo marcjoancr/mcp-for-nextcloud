@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/files.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: cc797180127431209c35634b3f30b65bb379504d -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../../en/reference/tools/files.md).
@@ -12,6 +12,8 @@
 | Mòdul | Lectura | Escriptura |
 | --- | --- | --- |
 | **Files** | llista i cerca per nom o contingut amb fragments mitjançant fulltextsearch; cerca imatges per etiqueta/data, visualitza imatges i previsualitzacions per lots (JPEG, PNG, WebP, GIF, TIFF, PDF), llegeix text (TXT/MD, PDF, DOCX, ODT; una imatge escanejada sense text retorna `text_layer: false` i, si s'activa l'aplicació opcional Workflow OCR, n'obté el text en segon pla), llista i llegeix versions de fitxers | edita text amb diferències i substitució parcial, amb còpies prèvies verificades actives per defecte a la carpeta de còpies configurada (l'administrador les pot suspendre quan Versions està disponible); restaura una versió desada; envia qualsevol fitxer (DOCX, XLSX, PDF, imatges, fins al límit de pujada) a un agent amb shell mitjançant un enllaç d'un sol ús; reorganitza carpetes: explora l'arbre, crea carpetes, copia, mou, mou lots i els desfà. **Mai no suprimeix el fitxer.** També llista els elements compartits que has creat, permet compartir un fitxer o una carpeta propis amb una persona, un grup o amb un enllaç públic (amb contrasenya generada si es demana), i retira l'ús compartit —cosa que revoca l'accés, no el fitxer. |
+
+La creació de fitxers nous (`files_create`, l'emissió d'enllaços de pujada i els adjunts entrants de Mail) requereix un procés web amb el bloqueig de fitxers predeterminat de Nextcloud basat en la base de dades. L'escriptor adquireix un bloqueig exclusiu de la carpeta pare per comprovar col·lisions i crear explícitament el fitxer buit, també amb S3 primari. El bloqueig desactivat, APCu/Redis, el mode de depuració, els camins exclosos i l'execució CLI no estan qualificats i es rebutgen abans de la previsualització o d'emetre l'enllaç. Les eines de lectura i edició existents conserven les seves pròpies comprovacions.
 
 | Eina | Permís | Detalls |
 | --- | --- | --- |

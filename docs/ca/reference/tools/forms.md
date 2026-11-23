@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/forms.md -->
-<!-- translation-source-revision: ad44b6fd690c2e0063884da06ef5e1117cec64b6 -->
+<!-- translation-source-revision: cc797180127431209c35634b3f30b65bb379504d -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** consulta la [versió en anglès](../../../en/reference/tools/forms.md).

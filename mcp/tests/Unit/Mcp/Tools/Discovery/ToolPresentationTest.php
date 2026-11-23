@@ -98,7 +98,7 @@ final class ToolPresentationTest extends TestCase {
     public function testEveryCatalogToolHasATranslatedTitleInEveryShippedLocale(): void {
         $catalogs = glob(__DIR__ . '/../../../../../lib/Modules/*/*ToolCatalog.php');
         self::assertNotEmpty($catalogs);
-        foreach (['es', 'pt_BR', 'de'] as $locale) {
+        foreach (['ca', 'es', 'pt_BR', 'de'] as $locale) {
             $missing = [];
             $translations = json_decode((string)file_get_contents(__DIR__ . '/../../../../../l10n/' . $locale . '.json'), true, 512, JSON_THROW_ON_ERROR)['translations'];
             foreach ($catalogs as $file) {

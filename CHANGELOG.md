@@ -34,6 +34,8 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+- Add the complete Catalan UI catalog, including all tool titles, plural forms and confirmation messages; refresh the Catalan operational documentation and Mail reference.
+
 - Translate the Forms submission-form and single-own-response tool titles in Spanish, Brazilian Portuguese and German.
 - Check every registered module's tool titles against all shipped UI catalogs to prevent untranslated technical-name fallbacks.
 

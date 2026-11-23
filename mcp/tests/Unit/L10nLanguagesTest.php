@@ -47,7 +47,7 @@ final class L10nLanguagesTest extends TestCase {
         $this->assertNotEmpty($files, 'the app ships at least one language');
         $languages = array_map(static fn (string $file): string => basename($file, '.json'), $files);
         sort($languages);
-        $this->assertSame(['de', 'es', 'pt_BR'], $languages, 'English is the source text, not a file');
+        $this->assertSame(['ca', 'de', 'es', 'pt_BR'], $languages, 'English is the source text, not a file');
 
         foreach ($languages as $language) {
             $translations = $this->translations($language);
@@ -112,6 +112,25 @@ final class L10nLanguagesTest extends TestCase {
         }
         $decoded = json_decode((string)file_get_contents(self::APP_ROOT . '/l10n/de.json'), true);
         $this->assertSame('nplurals=2; plural=(n != 1);', $decoded['pluralForm']);
+    }
+
+    public function testCatalanHasAllCanonicalKeysAndPreservesPlaceholders(): void {
+        $canonical = $this->translations('pt_BR');
+        $catalan = $this->translations('ca');
+        self::assertEqualsCanonicalizing(array_keys($canonical), array_keys($catalan));
+        $placeholders = static function (string $text): array {
+            preg_match_all('/%(?:[0-9]+\$)?[sdn]|\{[^}]*\}/', $text, $found);
+            $tokens = array_values(array_unique($found[0]));
+            sort($tokens);
+            return $tokens;
+        };
+        foreach ($catalan as $key => $value) {
+            foreach ((array)$value as $form) {
+                self::assertSame($placeholders($key), $placeholders($form), 'ca: ' . $key);
+            }
+        }
+        self::assertSame('Fitxers', $catalan['Files']);
+        self::assertSame('Consultar una resposta pròpia del formulari', $catalan['Read own form response']);
     }
 
     /** Without a translator the English source text comes out as it is, placeholders resolved. */

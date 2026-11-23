@@ -66,13 +66,13 @@ final class InfoXmlTest extends TestCase {
     }
 
     /**
-     * The store shows the summary and the description in English, Brazilian Portuguese, Spanish and German.
+     * The store shows the summary and description in every shipped UI language.
      * The name is not translated: it is a single <name> without lang (see the test below).
      */
     public function testSummaryAndDescriptionComeInEveryLanguageOfTheApp(): void {
         foreach (['summary', 'description'] as $element) {
             $texts = $this->localized($element);
-            $this->assertSame(['en', 'pt-br', 'es', 'de'], array_keys($texts), $element);
+            $this->assertEqualsCanonicalizing(['en', 'pt-br', 'es', 'de', 'ca'], array_keys($texts), $element);
             foreach ($texts as $lang => $text) {
                 $this->assertNotSame('', $text, "$element ($lang)");
                 $this->assertStringNotContainsStringIgnoringCase('test release', $text, "$element ($lang)");
@@ -101,6 +101,7 @@ final class InfoXmlTest extends TestCase {
             'es' => ['Archivos', 'Notas', 'Calendario', 'Contactos', 'Tareas', 'Deck', 'Talk', 'Claude', 'ChatGPT', 'Gemini CLI', 'OAuth', 'Las herramientas generales de Archivos no borran archivos', 'La limpieza de Forms se limita a sus archivos gestionados', 'operaciones confirmadas con recuperación'],
         ];
         $expected['de'] = ['Dateien', 'Notes', 'Kalender', 'Kontakten', 'Aufgaben', 'Deck', 'Talk', 'Claude', 'ChatGPT', 'Gemini CLI', 'OAuth', 'Allgemeine Dateiwerkzeuge löschen keine Dateien', 'Forms-Bereinigung betrifft ausschließlich von Forms verwaltete Dateien', 'bestätigte Vorgänge mit Wiederherstellung'];
+        $expected['ca'] = ['Fitxers', 'Notes', 'Calendari', 'Contactes', 'tasques', 'Deck', 'Talk', 'Claude', 'ChatGPT', 'Gemini CLI', 'OAuth', 'Les eines generals de Fitxers no suprimeixen fitxers', 'La neteja de Forms queda limitada als seus fitxers gestionats', 'amb confirmació i recuperació'];
         foreach ($this->localized('description') as $lang => $text) {
             foreach ($expected[$lang] as $needle) {
                 $this->assertStringContainsString($needle, $text, "description ($lang)");
@@ -117,6 +118,7 @@ final class InfoXmlTest extends TestCase {
             'es' => ['64', 'nombres anteriores', 'Eliminar contactos siempre exige copia verificada', 'mail.read_message', 'no se garantiza una versión nativa'],
             'de' => ['64', 'Frühere Namen', 'Kontakte löschen benötigt immer eine geprüfte Sicherung', 'mail.read_message', 'nicht für jede Datei'],
         ];
+        $required['ca'] = ['64', 'noms de carpeta de còpies anteriors', 'Eliminar un contacte requereix una còpia de recuperació verificada', 'mail.read_message', 'no garanteix versions natives'];
         $descriptions = $this->localized('description');
         foreach ($required as $locale => $phrases) {
             self::assertArrayHasKey($locale, $descriptions);
@@ -134,7 +136,7 @@ final class InfoXmlTest extends TestCase {
         $repository = 'https://github.com/marcjoancr/mcp-for-nextcloud';
 
         $this->assertSame('mcp', (string)$manifest->id);
-        $this->assertSame('2.9.1', (string)$manifest->version);
+        $this->assertSame('2.9.3', (string)$manifest->version);
         $this->assertSame($repository, (string)$manifest->website);
         $this->assertSame($repository . '/issues', (string)$manifest->bugs);
         $this->assertSame($repository . '.git', (string)$manifest->repository);

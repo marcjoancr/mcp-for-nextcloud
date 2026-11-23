@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/guides/file-protection.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: cc797180127431209c35634b3f30b65bb379504d -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../en/guides/file-protection.md).
@@ -33,7 +33,7 @@ Les escriptures de Notes i Files respecten `files_lock` (una aplicació fins a N
 - **Pla (`confirm` absent):** no rebutja l'operació; afegeix `lock` i un avís `file_locked` a `warnings`. A `files_move_batch`, l'element bloquejat passa a `denied` i es rebutja el lot sencer.
 - **Restaurar una versió:** si hi ha un proveïdor, llegeix la versió amb `IVersionManager::read()` i escriu al fitxer, sense fer servir `rollback()` del nucli, el `handleAppLocks` del qual repeteix l'escriptura en l'àmbit de Text/Office. Quan les còpies MCP estan habilitades, el contingut substituït té una còpia verificada a la carpeta de còpies configurada a l'arrel (predeterminada `/MCP backups`). Si se suspenen les còpies segons la [política de còpies](../reference/configuration.md#còpies-de-seguretat-mcp), no es garanteix la retenció de versions natives en tots els sistemes d'emmagatzematge.
 - **Checkout:** bloqueig → 423. Abans de consumir l'enllaç, continua sent vàlid; després, la resposta esmenta la còpia de seguretat i demana un `files_checkout` nou.
-- **Missatge:** aplicació o persona (nom visible; mai UID, identificador d'aplicació ni token), des de quan, fins quan i què cal fer; en en/de/pt_BR/es. Si el rebuig no es pot correlacionar de manera segura amb el token, no s'identifica qui té el bloqueig. Només s'escriu al registre amb nivell `debug`, sense camí ni token.
+- **Missatge:** aplicació o persona (nom visible; mai UID, identificador d'aplicació ni token), des de quan, fins quan i què cal fer; en en/ca/de/pt_BR/es. Si el rebuig no es pot correlacionar de manera segura amb el token, no s'identifica qui té el bloqueig. Només s'escriu al registre amb nivell `debug`, sense camí ni token.
 - **Límits:** MCP només rebutja TOKEN a la seva comprovació, que no és atòmica amb l'escriptura; `getLocks()` de files_lock respon des de la memòria cau de la petició, també quan el resultat desat és negatiu. Per tant, no es detecta un bloqueig TOKEN creat després de la primera consulta del fitxer dins de la mateixa petició. L'emmagatzematge de files_lock també fa complir els bloquejos USER i APP, ja que torna a llegir el bloqueig en escriure, excepte en suprimir o canviar el nom d'un document Text a/des de Markdown: el listener de Text (`BeforeNodeDeletedListener`/`BeforeNodeRenamedListener`) s'executa abans que l'emmagatzematge i crida `resetDocument(..., true)`, que allibera el bloqueig APP; així, un bloqueig APP de Text creat després de la consulta MCP s'allibera i no impedeix la supressió ni el canvi de nom. MCP només rebutja el bloqueig que observa el proveïdor. files_lock no permet adquirir un bloqueig atòmicament (consulta i inserció separades; `file_id` no té índex únic), de manera que l'aplicació no n'adquireix cap de propi.
 
 ## Etiquetes ocultes (1.0.6)

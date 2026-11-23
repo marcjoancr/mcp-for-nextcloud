@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: README.md -->
-<!-- translation-source-revision: c2cf0556c42976efdfa0f9ba3514f2ce70f5884d -->
+<!-- translation-source-revision: cc797180127431209c35634b3f30b65bb379504d -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](README.md).
@@ -54,7 +54,7 @@ Els catàlegs cobreixen **onze mòduls**, a més de les eines de guia i estat. L
 | [Deck](docs/ca/reference/tools/deck.md) | Cerca i gestió de targetes, comentaris, compleció, persones assignades, etiquetes, enllaços natius de fitxers i dependències compatibles. |
 | [Talk](docs/ca/reference/tools/talk.md) | Lectura, cerca i consulta de context de missatges; enviament de missatges o resums preparats per qui fa la crida, compartició de fitxers i creació de converses de grup. |
 | [People](docs/ca/reference/tools/people.md) | Cerca de persones i grups abans de compartir o enviar missatges. |
-| [Mail](docs/ca/reference/tools/mail.md) | Cerca de correu propi, lectura de missatges/fils/adjunts sense marcar-los com a llegits, desament d’adjunts a Files i gestió d’esborranys locals sense enviar. Sense enviament de correu. |
+| [Mail](docs/ca/reference/tools/mail.md) | Cerca de correu propi, lectura de missatges/fils/adjunts sense marcar-los com a llegits, desament d’adjunts a Files i gestió d’esborranys locals sense enviar. L'enviament qualificat requereix els seus permisos independents i l'interruptor de l'operador. |
 | [Forms](docs/ca/reference/tools/forms.md) | Gestiona formularis, preguntes, compartició, respostes, fitxers, exportacions completes i operacions recuperables mitjançant una extensió nativa qualificada; conserva els contractes de lectura i exportació CSV per pàgina. |
 | [Registres del servidor](docs/ca/reference/tools/logs.md) | Diagnòstic limitat de només lectura per a administradors i grups d'IT autoritzats; desactivat per defecte. |
 

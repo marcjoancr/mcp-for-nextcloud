@@ -2,7 +2,7 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: docs/en/reference/tools/contacts-tasks.md -->
-<!-- translation-source-revision: 5beb2248a554cea171e7420ce93034571be15fec -->
+<!-- translation-source-revision: cc797180127431209c35634b3f30b65bb379504d -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](../../../en/reference/tools/contacts-tasks.md).
@@ -26,7 +26,7 @@ La [jerarquia de tasques](tasks.md) documenta UID dels pares, filtratge de fills
 
 Un recorregut visible complet sense categoria coincident afegeix una nota que explica el filtre literal i si s'han cercat tasques completades; una pàgina buida causada només per l'offset no ho fa. Mai no s'enumeren categories ocultes ni l'existència de tasques ocultes.
 
-No hi ha migració, approval_id, registre d'aprovació, dependència d'occ, servei addicional ni base de dades auxiliar. Les descripcions/ToolGuideNotes continuen en anglès; els títols i missatges fan servir Translator amb paritat de/pt_BR/es. Les proves cobreixen plans, còpia de seguretat, ACL, permisos, ETag, preservació i dispatcher Sabre real; no demostren el funcionament dels connectors interns en una instal·lació real de Nextcloud.
+No hi ha migració, approval_id, registre d'aprovació, dependència d'occ, servei addicional ni base de dades auxiliar. Les descripcions/ToolGuideNotes continuen en anglès; els títols i missatges fan servir Translator amb paritat ca/de/pt_BR/es. Les proves cobreixen plans, còpia de seguretat, ACL, permisos, ETag, preservació i dispatcher Sabre real; no demostren el funcionament dels connectors interns en una instal·lació real de Nextcloud.
 
 [Guies operatives](../../guides/README.md).
 

@@ -2,20 +2,20 @@
 <!-- SPDX-FileCopyrightText: 2026 MCP for Nextcloud contributors -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!-- translation-source: mcp/README.md -->
-<!-- translation-source-revision: 2da7ebe84d0a21f8222124a6b681a6e7ed546422 -->
+<!-- translation-source-revision: cc797180127431209c35634b3f30b65bb379504d -->
 <!-- translation-review: pending -->
 
 **Traducció pendent de revisió humana:** aquesta pàgina és una traducció al català. Consulta la [pàgina original en anglès](README.md).
 
 # Nextcloud MCP
 
-**El teu Nextcloud, dins de la conversa.** Cerca fitxers, treballa amb notes, calendaris, contactes i tasques, gestiona targetes de Deck i posa't al dia del Talk des d'un client MCP. Mail llegeix missatges i adjunts propis i gestiona esborranys locals sense enviar correu; Forms gestiona formularis, preguntes, comparticions, respostes, fitxers i exportacions completes mitjançant una extensió nativa qualificada; les lectures per pàgines i les exportacions CSV anteriors conserven els seus contractes. Els operadors autoritzats poden consultar els registres del servidor.
+**El teu Nextcloud, dins de la conversa.** Cerca fitxers, treballa amb notes, calendaris, contactes i tasques, gestiona targetes de Deck i posa't al dia del Talk des d'un client MCP. Mail llegeix missatges i adjunts propis, gestiona esborranys locals i permet el lliurament qualificat per separat amb permisos explícits de l'operador i l'usuari; Forms gestiona formularis, preguntes, comparticions, respostes, fitxers i exportacions completes mitjançant una extensió nativa qualificada; les lectures per pàgines i les exportacions CSV anteriors conserven els seus contractes. Els operadors autoritzats poden consultar els registres del servidor.
 
 [English](README.md) · [Español](README.es.md) · **Català** · [Português (Brasil)](README.pt-BR.md) · [Português (Portugal)](README.pt-PT.md)
 
 ## Primers passos
 
-Requereix **Nextcloud 33–35** i **PHP 8.4+**. Aquest fork mantingut independentment de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara la versió **2.9.0** i conserva l'identificador `mcp`. L'edició de la botiga és el projecte original; fes servir el paquet revisat d'aquest fork per instal·lar-lo o substituir-la.
+Requereix **Nextcloud 33–35** i **PHP 8.4+**. Aquest fork mantingut independentment de [MCP for Cloud](https://github.com/sintax-tech/mcp-for-nextcloud) declara la versió **2.9.3** i conserva l'identificador `mcp`. L'edició de la botiga és el projecte original; fes servir el paquet revisat d'aquest fork per instal·lar-lo o substituir-la.
 
 1. [Instal·la l'aplicació](../docs/ca/installation.md).
 2. [Habilita el servei, l'elegibilitat de l'usuari i la connexió personal](../docs/ca/guides/permissions.md#habilitar-laccés).
@@ -24,7 +24,7 @@ Requereix **Nextcloud 33–35** i **PHP 8.4+**. Aquest fork mantingut independen
 
 ## L'accés continua sota el teu control
 
-Els catàlegs abasten onze mòduls, a més de les eines de guia i estat. El descobriment les filtra segons les capacitats natives instal·lades, les assignacions d'eines i les seleccions de connexió. Els permisos natius de Nextcloud s'apliquen a cada petició. Els administradors poden limitar l'accés a carpetes, calendaris i llistes de tasques seleccionats i excloure fitxers etiquetats. Les eines d'escriptura retornen una previsualització si no es confirmen explícitament; l'assistent ha d'obtenir l'aprovació de l'usuari. Les eines generals de Fitxers no suprimeixen fitxers. La neteja confirmada de Forms es limita als fitxers que gestiona i conserva les proves de recuperació. Les eines de Mail, Forms i registres requereixen permisos explícits. Els esborranys de Mail, el desament d'adjunts i totes les escriptures de Forms requereixen confirmació; els registres continuen sent de només lectura i Mail mai no envia missatges.
+Els catàlegs abasten onze mòduls, a més de les eines de guia i estat. El descobriment les filtra segons les capacitats natives instal·lades, les assignacions d'eines i les seleccions de connexió. Els permisos natius de Nextcloud s'apliquen a cada petició. Els administradors poden limitar l'accés a carpetes, calendaris i llistes de tasques seleccionats i excloure fitxers etiquetats. Les eines d'escriptura retornen una previsualització si no es confirmen explícitament; l'assistent ha d'obtenir l'aprovació de l'usuari. Les eines generals de Fitxers no suprimeixen fitxers. La neteja confirmada de Forms es limita als fitxers que gestiona i conserva les proves de recuperació. Les eines de Mail, Forms i registres requereixen permisos explícits. Els esborranys de Mail, el desament d'adjunts i totes les escriptures de Forms requereixen confirmació; els registres continuen sent de només lectura. Les operacions d'esborranys de Mail no envien missatges; la transmissió requereix el seu flux natiu qualificat, permisos explícits i l'interruptor de l'operador.
 
 Els resultats de les eines s'envien al client d'IA triat i queden subjectes a les seves polítiques de tractament i retenció.
 
