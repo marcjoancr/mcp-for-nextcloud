@@ -1,6 +1,8 @@
 OC.L10N.register(
     "mcp",
     {
+    "Read form for submission" : "Formular zum Ausfüllen lesen",
+    "Read own form response" : "Eine eigene Formularantwort lesen",
     "Inspect form operation effects" : "Auswirkungen eines Formularvorgangs prüfen",
     "Read recovered form comments" : "Wiederhergestellte Formularkommentare lesen",
     "Guarded Mail source companion" : "Quellcode-Ergänzung für abgesichertes Mail",

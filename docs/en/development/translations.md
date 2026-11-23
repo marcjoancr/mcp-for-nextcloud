@@ -65,3 +65,33 @@ historical feature list. Contributor documentation stays English-only.
 The operational coverage set consists of root/app READMEs and every page under
 `docs/en/` except `development/`. Keep each Portuguese variant independent:
 adapting Brazilian spelling alone does not establish European Portuguese review.
+
+## Tool titles and catalog checks
+
+Every registered tool needs a literal English title in
+`mcp/lib/Mcp/Tools/Discovery/ToolPresentation.php` and matching entries in each
+shipped UI catalog (`es`, `pt_BR`, `de`), in both JSON and JavaScript. Technical
+tool names and permissions remain unchanged. The humanized-name fallback is for
+unknown tools; it does not translate a registered tool whose title is missing.
+
+`ToolPresentationTest::testEveryCatalogToolHasATranslatedTitleInEveryShippedLocale`
+reads every module catalog and checks the rendered titles against each language
+file. The current catalog has 226 tools across 11 modules, including 65 Forms
+tools. The Forms submission-form reader and single-own-response reader must have
+separate titles from the general form reader and full-result reader.
+
+After changing UI catalogs, build the assets and run the focused checks from
+`mcp/`:
+
+```sh
+npm run build
+vendor/bin/phpunit --filter 'L10n|ToolPresentationTest'
+node scripts/docs/cli.mjs check
+node scripts/docs/cli.mjs translations
+```
+
+Titles and permission labels use the authenticated account's UI language. The
+English tool descriptions and parameter schemas sent to the model are a separate
+contract; the model is instructed to explain them in the user's language. A
+passing coverage check verifies lookup and catalog consistency, not human review
+of the wording.

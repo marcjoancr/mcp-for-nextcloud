@@ -94,6 +94,31 @@ final class ToolPresentationTest extends TestCase {
         $this->assertSame('Listar archivos', ToolPresentation::title('files_list'));
     }
 
+    /** Catalog tools must never silently fall back to an untranslated technical name. */
+    public function testEveryCatalogToolHasATranslatedTitleInEveryShippedLocale(): void {
+        $catalogs = glob(__DIR__ . '/../../../../../lib/Modules/*/*ToolCatalog.php');
+        self::assertNotEmpty($catalogs);
+        foreach (['es', 'pt_BR', 'de'] as $locale) {
+            $missing = [];
+            $translations = json_decode((string)file_get_contents(__DIR__ . '/../../../../../l10n/' . $locale . '.json'), true, 512, JSON_THROW_ON_ERROR)['translations'];
+            foreach ($catalogs as $file) {
+                $module = basename(dirname($file));
+                $class = 'OCA\\Mcp\\Modules\\' . $module . '\\' . basename($file, '.php');
+                foreach ($class::definitions() as $definition) {
+                    Translator::reset();
+                    $english = ToolPresentation::title($definition['name']);
+                    Translator::use(new JsonL10n($locale));
+                    if (!isset($translations[$english])) {
+                        $missing[] = $definition['name'];
+                    } else {
+                        self::assertSame($translations[$english], ToolPresentation::title($definition['name']), $locale . ': ' . $definition['name']);
+                    }
+                }
+            }
+            self::assertSame([], $missing, $locale . ': catalog tools with untranslated titles');
+        }
+    }
+
     public function testAnnotationsCarryTheTranslatedTitle(): void {
         Translator::use(new JsonL10n('pt_BR'));
         $this->assertSame('Listar arquivos', ToolPresentation::annotations('files_list', 'read')['title']);

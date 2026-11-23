@@ -34,6 +34,9 @@ All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/a
 
 ## Unreleased
 
+- Translate the Forms submission-form and single-own-response tool titles in Spanish, Brazilian Portuguese and German.
+- Check every registered module's tool titles against all shipped UI catalogs to prevent untranslated technical-name fallbacks.
+
 ## 2.8.0
 
 - Add guarded Mail delivery and scheduling with immutable approved content, original connection authorization, durable status/cancellation and exact Sent-copy repair. Unknown remote outcomes never automatically resend.

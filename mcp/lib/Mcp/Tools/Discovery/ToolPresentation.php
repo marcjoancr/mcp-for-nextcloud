@@ -161,6 +161,8 @@ final class ToolPresentation {
             // People
             'users_search' => Translator::t('Search people'),
             'forms_capabilities' => Translator::t('Read forms capabilities'),
+            'forms_read_submission_form' => Translator::t('Read form for submission'),
+            'forms_read_own_response' => Translator::t('Read own form response'),
             'forms_read_settings' => Translator::t('Read Settings'),
             'forms_create' => Translator::t('Create form'),
             'forms_clone' => Translator::t('Clone form'),
