@@ -42,9 +42,31 @@ Use `calendar_list_resources` to discover rooms and equipment visible to you. Us
 
 ## Appointment links
 
-Use `calendar_list_appointments` to find booking configurations on your own visible calendars. Create, edit or retire a configuration with `calendar_create_appointment`, `calendar_update_appointment` and `calendar_delete_appointment`. Review the time zone, weekly schedule, appointment length, booking window and visibility in the plan. Weekly slots use local HH:mm times. Durations and buffers are in minutes, and the booking horizon is in days. Repeat the approved write with the plan's `plan_state`.
+MCP supports appointment tools on Calendar 6.6.2, 6.6.3 and 6.6.4. Support for
+6.6.4 starts with MCP 2.10.2. These tools use appointment configurations on
+calendars you own and can access through MCP.
 
-Private visibility keeps the link off your public profile. Anyone with the URL can still book. Public visibility also lists it on your profile. Deleting the configuration retires its booking link. Calendar 6.6.2, 6.6.3 and 6.6.4 expose these tools when the administrator grants them and the connection selects them.
+| Tool | Operation | What it does |
+| --- | --- | --- |
+| `calendar_list_appointments` | `calendar.read` | Lists your appointment configurations and their booking links. |
+| `calendar_create_appointment` | `calendar.create` | Sets up a booking link with its own availability, duration and visibility. |
+| `calendar_update_appointment` | `calendar.edit` | Updates an existing configuration while keeping its booking link. |
+| `calendar_delete_appointment` | `calendar.delete` | Retires the link. Events already booked remain in the calendar. |
+| `calendar_list_appointment_bookings` | `calendar.read` | Lists pending and confirmed reservations between `from` and `to`, optionally for one `appointment_id`. The maximum range is 93 days. Results include guest names and time slots. Email addresses and confirmation tokens stay private. |
+
+The administrator assigns each tool under **Administration → Nextcloud MCP →
+Access and permissions**. Select the assigned tools for the connected client under
+**Personal settings → Nextcloud MCP**, or during OAuth authorization. If a tool is
+missing, check the Calendar version, the account's assignment and the connection
+selection, then check the [Tool guide](../tools.md) from that connection. See
+[Access and permissions](../../guides/permissions.md) for both settings.
+
+For changes, review the time zone, weekly schedule, duration, booking window and
+visibility in the preview. Repeat an approved call with `confirm: true` and its
+`plan_state`. Weekly slots use local HH:mm times. Durations and buffers are in
+minutes, and the booking horizon is in days. Private visibility keeps the link
+off your public profile. Anyone with the URL can still book. Public visibility
+also lists the link on your profile.
 
 ## Invitations, recovery and exchange
 
@@ -52,7 +74,6 @@ Private visibility keeps the link off your public profile. Anyone with the URL c
 - Use `calendar_list_trashed_events` to find a deleted event's ID and `calendar_restore_trashed_event` to restore it to its original calendar. Recovery follows retention and the scope of calendars you own. Native restore keeps the event data without sending invitations.
 - `calendar_create_calendar` creates a personal calendar under unrestricted calendar scope. `calendar_list_calendar_shares` and `calendar_share_calendar` list and manage direct local-account access on calendars you own. Access can be read-only, writable or removed.
 - `calendar_import_ics` reads a visible Files document and copies up to 100 events or 1 MiB into a calendar you own. Preview identifies duplicates and conflicts. Import omits organizers, attendees, alarms and attachments. `calendar_export_ics` returns an iCalendar document of selected UIDs from one calendar, including fully visible series exceptions.
-- `calendar_list_appointment_bookings` lists pending and confirmed bookings from your visible Calendar 6.6.2, 6.6.3 or 6.6.4 appointment links. Filter by date and optionally by appointment configuration. The result includes the guest name and time slot and keeps email and confirmation tokens private.
 - `calendar_set_event_reminders` replaces display alarms relative to the start of an event or series. Enter zero to five lead times in minutes. Custom, email, absolute, repeated and occurrence-specific alarms are preserved.
 
 Writes in these workflows require `confirm: true` and the preview's `plan_state`.

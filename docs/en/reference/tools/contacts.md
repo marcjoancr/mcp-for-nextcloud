@@ -12,6 +12,13 @@
 
 See the live `mcp_guide` for the authoritative schema and available operations.
 
+## Find and maintain contact cards
+
+- Use `contacts_list_addressbooks` to find your personal and shared books and, when the administrator exposes it, the read-only accounts directory.
+- Search with `contacts_search_contacts`, then use `contacts_read_contact` for the selected card. If you need a Nextcloud account for an invitation, use the returned `accountId` when available.
+- Use `contacts_create_contact` to add a card or `contacts_edit_contact` to change it in a writable book. For deletion, `contacts_delete_contact` verifies a vCard backup before it removes the card and returns the backup path.
+- Review the write preview and confirm the same change. Include the ETag from the preview when editing or deleting an existing card. For a shared book, also acknowledge the change to the shared book with `confirm_shared: true`.
+
 ## Groups, fields and vCard exchange
 
 `contacts_list_groups` lists categories in a visible address book. Pass `group` to `contacts_search_contacts` for an exact category match. Create and edit support structured names and addresses, categories, a birthday and a preferred email. Contact fields follow the stored vCard version.
