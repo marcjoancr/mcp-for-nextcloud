@@ -2,6 +2,13 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.11.0
+
+- Add optional support for official Forms. Authorized users can read forms and results, summarize submissions, and export bounded CSV.
+- Add optional support for official Mail. Users can read mail and keep private plain-text drafts in MCP. Sending and remote mailbox changes use the native Mail interface.
+- Add a reversible PostgreSQL procedure for retiring guarded Mail metadata while preserving protected draft history and uncertain delivery receipts.
+- Document the coordinated Forms transition and qualify official Forms 5.4.4 and Mail 5.13.4 on Nextcloud 35 with PostgreSQL 16.
+
 ## 2.10.3
 
 - Update the People, Calendar and Contacts references in five documentation languages. Clarify permissions for appointment tools, contact card workflows and resolving accounts.
