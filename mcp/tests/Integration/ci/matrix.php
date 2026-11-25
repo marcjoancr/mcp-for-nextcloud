@@ -19,6 +19,23 @@ if($runtimePhase!==''&&is_string($qualificationKit)&&$qualificationKit!==''){
 }
 $mailPins = json_decode(file_get_contents(__DIR__ . '/mail-pins.json'), true, 512, JSON_THROW_ON_ERROR);
 $formsPins = json_decode(file_get_contents(__DIR__ . '/forms-pins.json'), true, 512, JSON_THROW_ON_ERROR);
+$officialApps = getenv('MCP_IT_OFFICIAL_APPS') ?: '0';
+$officialPins = null;
+if ($officialApps !== '0' && $officialApps !== '1') {
+    fwrite(STDERR, "MCP_IT_OFFICIAL_APPS must be 0 or 1.\n");
+    exit(2);
+}
+if ($officialApps === '1') {
+    if ($arguments !== ['35', 'pgsql', 'fresh'] || !$mail
+        || getenv('MCP_IT_MAIL_OFFICIAL') !== '1' || (getenv('MCP_IT_MAIL_GUARD') ?: '0') !== '0'
+        || (getenv('MCP_IT_MAIL_RUNTIME_PHASE') ?: '') !== '') {
+        fwrite(STDERR, "Official app pins require NC35/PG16 fresh mode, stock Mail, and no guard qualification phase.\n");
+        exit(2);
+    }
+    $officialPins = json_decode(file_get_contents(__DIR__ . '/official-apps-pins.json'), true, 512, JSON_THROW_ON_ERROR);
+    $mailPins = $officialPins;
+    $formsPins = $officialPins;
+}
 $manifest = json_decode(file_get_contents(__DIR__ . '/matrix.json'), true, 512, JSON_THROW_ON_ERROR);
 $plans = [];
 foreach ($manifest['cells'] as $cell) {
@@ -34,9 +51,13 @@ foreach ($manifest['cells'] as $cell) {
         $modes[] = 'upgrade-permissions';
     }
     foreach ($modes as $mode) {
-        $plans[] = $cell + ['mode' => $mode, 'baseline_commit' => $manifest['baselines'][$mode] ?? null,
+        $plan = $cell + ['mode' => $mode, 'baseline_commit' => $manifest['baselines'][$mode] ?? null,
             'publishes_ports' => false, 'disposable' => true, 'mail' => $mail ? $mailPins : null,
             'forms' => $mail ? $formsPins : null, 'mail_runtime_phase'=>$mail?$runtimePhase:''];
+        if ($officialPins !== null) {
+            $plan['official_apps_profile'] = $officialPins['profile'];
+        }
+        $plans[] = $plan;
     }
 }
 if (array_slice($argv, 1) === ['--matrix']) {

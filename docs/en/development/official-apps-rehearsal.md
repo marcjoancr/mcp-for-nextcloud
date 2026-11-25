@@ -5,7 +5,7 @@
 
 These rehearsals use synthetic users and separate disposable Nextcloud 35.0.2 / PostgreSQL 16.15 instances. They cover the native updater, stateful replacement of a guarded app with its official archive, and restoration of the matching code, database and data. The deployed Minico Cloud instance is outside the test boundary.
 
-The observations supplied for Minico Cloud identify guarded Forms 5.4.2, guarded Mail 5.12.5.13, Nextcloud 35.0.2, PostgreSQL 16 and Authentik, with protected Mail transmission enabled. They are deployment evidence supplied with the task. The older stock Mail 5.12.5 matrix in the repository covers MariaDB and has a different scope. The first-stage worktree has separate, opt-in official-package modes and the fresh PostgreSQL acceptance below. [Mail compatibility matrix](../reference/tools/mail.md#guarded-and-legacy-acceptance)
+The observations supplied for Minico Cloud identify guarded Forms 5.4.2, guarded Mail 5.12.5.13, Nextcloud 35.0.2, PostgreSQL 16 and Authentik, with protected Mail transmission enabled. They are deployment evidence supplied with the task. The older stock Mail 5.12.5 matrix in the repository covers MariaDB and has a different scope. MCP has separate, opt-in official-package modes and the fresh PostgreSQL acceptance below. [Mail compatibility matrix](../reference/tools/mail.md#guarded-and-legacy-acceptance)
 
 ## Transition the matched MCP and Forms packages
 
@@ -17,7 +17,7 @@ The Forms guard 5.4.2 sharing and group profiles pin the exact MCP bootstrap and
 4. Verify native package integrity, unchanged expected Forms records and file references, stock comments behavior, two distinct user identities, and all-results denial after revoking permission. Validate the OAuth browser consent path if it is part of the planned deployment. Check the stock Forms catalog and that old guarded writes or linked-export workers cannot start.
 5. If any gate fails, keep requests and workers quiesced and restore the matching previous code, configuration, database and data. Follow the historical installers' recovery rules for any activation that was retired. A restored configuration entry alone does not reactivate a retired activation token or epoch.
 
-The archive-based rehearsal below exercised Forms data and migration rollback. Installation-dependent comments and group activation claims require evidence from a copy with those components actually enabled.
+The archive-based rehearsal below exercised Forms data and migration rollback. A separate disposable cell used the historical MCP 2.10.3 and guarded Forms 5.4.2 pair on Nextcloud 35.0.2 / PostgreSQL 16.15 and ran the [comments lifecycle matrix](../../../native/forms-guard/tests/comments-lifecycle-matrix.php). All 15 checks passed, including factory activation, preserving a competing selector, keeping data on removal and returning to the stock comments manager after rollback. The fixture required the same verified empty-fence bootstrap described below. Sanitized evidence is under `mcp/build/mcp-forms-comments-lifecycle-20261125-165300-3692915/evidence/`. An active Core group observer still requires a separate rehearsal with the qualified host plan for the restore copy.
 
 ## Retire guarded Mail on a restore copy
 
@@ -69,13 +69,17 @@ The tested sequence was:
 
 The same form, question and share IDs and both submissions survived the upgrade and matched restore. Counts after restore were one fence row, one form, one question, one share and two submissions. Evidence is retained under the ignored path `mcp/build/official-apps-tmp/mcp-official-app-rehearsal-20261125-a73d91c4/`. Key files include `stateful-summary.txt`, `stateful-preflight.txt`, `stateful-official-upgrade.log`, `baseline-state-verification.json`, `official-state-verification.json`, `restored-state-verification.json`, and `stateful-snapshot/` with the matched snapshots, migration ledgers, counts and checksums. The archive SHA-256 is `bc5a343c97d0888c0106ebc8646764176f5ed088d5b9bbf20985a7a481f6a9d9`.
 
-A separate fresh official-app functional acceptance run passed 10 integration tests and 319 assertions on the tested Forms 5.4.4 / Mail 5.13.4 pins. Its JUnit report is `mcp/build/integration/mcp-it-20261125132939-636d6cf6197b/mcp-it/artifacts/junit.xml`; the launcher is `mcp/build/official-apps-tmp/run-current-stock.sh`. The suite can be reproduced on a disposable fresh Nextcloud 35 PostgreSQL copy with Node 24.22.1 using:
+The fresh official-app profile passed 10 integration tests and 319 assertions on Forms 5.4.4 and Mail 5.13.4. Its JUnit report is `mcp/build/integration/mcp-it-20261125155250-75d58b9fa5d4/mcp-it/artifacts/junit.xml`. The Native integration workflow runs the same checks on the pinned Nextcloud 35 / PostgreSQL 16 cell. With the repository's Node and npm versions, reproduce the job locally with:
 
 ```sh
-MCP_IT_MAIL_GUARD=0 MCP_IT_MAIL_OFFICIAL=1 MCP_IT_PHPUNIT_ARGS='--filter McpFormsIsolationTest|FormsResponsesTest|McpMailReadTest|McpMailThreadTest|McpMailHttpTest|McpMailOfficialModeTest|FormsOfficialOcsModeTest' composer --working-dir=mcp test:integration -- 35 pgsql fresh --mail
+php mcp/tests/Integration/ci/official-apps-profile-test.php
+MCP_IT_OFFICIAL_APPS=1 MCP_IT_MAIL_GUARD=0 MCP_IT_MAIL_OFFICIAL=1 \
+  MCP_IT_PHPUNIT_ARGS='--filter McpFormsIsolationTest|FormsResponsesTest|McpMailReadTest|McpMailThreadTest|McpMailHttpTest|McpMailOfficialModeTest|FormsOfficialOcsModeTest' \
+  composer --working-dir=mcp test:integration -- 35 pgsql fresh --mail
+sh mcp/tests/Integration/ci/mail-retirement-postgresql.sh
 ```
 
-This acceptance covers fresh functional behavior. It is separate from the stateful Forms upgrade/restore above and does not verify Mail account, draft, job, or rollback state.
+The fresh package test covers user-visible behavior. The SQL fixture separately tests both queue blockers, quarantine consent, a changed state after review, archive isolation, idempotence, and restoration from a matched database dump. The stateful app upgrade and its data directory and app-code restoration remain separate rehearsals.
 
 ### Harness exception
 
@@ -87,10 +91,10 @@ The first restore attempt used `pg_restore --no-owner`, which changed object own
 
 The [public App Store catalog](https://apps.nextcloud.com/api/v1/apps.json) listed Forms 5.4.4 for Nextcloud 33–35 and Mail 5.13.4 for Nextcloud 32–35 with PHP 8.1–8.5 on 2026-11-25. Both were stable. Nextcloud offers an update when the compatible catalog version is strictly greater than the installed app version. Mail 5.12.5.13 is already greater than upstream 5.12.5, so that upstream release cannot replace the local build through the updater. [Nextcloud app management](https://docs.nextcloud.com/server/stable/admin_manual/occ_apps.html) · [Nextcloud 35.0.2 installer](https://github.com/nextcloud/server/blob/v35.0.2/lib/private/Installer.php)
 
-Run \`mcp-appstore-rehearsal-20261125-a18dfb37\` used the normal Nextcloud CLI updater and a loopback App Store mirror. The mirror carried the published app certificates, release signatures and matching official archive bytes. Only the two catalog entries and their download URLs were localized. Nextcloud performed its normal signature check. The network was internal and the fixture exposed zero ports.
+Run `mcp-appstore-rehearsal-20261125-a18dfb37` used the normal Nextcloud CLI updater and a loopback App Store mirror. The mirror carried the published app certificates, release signatures and matching official archive bytes. Only the two catalog entries and their download URLs were localized. Nextcloud performed its normal signature check. The network was internal and the fixture exposed zero ports.
 
-- \`occ app:update --showonly\` found both releases. \`occ app:update forms\` completed from guarded 5.4.2 to official 5.4.4.
-- \`occ app:update mail\` from enabled guarded 5.12.5.13 installed the official tree but failed during the \`AddMissingDefaultTags\` repair. The already-loaded guarded \`MailAccountMapper\` still referenced \`AccountVisibility\` after the installer had replaced the files. Disk held 5.13.4 while the database recorded 5.12.5.13. A fresh \`occ upgrade\` process completed migration and repair. Both installed trees matched the signed archive contents.
+- `occ app:update --showonly` found both releases. `occ app:update forms` completed from guarded 5.4.2 to official 5.4.4.
+- `occ app:update mail` from enabled guarded 5.12.5.13 installed the official tree but failed during the `AddMissingDefaultTags` repair. The already-loaded guarded `MailAccountMapper` still referenced `AccountVisibility` after the installer had replaced the files. Disk held 5.13.4 while the database recorded 5.12.5.13. A fresh `occ upgrade` process completed migration and repair. Both installed trees matched the signed archive contents.
 - The fresh process reported retained guard columns and indexes in native Mail tables. Keep them for rollback until their change and retention implications have been assessed. A clean code integrity check and a schema difference can coexist.
 
 A second run, `mcp-appstore-disabled-mail-20261125-4d71a60f`, reproduced the two version offers and successfully completed the Mail update as three separate commands. `occ app:disable mail`, `occ app:update mail` and `occ app:enable mail` each exited successfully. The app remained disabled until explicit re-enablement. `occ integrity:check-app` and a complete file-tree comparison passed for both apps. This second cell contained no Mail accounts or held drafts.

@@ -23,13 +23,28 @@ IMAP=$MCP_IT_IMAP_NAME
 WORK="$RUNNER_TEMP/mcp-it"
 TOOLS_DIR="$WORK/tools"
 ARTIFACTS="$WORK/artifacts"
+MAIL_PINS_FILE="$HERE/mail-pins.json"
+FORMS_PINS_FILE="$HERE/forms-pins.json"
+case "${MCP_IT_OFFICIAL_APPS:-0}" in
+    0) ;;
+    1)
+        if [ "$MCP_IT_NC:$MCP_IT_DB:$MCP_IT_MODE:${MCP_IT_MAIL_GUARD:-0}:${MCP_IT_MAIL_OFFICIAL:-0}" != '35:pgsql:fresh:0:1' ]; then
+            echo 'Official-app pins require NC35/PG16 fresh mode with stock Mail official mode enabled' >&2
+            exit 2
+        fi
+        MAIL_PINS_FILE="$HERE/official-apps-pins.json"
+        FORMS_PINS_FILE="$HERE/official-apps-pins.json"
+        ;;
+    *) echo 'MCP_IT_OFFICIAL_APPS must be 0 or 1' >&2; exit 2 ;;
+esac
 # shellcheck disable=SC2016
-pin() { php -r '$p=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo $p[$argv[2]];' "$HERE/mail-pins.json" "$1"; }
+pin_file() { php -r '$p=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo $p[$argv[2]];' "$1" "$2"; }
+pin() { pin_file "$MAIL_PINS_FILE" "$1"; }
 IMAP_IMAGE=$(pin imap_image)
 MAIL_TAG=v$(pin mail_version)
 MAIL_SHA=$(pin mail_sha256)
-FORMS_TAG=v$(php -r '$p=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo $p["forms_version"];' "$HERE/forms-pins.json")
-FORMS_SHA=$(php -r '$p=json_decode(file_get_contents($argv[1]),true,512,JSON_THROW_ON_ERROR); echo $p["forms_sha256"];' "$HERE/forms-pins.json")
+FORMS_TAG=v$(pin_file "$FORMS_PINS_FILE" forms_version)
+FORMS_SHA=$(pin_file "$FORMS_PINS_FILE" forms_sha256)
 IMAP_PORT=31143
 # Public fixture-only password, never reused outside the disposable network.
 IMAP_PASSWORD=mcp-it-imap-password
