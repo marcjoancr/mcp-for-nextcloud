@@ -13,7 +13,12 @@ use OCP\{IDBConnection,IConfig};
 /** Closed native snooze surface, with current original authorization at every effect. */
 class MailSnoozeGateway {
     public function __construct(private MailServices $services,private MailNativeBoundary $boundary,private IDBConnection $db,private IConfig $config,private MailAccessGuard $access,private MailFreshAccess $fresh,private MailDeliveryOrigin $origins,private ConnectionContext $connection){}
-    private function qualified():void {if(!$this->boundary->runtimeMatches($this->config->getSystemValueString('version',''))||$this->db->getDatabaseProvider()!==IDBConnection::PLATFORM_POSTGRES||!$this->boundary->snoozeVerified())throw new ToolFailure('The qualified guarded Mail snooze dependency is unavailable.');}
+    private function qualified():void {
+        if ($this->config->getSystemValueBool('app.mcp.official-apps.mail')) {
+            throw new ToolFailure('The qualified guarded Mail snooze dependency is unavailable.');
+        }
+        if(!$this->boundary->runtimeMatches($this->config->getSystemValueString('version',''))||$this->db->getDatabaseProvider()!==IDBConnection::PLATFORM_POSTGRES||!$this->boundary->snoozeVerified())throw new ToolFailure('The qualified guarded Mail snooze dependency is unavailable.');
+    }
     private function native(string $uid):object {$this->qualified();return $this->services->guardedSnooze($uid);}
     private function admission(string $uid,bool $effect):object {
         $live=$effect?$this->fresh->activeFence($uid,'mail_snooze'):null;

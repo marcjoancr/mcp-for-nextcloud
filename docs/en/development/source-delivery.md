@@ -116,6 +116,12 @@ checks globally or attach an upstream signature to modified files.
 No public URL is fabricated and no partially functioning source endpoint is
 introduced by the local preparation tooling.
 
+## Official Forms and Mail candidate
+
+Prepare the MCP source kit from the candidate commit using the standard five-file delivery. The official Forms and Mail packages come from the Nextcloud App Store. The source kit's `BUILDING.md` records the Mail retirement SQL path and SHA-256 when the frozen bundle includes it. The verified bundle also contains the [coordinated transition and rollback procedure](official-apps-rehearsal.md).
+
+The guarded Forms companion remains bound to the historical MCP release and its exact group and sharing source profiles. The `forms-native` command rejects a kit with a different MCP bootstrap. Use the historical companion and its own matching MCP source kit for rollback. Install the new MCP and official Forms together in the transition window when replacing that guarded pair.
+
 ## Runtime source offer
 
 A clean committed package includes generated `appinfo/source.json` with its

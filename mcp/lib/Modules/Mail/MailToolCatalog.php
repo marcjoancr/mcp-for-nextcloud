@@ -8,7 +8,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Modules\Mail;
 
 use OCA\Mcp\Mcp\Tools\Tool;
-use OCA\Mcp\Modules\Mail\Tools\{DeleteDraft, ListAccounts, ListMailboxes, ReadAttachment, ReadDrafts, ReadMessage, ReadThread, ReadMessageMetadata, ReadOutbox, SaveAttachment, SearchMessages, WriteDraft};
+use OCA\Mcp\Modules\Mail\Tools\{DeleteDraft, ListAccounts, ListMailboxes, ReadAttachment, ReadDrafts, ReadMessage, ReadThread, ReadMessageMetadata, ReadOutbox, SaveAttachment, SearchMessages, WriteDraft, ReadOwnedDrafts, WriteOwnedDraft, DeleteOwnedDraft};
 
 final class MailToolCatalog {
     /** @return list<class-string<Tool>> */
@@ -17,18 +17,29 @@ final class MailToolCatalog {
 			ReadAttachment::class, SaveAttachment::class, ReadDrafts::class, WriteDraft::class, DeleteDraft::class, Tools\AttachFiles::class, Tools\GetOperation::class, Tools\ListOperations::class, Tools\ReadAccountSettings::class, Tools\WriteAccountSettings::class, Tools\ReadSignature::class, Tools\WriteSignature::class, Tools\ReadConnection::class, Tools\ConfigureConnection::class, Tools\TestConnection::class, Tools\AddAccount::class, Tools\CompleteAccountSetup::class, Tools\DeleteAccount::class, Tools\SetMessageFlag::class, Tools\MoveMessage::class, Tools\ArchiveMessage::class, Tools\TrashMessage::class, Tools\RestoreMessage::class, Tools\CreateMailbox::class, Tools\RenameMailbox::class, Tools\SetMailboxSubscription::class, Tools\ConfigureMailboxes::class, Tools\ListAliases::class, Tools\ListTags::class, Tools\CreateTag::class, Tools\SetMessageTag::class, Tools\RefreshMailbox::class, Tools\ReconcileOperation::class, Tools\AddAlias::class, Tools\UpdateAlias::class, Tools\DeleteAlias::class, ReadOutbox::class, ReadMessageMetadata::class, Tools\SendDraft::class, Tools\ScheduleDraft::class, Tools\CancelDelivery::class, Tools\ReadDelivery::class, Tools\RepairSentCopy::class, Tools\ExportMessage::class, Tools\SearchDrafts::class, Tools\ImportDraft::class, Tools\IndexMessages::class, Tools\SearchIndexedBody::class, Tools\SnoozeMessage::class, Tools\WakeMessage::class, Tools\CancelSnooze::class, Tools\ReadSnooze::class, Tools\ReadFilters::class, Tools\WriteFilters::class, Tools\ReadAbsence::class, Tools\WriteAbsence::class, Tools\DisableAbsence::class, Tools\ReadSieveStatus::class, Tools\TransmitFilters::class, Tools\EnableAbsence::class, Tools\WriteSignatureMode::class];
     }
 
+    /** @return list<class-string<Tool>> all definitions, including tools hidden by the default patched publication */
+    public static function allClasses(): array {
+        return [...self::classes(), ReadOwnedDrafts::class, WriteOwnedDraft::class, DeleteOwnedDraft::class];
+    }
+
+    /** @return list<class-string<Tool>> the explicitly allowed official-package subset */
+    public static function officialClasses(): array {
+        return [ListAccounts::class, ListMailboxes::class, SearchMessages::class, ReadMessage::class, ReadThread::class,
+            ReadAttachment::class, SaveAttachment::class, ReadDrafts::class, ReadOwnedDrafts::class, WriteOwnedDraft::class, DeleteOwnedDraft::class];
+    }
+
     /**
      * @param list<class-string<Tool>>|null $classes explicit entries, defaulting to this feature's catalog
      * @return array<string, array<string, mixed>> original metadata shape in publication order
      */
     public static function definitions(?array $classes = null): array {
         $result = [];
-        foreach ($classes ?? self::classes() as $class) {
+        foreach ($classes ?? self::allClasses() as $class) {
             if (!is_a($class, Tool::class, true)) {
                 throw new \LogicException('Catalog entries must implement Tool');
             }
             $definition = $class::definition();
-			if (!in_array($definition->operation, ['read', 'search', 'read_message', 'read_outbox', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts', 'attach_files', 'read_operations', 'read_settings', 'write_settings', 'read_signatures', 'write_signatures', 'read_connection', 'configure_connection', 'create_accounts', 'complete_setup', 'test_connection', 'delete_accounts', 'set_flags', 'move_messages', 'archive_messages', 'trash_messages', 'restore_messages', 'create_mailboxes', 'rename_mailboxes', 'subscribe_mailboxes', 'configure_mailboxes', 'read_identities', 'read_tags', 'create_tags', 'tag_messages', 'refresh', 'reconcile_operations', 'create_identities', 'edit_identities', 'delete_identities', 'send', 'schedule', 'cancel_delivery', 'read_delivery', 'repair_sent', 'export_message', 'search_drafts', 'import_draft', 'index_messages', 'search_indexed_body', 'snooze', 'wake', 'cancel_snooze', 'read_snooze', 'read_filters','write_filters','read_absence','write_absence','disable_absence','read_sieve_status','transmit_filters','enable_absence','write_signature_mode'], true)) {
+			if (!in_array($definition->operation, ['read', 'search', 'read_message', 'read_outbox', 'read_attachment', 'save_attachment', 'read_drafts', 'write_drafts', 'delete_drafts', 'read_owned_drafts', 'write_owned_draft', 'delete_owned_draft', 'attach_files', 'read_operations', 'read_settings', 'write_settings', 'read_signatures', 'write_signatures', 'read_connection', 'configure_connection', 'create_accounts', 'complete_setup', 'test_connection', 'delete_accounts', 'set_flags', 'move_messages', 'archive_messages', 'trash_messages', 'restore_messages', 'create_mailboxes', 'rename_mailboxes', 'subscribe_mailboxes', 'configure_mailboxes', 'read_identities', 'read_tags', 'create_tags', 'tag_messages', 'refresh', 'reconcile_operations', 'create_identities', 'edit_identities', 'delete_identities', 'send', 'schedule', 'cancel_delivery', 'read_delivery', 'repair_sent', 'export_message', 'search_drafts', 'import_draft', 'index_messages', 'search_indexed_body', 'snooze', 'wake', 'cancel_snooze', 'read_snooze', 'read_filters','write_filters','read_absence','write_absence','disable_absence','read_sieve_status','transmit_filters','enable_absence','write_signature_mode'], true)) {
 				throw new \LogicException('Mail tools must use a declared Mail operation');
             }
             if (isset($result[$definition->name])) {
@@ -38,4 +49,10 @@ final class MailToolCatalog {
         }
         return $result;
     }
+
+    /** @return array<string,array<string,mixed>> the backward-compatible patched publication */
+    public static function legacyDefinitions(): array { return self::definitions(self::classes()); }
+
+    /** @return array<string,array<string,mixed>> the narrow official-package publication */
+    public static function officialDefinitions(): array { return self::definitions(self::officialClasses()); }
 }

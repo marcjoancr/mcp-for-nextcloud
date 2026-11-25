@@ -10,6 +10,20 @@ use PHPUnit\Framework\TestCase;
 class SweepGatewayFixture extends MailDeliveryGateway {public function queuedAfter(string $cursor,int $limit=25):array {return [];}}
 final class MailDeliverySweepTest extends TestCase {
     private static function row(int $id):array {return ['uid'=>'alice','id'=>str_pad(dechex($id),64,'0',STR_PAD_LEFT),'accountId'=>3,'connectionId'=>12,'sourceTool'=>'mail_schedule'];}
+    public function testOfficialMailModeLeavesLegacyQueueAndCursorsUntouched(): void {
+        $gateway = $this->createMock(SweepGatewayFixture::class);
+        $gateway->expects(self::never())->method('due');
+        $gateway->expects(self::never())->method('queuedAfter');
+        $runner = $this->createMock(DeliveryRunner::class);
+        $runner->expects(self::never())->method('run');
+        $config = $this->createMock(IConfig::class);
+        $config->method('getSystemValueBool')->with('app.mcp.official-apps.mail')->willReturn(true);
+        $config->method('getAppValue')->willReturn('');
+        $config->expects(self::never())->method('setAppValue');
+
+        (new DeliverySweep($gateway, $runner, $config))->run();
+    }
+
     public function testBudgetPersistsOnlyTheLastActuallyReviewedFutureEntry():void {
         $gateway=$this->createMock(SweepGatewayFixture::class);$gateway->expects(self::once())->method('due')->with(25)->willReturn([]);
         $gateway->expects(self::once())->method('queuedAfter')->with('',25)->willReturn(array_map(self::row(...),range(1,5)));

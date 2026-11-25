@@ -1,6 +1,12 @@
 OC.L10N.register(
     "mcp",
     {
+    "Read private MCP mail drafts": "Private MCP-E-Mail-Entwürfe lesen",
+    "Save a private MCP mail draft": "Einen privaten MCP-E-Mail-Entwurf speichern",
+    "Delete a private MCP mail draft": "Einen privaten MCP-E-Mail-Entwurf löschen",
+    "read_owned_drafts": "Private MCP-E-Mail-Entwürfe lesen",
+    "write_owned_draft": "Einen privaten MCP-E-Mail-Entwurf speichern",
+    "delete_owned_draft": "Einen privaten MCP-E-Mail-Entwurf löschen",
     "Parameters: %s": "Parameter: %s",
     "Add the category %s to selected contacts in %s.": "Kategorie %s zu den ausgewählten Kontakten in %s hinzufügen.",
     "Remove the category %s from selected contacts in %s.": "Kategorie %s aus den ausgewählten Kontakten in %s entfernen.",

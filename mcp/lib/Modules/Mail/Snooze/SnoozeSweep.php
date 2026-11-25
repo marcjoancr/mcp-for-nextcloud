@@ -18,6 +18,9 @@ class SnoozeSweep {
         $rows=$read($cursor);if($rows===[]&&$cursor!=='')$rows=$read('');return $rows;
     }
     public function run():void {
+        if ($this->config->getSystemValueBool('app.mcp.official-apps.mail')) {
+            return;
+        }
         $deadline=$this->now()+55000000000;$due=$this->page(self::DISPATCH,true);$audit=$this->page(self::AUDIT,false);$dispatch=array_fill_keys(array_column($due,'id'),true);$work=[];
         // Neither page can monopolize a short sweep. Dedup preserves each page's order.
         for($i=0;$i<25;$i++)foreach([$due,$audit]as$page)if(isset($page[$i]))$work[$page[$i]['id']]??=$page[$i];

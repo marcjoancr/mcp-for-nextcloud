@@ -564,6 +564,13 @@ REPORT
 }
 
 cmd_test() {
+    if [ "${MCP_IT_MAIL_OFFICIAL:-0}" = 1 ]; then
+        if [ "${MCP_IT_WITH_MAIL:-0}:${MCP_IT_MAIL_GUARD:-0}" != '1:0' ]; then
+            echo 'Official Mail mode requires the stock Mail fixture' >&2
+            return 1
+        fi
+        occ config:system:set app.mcp.official-apps.mail --type=boolean --value=true
+    fi
     expected=$(cat "$WORK/expected-version")
     set -- -e NEXTCLOUD_ROOT=/var/www/html -e MCP_IT_NC="$MCP_IT_NC" -e MCP_IT_DB="$MCP_IT_DB" \
         -e MCP_IT_MODE="$MCP_IT_MODE" -e MCP_IT_MAIL_RUNTIME_PHASE="${MCP_IT_MAIL_RUNTIME_PHASE:-}" -e MCP_IT_EXPECTED_VERSION="$expected" -e MCP_IT_LEGACY=/tmp/mcp-it-legacy.json \

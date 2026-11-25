@@ -10,6 +10,20 @@ use PHPUnit\Framework\TestCase;
 final class MailSnoozeSweepTest extends TestCase {
     private static function row(int $id):array {return ['uid'=>'alice','id'=>str_pad(dechex($id),64,'0',STR_PAD_LEFT),'accountId'=>3,'connectionId'=>12,'sourceTool'=>'mail_snooze'];}
     private function config(array &$values):IConfig {$c=$this->createMock(IConfig::class);$c->method('getAppValue')->willReturnCallback(static function($app,$key,$default)use(&$values){return $values[$key]??$default;});$c->method('setAppValue')->willReturnCallback(static function($app,$key,$value)use(&$values):void{$values[$key]=$value;});return $c;}
+    public function testOfficialMailModeLeavesLegacyQueueAndCursorsUntouched(): void {
+        $gateway = $this->createMock(MailSnoozeGateway::class);
+        $gateway->expects(self::never())->method('due');
+        $gateway->expects(self::never())->method('queuedAfter');
+        $runner = $this->createMock(SnoozeRunner::class);
+        $runner->expects(self::never())->method('run');
+        $config = $this->createMock(IConfig::class);
+        $config->method('getSystemValueBool')->with('app.mcp.official-apps.mail')->willReturn(true);
+        $config->method('getAppValue')->willReturn('');
+        $config->expects(self::never())->method('setAppValue');
+
+        (new SnoozeSweep($gateway, $runner, $config))->run();
+    }
+
     public function testBudgetPersistsOnlyTheLastActuallyReviewedFutureEntry():void {
         $gateway=$this->createMock(MailSnoozeGateway::class);$gateway->expects(self::once())->method('due')->with(25,'')->willReturn([]);$gateway->expects(self::once())->method('queuedAfter')->with('',25)->willReturn(array_map(self::row(...),range(1,5)));
         $values=[];$config=$this->config($values);$now=0;$budgets=[];$seen=[];$runner=$this->createMock(SnoozeRunner::class);$runner->method('run')->willReturnCallback(static function(array $row,string $action='dispatch',?string $revision=null,?string $operation=null,int $budgetMs=20000)use(&$now,&$budgets,&$seen):array{$seen[]=$row['id'];$budgets[]=$budgetMs;$now+=20000000000;return ['status'=>'unknown'];});

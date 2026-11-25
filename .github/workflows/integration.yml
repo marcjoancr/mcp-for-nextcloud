@@ -114,3 +114,44 @@ jobs:
             mcp/build/integration/*/qualified-evidence/test-summary.log
           if-no-files-found: error
           retention-days: 14
+  official-apps-pg16:
+    name: Official Forms 5.4.4 / Mail 5.13.4 / NC35 PG16
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962
+        with:
+          php-version: '8.2'
+          extensions: mbstring, intl, gd, zip, sqlite3
+          coverage: none
+          tools: composer:v2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: mcp/.node-version
+      - name: Install locked npm version
+        run: npm install --global npm@11.19.1
+      - name: Verify the separate official app pins
+        run: php mcp/tests/Integration/ci/official-apps-profile-test.php
+      - name: Exercise official Forms and Mail on the pinned NC35 PG16 cell
+        env:
+          MCP_IT_OFFICIAL_APPS: '1'
+          MCP_IT_MAIL_OFFICIAL: '1'
+          MCP_IT_MAIL_GUARD: '0'
+          MCP_IT_PHPUNIT_ARGS: '--filter McpFormsIsolationTest|FormsResponsesTest|McpMailReadTest|McpMailThreadTest|McpMailHttpTest|McpMailOfficialModeTest|FormsOfficialOcsModeTest'
+        run: composer --working-dir=mcp test:integration -- 35 pgsql fresh --mail
+      - name: Rehearse PostgreSQL Mail retirement, blockers, archive and matched restore
+        run: sh mcp/tests/Integration/ci/mail-retirement-postgresql.sh
+      - name: Upload official app and retirement evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: official-apps-nc35-pg16
+          path: |
+            mcp/build/integration/*/mcp-it/artifacts/
+            mcp/build/integration/mcp-mail-retirement-*/summary.json
+          if-no-files-found: error
+          retention-days: 14

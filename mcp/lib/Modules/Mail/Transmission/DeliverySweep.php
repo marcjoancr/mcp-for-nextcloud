@@ -12,6 +12,9 @@ class DeliverySweep {
     public function __construct(private MailDeliveryGateway $gateway,private DeliveryRunner $runner,private \OCP\IConfig $config,private ?\Closure $nowNs=null){}
     private function now():int {return $this->nowNs!==null?($this->nowNs)():hrtime(true);}
     public function run():void {
+        if ($this->config->getSystemValueBool('app.mcp.official-apps.mail')) {
+            return;
+        }
         $deadline=$this->now()+55000000000;
         $cursor=$this->config->getAppValue('mcp',self::CURSOR,'');if($cursor!==''&&preg_match('/^[a-f0-9]{64}$/D',$cursor)!==1)$cursor='';
         $audit=array_slice($this->gateway->queuedAfter($cursor,25),0,25);

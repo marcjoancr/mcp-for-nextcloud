@@ -49,7 +49,8 @@ final class FormsResponseExport {
 			unset($plan['_content']);
 			return $written + ['message' => $plan['message'], 'formId' => $plan['formId'], 'rows' => $plan['rows']];
 		}
-		return ['exported' => true, 'formId' => $plan['formId'], 'rows' => $plan['rows'], 'partial' => $plan['partial'], 'nextOffset' => $plan['nextOffset'], 'skippedRows' => $plan['skippedRows'], 'truncatedCells' => $plan['truncatedCells'], 'fileAnswersOmitted' => $plan['fileAnswersOmitted'], 'file' => $written];
+		return ['exported' => true, 'formId' => $plan['formId'], 'rows' => $plan['rows'], 'partial' => $plan['partial'], 'nextOffset' => $plan['nextOffset'], 'skippedRows' => $plan['skippedRows'], 'truncatedCells' => $plan['truncatedCells'], 'fileAnswersOmitted' => $plan['fileAnswersOmitted'], 'file' => $written]
+			+ array_intersect_key($plan, ['unclassifiedSubmissionsOmitted' => true]);
 	}
 
 	/** @param array<string,mixed> $arguments @return array<string,mixed> */
@@ -67,7 +68,12 @@ final class FormsResponseExport {
 		}
 		[$content, $rows, $partial, $skipped, $truncatedCells, $fileAnswersOmitted, $answersTruncated, $rowOrByteBoundReached] = $this->csv($page, $limit);
 		$questionsTruncated = ($page['questionsTruncated'] ?? false) || count($page['questions'] ?? []) > FormsOutput::MAX_QUESTIONS;
-		$nextOffset = count($page['submissions']) > $limit ? $offset + $limit : null;
+		$hasMore = $page['_sourceHasMore'] ?? (count($page['submissions']) > $limit);
+		$scanned = $page['_sourceScanned'] ?? min($limit, count($page['submissions']));
+		$nextOffset = $hasMore ? $offset + $scanned : null;
+		$unclassified = max(0, (int)($page['_unclassifiedOmitted'] ?? 0));
+		$omissions = $unclassified > 0 ? ['unclassifiedSubmissionsOmitted' => $unclassified] : [];
+		$partial = $partial || $hasMore || $unclassified > 0;
 		$destination = $this->files->preview($userId, $path, strlen($content));
 		$source = [
 			'formId' => $formId, 'offset' => $offset, 'limit' => $limit,
@@ -77,7 +83,7 @@ final class FormsResponseExport {
 			'questionsTruncated' => $questionsTruncated, 'answersTruncated' => $answersTruncated,
 			'rowOrByteBoundReached' => $rowOrByteBoundReached,
 			'nextOffset' => $nextOffset,
-		];
+		] + $omissions;
 		$shown = ['source' => $source, 'destination' => $destination];
 		return [
 			'action' => 'export_responses', 'requiresConfirmation' => true,
@@ -89,7 +95,7 @@ final class FormsResponseExport {
 			'destination' => $destination,
 			PlanState::ARGUMENT => $this->states->of('forms_export_responses', $userId, $shown),
 			'_content' => $content,
-		];
+		] + $omissions;
 	}
 
 	/** @param array<string,mixed> $page @return array{string,int,bool,int,int,bool,bool,bool} */
@@ -102,8 +108,7 @@ final class FormsResponseExport {
 		}
 		$fileIds = $page['fileQuestionIds'] ?? [];
 		$submissions = array_slice($page['submissions'], 0, $limit);
-		$hasMore = count($page['submissions']) > $limit;
-		$partial = $hasMore;
+		$partial = false;
 		$skipped = 0;
 		$truncatedCells = 0;
 		$fileAnswersOmitted = false;

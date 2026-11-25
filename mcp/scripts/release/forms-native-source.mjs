@@ -129,7 +129,7 @@ export async function assertFormsMcpSourcePins(repository, runtimeFiles) {
     const installed = 'custom_apps/mcp/' + file;
     const sha = runtimeFiles[file]?.sha256;
     if (!isDigest(sha) || groups.native?.[installed] !== sha || finalShares[installed] !== sha) {
-      throw new Error(`Forms source profile differs from packaged MCP: ${file}`);
+      throw new Error(`Forms source profile differs from packaged MCP: ${file}. Use the matching historical guarded kit or follow the official Forms transition procedure.`);
     }
   }
 }

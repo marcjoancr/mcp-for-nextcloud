@@ -22,6 +22,15 @@ final class MailBoundedAttachmentGateTest extends TestCase {
     public function testVersionMetadataNeverTreatsAnUnqualifiedNewArtifactAsOld():void {
         foreach(['5.12.5'=>false,'5.12.5.10'=>false,'5.12.5.12'=>true,'5.13.0'=>true,'broken'=>true] as $version=>$expected){$apps=$this->createMock(\OCP\App\IAppManager::class);$apps->method('getAppVersion')->willReturn($version);$b=new \OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary($apps);self::assertSame($expected,$b->currentContentGeneration(),$version);}
     }
+    public function testOfficialStockMailUsesLegacyContentReaderWithoutNativeOverlay():void {
+        foreach(['5.12.5','5.13.4','5.99.1'] as $version){$apps=$this->createMock(\OCP\App\IAppManager::class);$apps->method('getAppVersion')->willReturn($version);$b=new \OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary($apps,null,static fn():bool=>true);self::assertFalse($b->currentContentGeneration(),$version);}
+    }
+    public function testOfficialModeFailsClosedForMalformedAndFourPartOverlayVersions():void {
+        foreach(['broken','5.12.5.10','5.12.5.12','5.13'] as $version){$apps=$this->createMock(\OCP\App\IAppManager::class);$apps->method('getAppVersion')->willReturn($version);$b=new \OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary($apps,null,static fn():bool=>true);self::assertTrue($b->currentContentGeneration(),$version);}
+    }
+    public function testOfficialModeProviderFailureFailsClosed():void {
+        $apps=$this->createMock(\OCP\App\IAppManager::class);$apps->method('getAppVersion')->willReturn('5.13.4');$b=new \OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary($apps,null,static function():bool {throw new \RuntimeException('config unavailable');});self::assertTrue($b->currentContentGeneration());
+    }
     public function testCurrentDisplayUnavailableCannotReachLegacyManager():void {
         $reader=$this->createMock(MailContentReader::class);$reader->method('available')->willReturn(false);$reader->method('mustUseBounded')->willReturn(true);
         $services=$this->createMock(MailServices::class);$services->expects(self::never())->method('mailManager');

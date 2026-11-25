@@ -8,6 +8,26 @@ Forms tools require Forms 5.3.0 or later, availability for the authenticated acc
 
 `forms_list` lists accessible forms; `forms_read` reads questions and options. Both use `forms.read`. `forms_read_responses` requires the separate `forms.read_responses` operation and the native permission to view results. Being allowed to submit a form or view only one's own submission does not grant access to the full result set.
 
+## Official Forms package
+
+The `app.mcp.official-apps.forms` system setting enables the read and
+bounded CSV tools with an official Forms package. It is disabled by default.
+The CSV tool writes only the reviewed page to a new file in Files. Guarded
+authoring, attachment lifecycle, comments and linked export workers are held
+while the setting is enabled. The release source kit documents the coordinated Forms transition.
+
+For a Nextcloud Basic login, the MCP uses Forms OCS v3 on the instance configured
+in `overwrite.cli.url`. Configure an HTTPS URL with valid trust for that
+instance. The read checks the current OCS user before requesting Forms data.
+A denied or failed OCS request fails the tool. MCP OAuth and browser sessions
+use the native reader in the authenticated request. An MCP bearer token has
+an audience limited to the MCP endpoint.
+
+Both readers require explicit results permission for the all-results tool.
+Forms can continue to show a submitter their own responses after results
+permission is withdrawn. The MCP does not treat those rows as an all-results
+page.
+
 ## Summarize responses
 
 `forms_summarize_responses` requires `forms.summarize_responses`. Pass `id`, with optional `offset` and `limit` (default 50, maximum 100 submissions). It returns deterministic answer counts by question for that page, with `submissionsAnalyzed`, `partial`, `hasMore` and `nextOffset`. Follow the returned offset to continue; a page summary is not a whole-form summary. At most 50 question metadata records and 200 answers per submission are considered, with a ceiling of 8,000 scanned answers and 4 MiB of answer text. Text and scan limits may also make results partial.

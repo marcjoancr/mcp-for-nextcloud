@@ -9,7 +9,7 @@ namespace OCA\Mcp\Modules\Mail\Integration;
 use OCP\App\IAppManager;
 /** Read-only native artifact identity. Presence/version alone never admits a guarded write. */
 class MailNativeBoundary {
-    public function __construct(private IAppManager $apps,private ?MailDraftStorage $draftStorage=null){}
+    public function __construct(private IAppManager $apps,private ?MailDraftStorage $draftStorage=null,private ?\Closure $officialMailMode=null){}
     // Flip only after the v4 exact-cache and real-protocol qualification passes.
     public const TAG_ASSIGNMENT_QUALIFIED=true;
     public const REFRESH_QUALIFIED=true;
@@ -32,6 +32,11 @@ class MailNativeBoundary {
     /** Version metadata only: a failed new boundary must never select an older parser. */
     public function currentContentGeneration():bool {
         $version=$this->apps->getAppVersion('mail');
+        if($this->officialMailMode!==null){
+            try {
+                if(($this->officialMailMode)())return preg_match('/^5\\.[0-9]+\\.[0-9]+$/D',$version)!==1;
+            } catch(\Throwable){return true;}
+        }
         return preg_match('/^[0-9]+\\.[0-9]+\\.[0-9]+(?:\\.[0-9]+)?$/D',$version)!==1||version_compare($version,'5.12.5.11','>=');
     }
     public const DELIVERY_QUALIFIED=true;
