@@ -14,7 +14,7 @@ The `app.mcp.official-apps.forms` system setting enables the read and
 bounded CSV tools with an official Forms package. It is disabled by default.
 The CSV tool writes only the reviewed page to a new file in Files. Guarded
 authoring, attachment lifecycle, comments and linked export workers are held
-while the setting is enabled. The [transition rehearsal](../../development/official-apps-rehearsal.md) records the official updater and matched restore checks.
+while the setting is enabled. The release source kit documents the coordinated Forms transition.
 
 For a Nextcloud Basic login, the MCP uses Forms OCS v3 on the instance configured
 in `overwrite.cli.url`. Configure an HTTPS URL with valid trust for that

@@ -43,7 +43,7 @@ Official mode closes native draft writes, account configuration and remote
 changes, including send and schedule. The MCP delivery and snooze workers
 leave their old queue entries in place while official mode is enabled.
 Inventory pending work and protected native drafts before replacing the
-Mail package. The [transition rehearsal](../../development/official-apps-rehearsal.md) records the first-update procedure and the native draft and outbox boundaries.
+Mail package. The release source kit includes the retirement procedure and the PostgreSQL script.
 
 ### Guarded and legacy acceptance
 
