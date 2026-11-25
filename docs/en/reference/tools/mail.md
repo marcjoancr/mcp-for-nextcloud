@@ -8,7 +8,7 @@ Each permission starts denied, including on existing installations. `mail.read` 
 The native qualification fixture uses Mail 5.12.5 on Nextcloud 35; the API floor
 is not a promise that every Mail/server version combination is supported.
 
-MCP defines **66 tools**. Current-v12 support adds immutable delivery,
+The guarded and legacy modes publish a catalog of **66 tools**. Current-v12 support adds immutable delivery,
 bounded content export, protected draft import, indexed body search, saved
 account/folder scopes, snooze, structured Sieve and stored signature mode.
 These features require their own default-denied grants, connection selections,
@@ -16,6 +16,36 @@ qualified native sources and provider checks. Transmission requires the operator
 switch, an explicit send grant and the connection's own tool selection; granting
 draft writes alone never enables sending. MDN and unrelated native outbox dispatch
 are not enabled by these tools. This is not complete parity with native Mail.
+
+## Official Mail package
+
+The `app.mcp.official-apps.mail` system setting enables the official-package
+catalog. It is disabled by default. The catalog contains account, folder,
+message, thread and attachment reads, confirmed attachment saves to Files,
+and read-only access to native unsent drafts. It also contains three tools
+for private drafts stored by MCP under separate permissions.
+
+| Tool | Behavior |
+| --- | --- |
+| `mail_read_owned_drafts` | Lists private drafts for an accessible owned account, or reads an individual draft by its opaque MCP ID. |
+| `mail_write_owned_draft` | Previews and confirms a plain-text draft create or revision-checked edit. |
+| `mail_delete_owned_draft` | Previews and confirms deletion of an exact private draft revision. |
+
+MCP drafts are encrypted in MCP storage and scoped to the owner’s current
+account incarnation and Mail access. The native Mail composer and mail server
+never receive these drafts. Use native Mail to compose and send with attachments.
+After a lost answer to a local write, read the draft or list current drafts
+before preparing another write. Previously approved stale plans cannot apply.
+Edit and delete previews identify the previous revision. Reading its contents
+requires the separate draft read permission.
+
+Official mode closes native draft writes, account configuration and remote
+changes, including send and schedule. The MCP delivery and snooze workers
+leave their old queue entries in place while official mode is enabled.
+Inventory pending work and protected native drafts before replacing the
+Mail package. The [transition rehearsal](../../development/official-apps-rehearsal.md) records the first-update procedure and the native draft and outbox boundaries.
+
+### Guarded and legacy acceptance
 
 | Native configuration | Acceptance scope |
 | --- | --- |

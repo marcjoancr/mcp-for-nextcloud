@@ -4,6 +4,12 @@
 OC.L10N.register(
     "mcp",
 {
+    "Read private MCP mail drafts": "Llegeix els esborranys de correu privats de l’MCP",
+    "Save a private MCP mail draft": "Desa un esborrany de correu privat de l’MCP",
+    "Delete a private MCP mail draft": "Suprimeix un esborrany de correu privat de l’MCP",
+    "read_owned_drafts": "Llegeix els esborranys de correu privats de l’MCP",
+    "write_owned_draft": "Desa un esborrany de correu privat de l’MCP",
+    "delete_owned_draft": "Suprimeix un esborrany de correu privat de l’MCP",
     "Parameters: %s": "Paràmetres: %s",
     "Add the category %s to selected contacts in %s.": "Afegeix la categoria %s als contactes seleccionats de %s.",
     "Remove the category %s from selected contacts in %s.": "Retira la categoria %s dels contactes seleccionats de %s.",

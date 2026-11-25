@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { inventory, sealKit, verifyKit } from './integrity.mjs';
+import { hashFile, inventory, sealKit, verifyKit } from './integrity.mjs';
 
 function run(command, args, cwd, capture = false) {
   return execFileSync(command, args, { cwd, encoding: 'utf8', stdio: capture ? ['ignore', 'pipe', 'pipe'] : 'inherit' });
@@ -26,6 +26,25 @@ export function snapshotRepository(root, revision, destination, bundle) {
 export function sourceKitStatus(release = false) {
   if (typeof release !== 'boolean') throw new Error('Release mode must be boolean');
   return release ? 'release-ready' : 'unpublished-candidate';
+}
+
+export async function sourceKitTransitionNotes(repository) {
+  const retirement = 'native/mail-guard/retire-postgresql.sql';
+  let digest;
+  try {
+    digest = await hashFile(path.join(repository, retirement));
+  } catch (error) {
+    if (error.code === 'ENOENT') return '';
+    throw error;
+  }
+
+  return `
+## Official Forms and Mail transition
+
+Follow \`docs/en/development/official-apps-rehearsal.md\` from this source bundle. Replace MCP and Forms with the official-apps candidate and signed Forms in the same maintenance window. Keep the matching historical guarded Forms and MCP packages for rollback. If an external Forms comments factory or group observer is active, retire it while the historical pair still matches.
+
+The Mail retirement script is in this bundle at \`${retirement}\`. Its SHA-256 is \`${digest}\`. Use it before the first update from guarded Mail and keep the matching database, data and code rollback set.
+`;
 }
 
 export async function prepareKit(root, revision, { release = false } = {}) {
@@ -58,7 +77,8 @@ export async function prepareKit(root, revision, { release = false } = {}) {
     const statusNote = release
       ? 'This is a release source kit. The release record establishes its publication and signature status.'
       : 'This is an unpublished candidate, not a signed Nextcloud release.';
-    fs.writeFileSync(path.join(kit, 'BUILDING.md'), `# Local source delivery: Nextcloud MCP ${version}\n\nSource commit: ${revision}\n\n${statusNote}\n\n1. Verify manifest.json against a separately trusted SHA-256 using the release verifier, then verify every kit file.\n2. Run \`git clone source.bundle source\` and \`git -C source checkout --detach ${revision}\`. The bundle retains reachable history for documentation provenance; it contains no repository-local Git configuration.\n3. Use the PHP, Composer, Node and npm versions documented in source/docs/en/development/setup.md. In source/mcp run \`npm ci --ignore-scripts\` and \`composer package\`. These commands need access to the locked package registries (or a populated trusted cache). Full offline toolchain reconstruction is not claimed.\n4. The original runtime package is ${archive}. runtime-dependencies.tar.gz contains its complete vendor tree, including PHP source, Composer loader and dependency licenses. The application preferred source, original JavaScript, build scripts, locks and license texts are in source.bundle.\n5. Compare extracted file inventories. Archive timestamps can differ; Composer Git-derived root metadata may differ if you rebuild from a different commit or branch. Never normalize differences away as evidence.\n\nPreserve this kit with its externally recorded manifest digest. Review reachable historical content as part of release approval. Providing this kit does not itself implement the ordinary-user source offer.\n`);
+    const transitionNotes = await sourceKitTransitionNotes(repository);
+    fs.writeFileSync(path.join(kit, 'BUILDING.md'), `# Local source delivery: Nextcloud MCP ${version}\n\nSource commit: ${revision}\n\n${statusNote}\n\n1. Verify manifest.json against a separately trusted SHA-256 using the release verifier, then verify every kit file.\n2. Run \`git clone source.bundle source\` and \`git -C source checkout --detach ${revision}\`. The bundle retains reachable history for documentation provenance; it contains no repository-local Git configuration.\n3. Use the PHP, Composer, Node and npm versions documented in source/docs/en/development/setup.md. In source/mcp run \`npm ci --ignore-scripts\` and \`composer package\`. These commands need access to the locked package registries (or a populated trusted cache). Full offline toolchain reconstruction is not claimed.\n4. The original runtime package is ${archive}. runtime-dependencies.tar.gz contains its complete vendor tree, including PHP source, Composer loader and dependency licenses. The application preferred source, original JavaScript, build scripts, locks and license texts are in source.bundle.\n5. Compare extracted file inventories. Archive timestamps can differ; Composer Git-derived root metadata may differ if you rebuild from a different commit or branch. Never normalize differences away as evidence.\n\nPreserve this kit with its externally recorded manifest digest. Review reachable historical content as part of release approval. Providing this kit does not itself implement the ordinary-user source offer.\n${transitionNotes}`);
     const manifestDigest = await sealKit(kit, { sourceCommit: revision, version, status, runtimeFiles: await inventory(path.join(extracted, 'mcp')) });
     await verifyKit(kit, manifestDigest);
     fs.renameSync(kit, destination);

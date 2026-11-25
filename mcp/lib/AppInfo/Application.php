@@ -776,6 +776,9 @@ class Application extends App implements IBootstrap {
         $context->registerService(\OCA\Mcp\Modules\Forms\Integration\FormsCapabilities::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Integration\FormsCapabilities(
             $c->get(IAppManager::class), $c->get(IUserManager::class), static fn() => $c->get(IUserSession::class)->getUser()?->getUID(),
             static function() use($c): array {
+                if ($c->get(IConfig::class)->getSystemValueBool('app.mcp.official-apps.forms')) {
+                    return [];
+                }
                 try {
                     $root=$c->get(IAppManager::class)->getAppPath('forms');
                     if(!(new \OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity())->matches($root))return [];
@@ -848,8 +851,15 @@ class Application extends App implements IBootstrap {
             static function(array $origin)use($c):void {$c->get('OCA\\Forms\\Mcp\\Guard')->initializeLinkedFiles($origin);}
         ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportWorker::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportWorker(
-            $c->get(IUserSession::class),static fn(string $id):array=>$c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExport::class)->step($id),PHP_SAPI,
+            $c->get(IUserSession::class),
+            static fn(string $id): array => $c->get(IConfig::class)->getSystemValueBool('app.mcp.official-apps.forms')
+                ? ['state' => 'refused']
+                : $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExport::class)->step($id),
+            PHP_SAPI,
             static function()use($c):bool {
+                if ($c->get(IConfig::class)->getSystemValueBool('app.mcp.official-apps.forms')) {
+                    return false;
+                }
                 if(!(new \OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity())->matches($c->get(IAppManager::class)->getAppPath('forms')))return false;
                 $native=$c->get('OCA\\Forms\\Mcp\\Guard');$features=$native->capabilities();
                 return ($features['qualified']??false)===true&&($features['linked_exports']??false)===true&&($features['file_sinks']??false)===true;
@@ -866,6 +876,9 @@ class Application extends App implements IBootstrap {
         ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedSweep::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Exports\FormsLinkedSweep(
             $c->get(\OCA\Mcp\Modules\Forms\Exports\FormsLinkedExportRunner::class),static function(int $limit)use($c):array {
+                if ($c->get(IConfig::class)->getSystemValueBool('app.mcp.official-apps.forms')) {
+                    return [];
+                }
                 if(!(new \OCA\Mcp\Modules\Forms\Integration\FormsGuardIdentity())->matches($c->get(IAppManager::class)->getAppPath('forms')))return [];
                 $guard=$c->get('OCA\\Forms\\Mcp\\Guard');$features=$guard->capabilities();
                 if(($features['qualified']??false)!==true||($features['linked_exports']??false)!==true||!method_exists($guard,'linkedPending'))return [];
@@ -903,14 +916,23 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Forms\Execution\FormsOperationJournal::class),
             static fn(string $uid,string $tool,array $args,array $snapshot) => $c->get(\OCA\Mcp\Modules\Forms\Access\FormsFreshAccess::class)->assertTool($uid,$tool,$args,$snapshot)
         ));
-        $context->registerService(\OCA\Mcp\Modules\Forms\FormsReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Forms\FormsNativeReader::class));
-        $context->registerService(\OCA\Mcp\Modules\Forms\FormsResponseReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Forms\FormsNativeReader::class));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Integration\FormsOcsReader::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Integration\FormsOcsReader(
+            $c->get(IConfig::class), $c->get(\OCP\IRequest::class), $c->get(\OCP\IURLGenerator::class),
+            $c->get(\OCP\Http\Client\IClientService::class), $c->get(IAppManager::class), $c->get(IUserManager::class),
+            $c->get(IUserSession::class), $c->get(\OCA\Mcp\Modules\Forms\FormsNativeReader::class),
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\FormsReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsOcsReader::class));
+        $context->registerService(\OCA\Mcp\Modules\Forms\FormsResponseReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsOcsReader::class));
         $context->registerService(\OCA\Mcp\Modules\Forms\FormsModule::class, static fn (ContainerInterface $c) => \OCA\Mcp\Modules\Forms\FormsModule::withReader(
             $c->get(\OCA\Mcp\Modules\Forms\FormsReader::class), $c->get(\OCA\Mcp\Modules\Forms\FormsResponseReader::class),
             $c->get(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class), $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
             $c->get(\OCA\Mcp\Modules\Forms\Execution\FormsWriteCoordinator::class),
             null,
             static function() use($c): \Closure {
+                if ($c->get(IConfig::class)->getSystemValueBool('app.mcp.official-apps.forms')) {
+                    $legacy = \OCA\Mcp\Modules\Forms\FormsToolCatalog::legacyDefinitions();
+                    return static fn(string $tool): bool => isset($legacy[$tool]) || $tool === 'forms_capabilities';
+                }
                 $uid=$c->get(IUserSession::class)->getUser()?->getUID();$qualified=false;$native=[];
                 try {
                     if($uid!==null&&$c->get(\OCA\Mcp\Modules\Forms\Integration\FormsCapabilities::class)->forUser($uid)['guardedWrites']) {
@@ -1096,7 +1118,8 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailMessageLocator::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailSettingsGateway::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailCapabilities::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailMoveTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailboxMutationTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailTagTarget::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailRefreshTarget::class)
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary(
-            $c->get(IAppManager::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailDraftStorage::class)
+            $c->get(IAppManager::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailDraftStorage::class),
+            static fn (): bool => $c->get(IConfig::class)->getSystemValueBool('app.mcp.official-apps.mail'),
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailCapabilities::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailCapabilities(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),$c->get(IAppManager::class),$c->get(\OCP\IConfig::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailNativeBoundary::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailTagBoundary::class),$c->get(\OCA\Mcp\Modules\Mail\Integration\MailDeliveryGateway::class)
@@ -1132,6 +1155,20 @@ class Application extends App implements IBootstrap {
         $context->registerService(\OCA\Mcp\Modules\Mail\Accounts\MailIdentityAdministration::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Accounts\MailIdentityAdministration(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailAliasGateway::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),$c->get(\OCP\IDBConnection::class),static fn(string $uid,string $tool):bool=>self::mailToolAllowed($c,$uid,$tool),$c->get(\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites::class)
         ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Contracts\MailOwnedDraftStore::class,
+            static fn (ContainerInterface $c) => new \OCA\Mcp\Db\MailOwnedDraftsMapper($c->get(\OCP\IDBConnection::class), $c->get(\OCP\Security\ICrypto::class)));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Drafts\MailOwnedDraftOperations::class,
+            static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Drafts\MailOwnedDraftOperations(
+                $c->get(\OCA\Mcp\Modules\Mail\Contracts\MailOwnedDraftStore::class),
+                $c->get(\OCA\Mcp\Mcp\Operations\ActorIdentity::class),
+                $c->get(\OCA\Mcp\Modules\Mail\Integration\MailGateway::class),
+                $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
+                $c->get(\OCP\AppFramework\Utility\ITimeFactory::class),
+                $c->get(\OCA\Mcp\OAuth\ConnectionContext::class),
+                static fn (string $uid, string $tool, int $account): \Closure =>
+                    $c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)->resourceFence($uid, $tool, $account),
+                static fn (): bool => $c->get(IConfig::class)->getSystemValueBool('app.mcp.official-apps.mail'),
+            ));
         $context->registerService(\OCA\Mcp\Modules\Mail\MailModule::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\MailModule([
             'mail_list_accounts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class),
             'mail_list_mailboxes' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class),
@@ -1143,6 +1180,9 @@ class Application extends App implements IBootstrap {
             'mail_read_drafts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadDrafts::class),
             'mail_write_draft' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WriteDraft::class),
             'mail_delete_draft' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\DeleteDraft::class),
+            'mail_read_owned_drafts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadOwnedDrafts::class),
+            'mail_write_owned_draft' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WriteOwnedDraft::class),
+            'mail_delete_owned_draft' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\DeleteOwnedDraft::class),
             'mail_attach_files' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\AttachFiles::class),
             'mail_get_operation' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\GetOperation::class),
             'mail_list_operations' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListOperations::class),
@@ -1201,7 +1241,14 @@ class Application extends App implements IBootstrap {
             'mail_sent_repair' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\RepairSentCopy::class),
             'mail_read_outbox' => static fn () => new \OCA\Mcp\Modules\Mail\Tools\ReadOutbox($c->get(\OCA\Mcp\Modules\Mail\Integration\MailBoundedReads::class)),
 
-        ], $c->get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class), $c->get(\OCA\Mcp\Modules\Mail\Operations\MailOperationReader::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization::class),$c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)));
+        ],
+            $c->get(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class),
+            $c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),
+            $c->get(\OCA\Mcp\Modules\Mail\Operations\MailOperationReader::class),
+            $c->get(\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization::class),
+            $c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class),
+            static fn (): bool => $c->get(IConfig::class)->getSystemValueBool('app.mcp.official-apps.mail'),
+        ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListAccounts($c->get(\OCA\Mcp\Modules\Mail\Accounts\AccountLister::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListMailboxes($c->get(\OCA\Mcp\Modules\Mail\Mailboxes\MailboxLister::class)));
         $context->registerService(\OCA\Mcp\Modules\Files\Contracts\IncomingFileWriter::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Files\Creation\IncomingFileCreation::class));
@@ -1233,7 +1280,9 @@ class Application extends App implements IBootstrap {
     }
 
     private static function mailToolAllowed(ContainerInterface $c,string $uid,string $tool):bool {
-        $definitions=\OCA\Mcp\Modules\Mail\MailToolCatalog::definitions();
+        $definitions = $c->get(IConfig::class)->getSystemValueBool('app.mcp.official-apps.mail')
+            ? \OCA\Mcp\Modules\Mail\MailToolCatalog::officialDefinitions()
+            : \OCA\Mcp\Modules\Mail\MailToolCatalog::legacyDefinitions();
         return isset($definitions[$tool]) && $c->get(\OCA\Mcp\Mcp\Tools\Discovery\ToolAvailability::class)->allowed($definitions[$tool],$uid);
     }
 

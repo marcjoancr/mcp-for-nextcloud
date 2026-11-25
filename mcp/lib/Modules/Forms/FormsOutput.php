@@ -44,7 +44,12 @@ final class FormsOutput {
     /** @param array{isAnonymous: bool, submissions: list<array<string, mixed>>, fileQuestionIds?: list<int>} $page @return array<string, mixed> */
     public static function responses(array $page, int $offset, int $limit): array {
         $submissions = array_slice($page['submissions'], 0, $limit);
-        $hasMore = count($page['submissions']) > $limit;
+        $sourceHasMore = is_bool($page['_sourceHasMore'] ?? null)
+            ? $page['_sourceHasMore']
+            : count($page['submissions']) > $limit;
+        $sourceScanned = is_int($page['_sourceScanned'] ?? null)
+            ? max(0, $page['_sourceScanned'])
+            : min($limit, count($page['submissions']));
         $safe = [];
         $fileAnswersOmitted = false;
         foreach ($submissions as $submission) {
@@ -91,14 +96,19 @@ final class FormsOutput {
             $safe[] = $item;
         }
 
-        return [
+        $result = [
             'formId' => $page['formId'],
             'isAnonymous' => $page['isAnonymous'],
             'submissions' => $safe,
             'fileAnswersOmitted' => $fileAnswersOmitted,
-            'hasMore' => $hasMore,
-            'nextOffset' => $hasMore ? $offset + min($limit, count($page['submissions'])) : null,
+            'hasMore' => $sourceHasMore,
+            'nextOffset' => $sourceHasMore ? $offset + $sourceScanned : null,
         ];
+        $omitted = max(0, (int)($page['_unclassifiedOmitted'] ?? 0));
+        if ($omitted > 0) {
+            $result['unclassifiedSubmissionsOmitted'] = $omitted;
+        }
+        return $result;
     }
 
     /** @param array<string, mixed> $form */

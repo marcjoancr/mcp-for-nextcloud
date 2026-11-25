@@ -48,6 +48,9 @@ class MailDeliveryGateway {
     public function originalOperation(string $uid,array $origin):string {return $this->origins->assertCurrent($uid,$origin);}
     public function workerBeforeWireBlock():\Throwable {return $this->authorization()->denied();}
     private function authorization():object {
+        if ($this->config->getSystemValueBool('app.mcp.official-apps.mail')) {
+            throw new ToolFailure('The qualified Mail authorization worker is unavailable.');
+        }
         if(!$this->boundary->runtimeMatches($this->config->getSystemValueString('version',''))||!$this->qualifiedProvider()||!$this->boundary->deliveryVerified())throw new ToolFailure('The qualified Mail authorization worker is unavailable.');
         return $this->services->deliveryAuthorization();
     }
@@ -79,6 +82,9 @@ class MailDeliveryGateway {
     }
     private function qualifiedProvider():bool {return $this->db!==null&&$this->db->getDatabaseProvider()===\OCP\IDBConnection::PLATFORM_POSTGRES;}
     private function admit(string $uid):void {
+        if ($this->config->getSystemValueBool('app.mcp.official-apps.mail')) {
+            throw new ToolFailure('The qualified native Mail delivery dependency is unavailable.');
+        }
         if(!$this->services->isEnabledFor($uid)||!$this->boundary->runtimeMatches($this->config->getSystemValueString('version',''))||!$this->qualifiedProvider()||!$this->boundary->deliveryVerified())throw new ToolFailure('The qualified native Mail delivery dependency is unavailable.');
     }
     private function native(string $uid):object {$this->admit($uid);return $this->services->guardedDelivery($uid);}

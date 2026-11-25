@@ -30,7 +30,9 @@ final class FormsResponseSummary {
 		}
 
 		$submissions = array_slice($page['submissions'], 0, $limit);
-		$more = count($page['submissions']) > $limit;
+		$more = is_bool($page['_sourceHasMore'] ?? null) ? $page['_sourceHasMore'] : count($page['submissions']) > $limit;
+		$sourceScanned = is_int($page['_sourceScanned'] ?? null) ? max(0, $page['_sourceScanned']) : count($submissions);
+		$unclassifiedOmitted = max(0, (int)($page['_unclassifiedOmitted'] ?? 0));
 		$questions = [];
 		$questionMetadata = [];
 		foreach (array_slice($page['questions'] ?? [], 0, FormsOutput::MAX_QUESTIONS) as $question) {
@@ -58,7 +60,7 @@ final class FormsResponseSummary {
 		$fileIds = $page['fileQuestionIds'] ?? [];
 		$fileAnswersOmitted = false;
 		$questionsTruncated = ($page['questionsTruncated'] ?? false) || count($page['questions'] ?? []) > FormsOutput::MAX_QUESTIONS;
-		$partial = $more || $questionsTruncated;
+		$partial = $more || $questionsTruncated || $unclassifiedOmitted > 0;
 		foreach ($questionMetadata as $metadata) {
 			$partial = $partial || (($metadata['questionTruncated'] ?? false) === true);
 		}
@@ -129,15 +131,19 @@ final class FormsResponseSummary {
 			];
 		}
 
-		return [
+		$result = [
 			'formId' => (int)$page['formId'], 'isAnonymous' => (bool)$page['isAnonymous'],
 			'submissionsAnalyzed' => count($submissions), 'offset' => $offset, 'limit' => $limit,
 			'questions' => $aggregate, 'fileAnswersOmitted' => $fileAnswersOmitted,
 			'questionsTruncated' => $questionsTruncated,
 			'partial' => $partial, 'hasMore' => $more,
-			'nextOffset' => $more ? $offset + count($submissions) : null,
+			'nextOffset' => $more ? $offset + $sourceScanned : null,
 			'skippedAnswersForBounds' => $skippedForBounds,
 		];
+		if ($unclassifiedOmitted > 0) {
+			$result['unclassifiedSubmissionsOmitted'] = $unclassifiedOmitted;
+		}
+		return $result;
 	}
 
 	public static function bounded(string $value): string {

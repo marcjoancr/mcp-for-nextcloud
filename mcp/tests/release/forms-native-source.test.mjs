@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { inventory, hashFile } from '../../scripts/release/integrity.mjs';
 const api = () => import('../../scripts/release/forms-native-source.mjs');
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
@@ -65,7 +65,28 @@ test('Forms preparation rejects a linked build root before reading any kit or wr
   assert.deepEqual(await fs.readdir(outside),[]);
 });
 
-test('Forms group and final sharing profiles bind to the exact MCP files in a release kit', async () => {
+test('historical guarded Forms profiles bind to the MCP files published with v2.10.3', async () => {
+  const m = await api();
+  const repository = path.resolve('..');
+  const guardedCommit = '771401b0694b8ccf2ad3c4e84552b269e6b728a5';
+  const application = 'lib/AppInfo/Application.php';
+  const groups = 'lib/Listener/GroupLifecycleListener.php';
+  const publishedHash = file => sha(execFileSync('git', ['show', `${guardedCommit}:mcp/${file}`], { cwd: repository }));
+  const inventory = {
+    [application]: { sha256: publishedHash(application) },
+    [groups]: { sha256: publishedHash(groups) },
+  };
+
+  await m.assertFormsMcpSourcePins(repository, inventory);
+  await assert.rejects(m.assertFormsMcpSourcePins(repository, {
+    ...inventory, [application]: { sha256: '0'.repeat(64) },
+  }), /Forms source profile differs.*Application\.php/);
+  await assert.rejects(m.assertFormsMcpSourcePins(repository, {
+    ...inventory, [groups]: undefined,
+  }), /Forms source profile differs.*GroupLifecycleListener\.php/);
+});
+
+test('the official-apps bootstrap does not qualify the historical guarded Forms companion', async () => {
   const m = await api();
   const repository = path.resolve('..');
   const application = 'lib/AppInfo/Application.php';
@@ -75,11 +96,6 @@ test('Forms group and final sharing profiles bind to the exact MCP files in a re
     [groups]: { sha256: await hashFile(path.join(repository, 'mcp', groups)) },
   };
 
-  await assert.rejects(m.assertFormsMcpSourcePins(repository, {
-    ...inventory, [application]: { sha256: '0'.repeat(64) },
-  }), /Forms source profile differs.*Application\.php/);
-  await assert.rejects(m.assertFormsMcpSourcePins(repository, {
-    ...inventory, [groups]: undefined,
-  }), /Forms source profile differs.*GroupLifecycleListener\.php/);
-  await m.assertFormsMcpSourcePins(repository, inventory);
+  await assert.rejects(m.assertFormsMcpSourcePins(repository, inventory),
+    /Forms source profile differs.*Application\.php/);
 });

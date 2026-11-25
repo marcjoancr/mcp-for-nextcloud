@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { snapshotRepository, sourceKitStatus } from '../../scripts/release/source.mjs';
+import { snapshotRepository, sourceKitStatus, sourceKitTransitionNotes } from '../../scripts/release/source.mjs';
 import { hashFile, inventory, sealKit, verifyKit, verifyInstalled } from '../../scripts/release/integrity.mjs';
 
 function fixture(t) {
@@ -123,4 +123,23 @@ test('source kit status preserves candidate default and accepts release-ready ma
     sourceCommit: 'b'.repeat(40), version: '2.1.1', status: 'release-ready', runtimeFiles: await inventory(installed),
   });
   assert.equal((await verifyKit(kit, digest)).status, 'release-ready');
+});
+
+
+test('official app transition notes bind the retirement SQL to the frozen source kit', async t => {
+  const root = fixture(t);
+  assert.equal(await sourceKitTransitionNotes(root), '');
+  const relative = 'native/mail-guard/retire-postgresql.sql';
+  const script = path.join(root, relative);
+  fs.mkdirSync(path.dirname(script), { recursive: true });
+  fs.writeFileSync(script, '-- synthetic retirement input\n');
+  const notes = await sourceKitTransitionNotes(root);
+  assert.ok(notes.includes(relative));
+  assert.ok(notes.includes(await hashFile(script)));
+  assert.match(notes, /same maintenance window/);
+  assert.match(notes, /historical guarded/);
+  assert.match(notes, /official/);
+  fs.unlinkSync(script);
+  fs.symlinkSync(path.join(root, 'absent.sql'), script);
+  await assert.rejects(sourceKitTransitionNotes(root), /symlink|regular file|ELOOP/);
 });

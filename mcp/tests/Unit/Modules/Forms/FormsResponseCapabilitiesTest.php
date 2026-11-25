@@ -127,6 +127,22 @@ final class FormsResponseCapabilitiesTest extends TestCase {
 		self::assertGreaterThan(0, $plan['skippedRows']);
 	}
 
+	public function testOcsExportReportsOmissionsAndAdvancesBySourceRowsScanned(): void {
+		$page = $this->page(1) + ['_sourceHasMore' => true, '_sourceScanned' => 2, '_unclassifiedOmitted' => 1];
+		$files = new CapabilityIncomingFileWriter();
+		$export = new FormsResponseExport(new CapabilityResponseReader($page), $files, $this->states());
+		$arguments = ['id' => 7, 'path' => 'form.csv', 'limit' => 2];
+		$plan = $export->preview('alice', $arguments);
+		self::assertTrue($plan['partial']);
+		self::assertSame(2, $plan['nextOffset']);
+		self::assertSame(1, $plan['unclassifiedSubmissionsOmitted']);
+
+		$result = $export->execute('alice', $arguments + ['confirm' => true, 'plan_state' => $plan['plan_state']]);
+		self::assertTrue($result['partial']);
+		self::assertSame(2, $result['nextOffset']);
+		self::assertSame(1, $result['unclassifiedSubmissionsOmitted']);
+	}
+
 	public function testExportAccountsForAnswersWhoseQuestionMetadataWasTruncated(): void {
 		$config = $this->createMock(IConfig::class);
 		$config->method('getSystemValueString')->willReturn('test-secret');

@@ -14,7 +14,7 @@ final class MailSignatureModeToolsTest extends TestCase {
         $d=$defs['mail_write_signature_mode'];$policy=InMemoryConfig::policy((new InMemoryConfig())->mock($this),new InMemoryOAuthStore());
         $policy->setGrant('alice','mail','write_signatures',true);$policy->setGrant('alice','mail','edit_identities',true);
         self::assertFalse($policy->granted('alice','mail','write_signature_mode'));self::assertTrue(WriteGate::isWrite($d));
-        self::assertSame('mail_write_signature_mode',array_key_last($defs));
+        self::assertSame('mail_write_signature_mode',array_key_last(MailToolCatalog::legacyDefinitions()));
         self::assertSame([0,1],$d['inputSchema']['properties']['signature_mode']['enum']);
         self::assertArrayNotHasKey('signature',$d['inputSchema']['properties']);self::assertArrayNotHasKey('editor_mode',$d['inputSchema']['properties']);
     }
