@@ -509,6 +509,7 @@ OC.L10N.register(
     "CSV file in Files: %s" : "Arquivo CSV em Arquivos: %s",
     "Response rows: %d" : "Linhas de respostas: %d",
     "The destination is shared and requires separate confirmation." : "O destino é compartilhado e requer uma confirmação adicional.",
+    "Separate confirmation is required for the reviewed effects." : "Os efeitos revisados exigem uma confirmação separada.",
     "availability" : "disponibilidade",
     "summarize_responses" : "resumir respostas",
     "export_responses" : "exportar respostas",

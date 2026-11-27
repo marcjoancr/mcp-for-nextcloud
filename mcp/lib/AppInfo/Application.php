@@ -914,13 +914,37 @@ class Application extends App implements IBootstrap {
         $context->registerService(\OCA\Mcp\Modules\Forms\Execution\FormsWriteCoordinator::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Execution\FormsWriteCoordinator(
             $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsGateway::class), $c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),
             $c->get(\OCA\Mcp\Modules\Forms\Execution\FormsOperationJournal::class),
-            static fn(string $uid,string $tool,array $args,array $snapshot) => $c->get(\OCA\Mcp\Modules\Forms\Access\FormsFreshAccess::class)->assertTool($uid,$tool,$args,$snapshot)
+            static function (string $uid, string $tool, array $args, array $snapshot) use ($c): void {
+                $access = $c->get(\OCA\Mcp\Modules\Forms\Access\FormsFreshAccess::class);
+                if (in_array($tool, $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsOfficialAuthoring::class)->tools(), true)) {
+                    $access->assertOfficialWrite($uid, $tool, $args, $snapshot);
+                } else {
+                    $access->assertTool($uid, $tool, $args, $snapshot);
+                }
+            },
+            $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsPublicReads::class),
+            $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsOfficialAuthoring::class),
         ));
         $context->registerService(\OCA\Mcp\Modules\Forms\Integration\FormsOcsReader::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Integration\FormsOcsReader(
             $c->get(IConfig::class), $c->get(\OCP\IRequest::class), $c->get(\OCP\IURLGenerator::class),
             $c->get(\OCP\Http\Client\IClientService::class), $c->get(IAppManager::class), $c->get(IUserManager::class),
             $c->get(IUserSession::class), $c->get(\OCA\Mcp\Modules\Forms\FormsNativeReader::class),
+            static fn (): object => $c->get('OCA\\Forms\\Controller\\ApiController'),
+            static fn (): object => $c->get('OCA\\Forms\\Controller\\ShareApiController'),
         ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Integration\FormsPublicReads::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Forms\Integration\FormsPublicReads(
+            $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsOcsReader::class),
+            static fn (string $uid, string $tool, array $args) => $c->get(\OCA\Mcp\Modules\Forms\Access\FormsFreshAccess::class)->assertPublicRead($uid, $tool, $args),
+        ));
+        $context->registerService(\OCA\Mcp\Modules\Forms\Integration\FormsOfficialAuthoring::class, static function (ContainerInterface $c): \OCA\Mcp\Modules\Forms\Integration\FormsOfficialAuthoring {
+            $ocs = $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsOcsReader::class);
+            return new \OCA\Mcp\Modules\Forms\Integration\FormsOfficialAuthoring(
+                $ocs->supportsOfficialApi(...),
+                $ocs->authoringRequest(...),
+                $c->get(\OCP\IURLGenerator::class),
+                static fn (string $uid, string $tool, array $args, array $snapshot) => $c->get(\OCA\Mcp\Modules\Forms\Access\FormsFreshAccess::class)->assertOfficialWrite($uid, $tool, $args, $snapshot),
+            );
+        });
         $context->registerService(\OCA\Mcp\Modules\Forms\FormsReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsOcsReader::class));
         $context->registerService(\OCA\Mcp\Modules\Forms\FormsResponseReader::class, static fn (ContainerInterface $c) => $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsOcsReader::class));
         $context->registerService(\OCA\Mcp\Modules\Forms\FormsModule::class, static fn (ContainerInterface $c) => \OCA\Mcp\Modules\Forms\FormsModule::withReader(
@@ -931,7 +955,10 @@ class Application extends App implements IBootstrap {
             static function() use($c): \Closure {
                 if ($c->get(IConfig::class)->getSystemValueBool('app.mcp.official-apps.forms')) {
                     $legacy = \OCA\Mcp\Modules\Forms\FormsToolCatalog::legacyDefinitions();
-                    return static fn(string $tool): bool => isset($legacy[$tool]) || $tool === 'forms_capabilities';
+                    $reads = $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsPublicReads::class)->tools();
+                    $writes = $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsOfficialAuthoring::class)->tools();
+                    return static fn(string $tool): bool => isset($legacy[$tool]) || $tool === 'forms_capabilities'
+                        || in_array($tool, $reads, true) || in_array($tool, $writes, true);
                 }
                 $uid=$c->get(IUserSession::class)->getUser()?->getUID();$qualified=false;$native=[];
                 try {
@@ -942,6 +969,7 @@ class Application extends App implements IBootstrap {
                 return static fn(string $tool):bool=>!isset(\OCA\Mcp\Modules\Forms\Execution\FormsCommands::commands()[$tool])
                     ||$tool==='forms_capabilities'||($qualified&&\OCA\Mcp\Modules\Forms\Integration\FormsPublication::supported($tool,$native));
             },
+            $c->get(\OCA\Mcp\Modules\Forms\Integration\FormsOfficialAuthoring::class),
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Access\MailAccessGuard::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Access\MailAccessGuard($c->get(GrantPolicy::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Integration\MailServices::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\MailServices(

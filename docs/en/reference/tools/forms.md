@@ -10,11 +10,11 @@ Forms tools require Forms 5.3.0 or later, availability for the authenticated acc
 
 ## Official Forms package
 
-The `app.mcp.official-apps.forms` system setting enables the read and
-bounded CSV tools with an official Forms package. It is disabled by default.
-The CSV tool writes only the reviewed page to a new file in Files. Guarded
-authoring, attachment lifecycle, comments and linked export workers are held
-while the setting is enabled. The release source kit documents the coordinated Forms transition.
+The `app.mcp.official-apps.forms` system setting selects the official package
+integration. It is disabled by default. The CSV tool writes the reviewed page
+to a new file in Files. Guarded attachment lifecycle, comments and linked export
+workers remain unavailable in this mode. The release source kit documents the
+coordinated Forms transition.
 
 For a Nextcloud Basic login, the MCP uses Forms OCS v3 on the instance configured
 in `overwrite.cli.url`. Configure an HTTPS URL with valid trust for that
@@ -27,6 +27,49 @@ Both readers require explicit results permission for the all-results tool.
 Forms can continue to show a submitter their own responses after results
 permission is withdrawn. The MCP does not treat those rows as an all-results
 page.
+
+With qualified Forms 5.4.4 or 5.4.5, the MCP also offers these v3 reads
+after tool assignment and connection selection:
+
+| Tool | Native access and output |
+| --- | --- |
+| `forms_read_settings` | Current form access. Bounded settings and question metadata without share secrets. |
+| `forms_read_question` | Current form access. One question with an independently paged option list. |
+| `forms_list_shares` | Form owner only. User and group share metadata without public-link tokens. |
+| `forms_read_own_response` | Current form access and the authenticated user`s own submission ID. |
+| `forms_read_response` | Current form access and explicit native results permission. Respondent identity requires the separate MCP permission and connection choice. |
+
+Single-response reads omit file answers and answers whose question type cannot
+be verified. The Basic transport calls Forms over HTTP. For MCP OAuth, the
+authenticated Nextcloud session invokes the same stock OCS read actions
+in-process. `forms_capabilities` reports the qualified `officialReadTools`.
+App Store updates use the original Forms package. After an update to an
+unqualified version, discovery falls back to the original tools until the
+extended reads are checked against that version.
+
+### Authoring on the official package
+
+The same profile offers creation, private cloning, editing, publishing, closing
+and deletion of forms, along with question and option authoring. An owner can
+create or revoke a public link with submission permission. Results use the
+separate response and summary permissions. `forms_capabilities` includes the
+`officialWriteTools` list.
+
+Confirm the exact preview using its `operation_id` and `plan_state`. Public
+links, shared-resource changes and permanent form deletion require separate
+confirmation. On confirmation, the MCP refreshes permissions and the snapshot
+before calling Forms and reads back the acknowledged change. Forms does not
+enforce that snapshot during the write. A lost or unverified result remains
+`uncertain`. Repeating the approval returns the operation receipt without
+sending the write again. Inspect Forms before attempting to reconcile an
+uncertain result. A confirmed creation can leave a private blank form if the
+title update was interrupted.
+
+An existing question keeps its type. To revise a form with answers, clone it as
+a new private version and keep the original results available. Question and
+option removal requires an observed empty response set because Forms can omit
+historical answers once a question is removed. Permanent form deletion also
+removes its dependent native data and creates no recovery copy.
 
 ## Summarize responses
 
@@ -51,8 +94,9 @@ and available tools; use `forms_capabilities` for runtime readiness and limits.
 A tool missing from discovery cannot be enabled by guessing its name.
 
 The original five tools above retain their Forms 5.3 API floor and page limits.
-Extended workflows require the separately installed, exact Forms 5.4.2 companion
-and the qualified Nextcloud, database, storage and writer configuration. A version
+The additional guarded workflows below require the separately installed, exact
+Forms 5.4.2 companion and qualified Nextcloud, database, storage and writer
+configuration. A version
 number alone does not qualify a build. Unknown or modified native sources disable
 the affected workflows. Installation, source verification and rollback are
 covered in `native/forms-guard/README.md` in the matching source bundle.

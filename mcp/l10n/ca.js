@@ -504,6 +504,7 @@ OC.L10N.register(
     "CSV file in Files: %s": "Fitxer CSV en Fitxers: %s",
     "Response rows: %d": "Files de respostes: %d",
     "The destination is shared and requires separate confirmation.": "La destinació està compartida i requereix una confirmació addicional.",
+    "Separate confirmation is required for the reviewed effects.": "Cal confirmar per separat els efectes revisats.",
     "availability": "disponibilitat",
     "summarize_responses": "resumir respostes",
     "export_responses": "exportar respostes",

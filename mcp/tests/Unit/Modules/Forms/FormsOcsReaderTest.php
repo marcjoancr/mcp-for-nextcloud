@@ -203,7 +203,8 @@ final class FormsOcsReaderTest extends TestCase {
 			'OCA\\Forms\\Db\\FormMapper' => $formMapper,
 			default => throw new \RuntimeException('Unexpected native Forms service.'),
 		}, static fn(): ?string => 'alice');
-		return new FormsOcsReader($config, $request, $urls, $clients, $appManager, $userManager, $session, $native);
+		return new FormsOcsReader($config, $request, $urls, $clients, $appManager, $userManager, $session, $native,
+			static fn () => throw new \LogicException('Legacy readers must not resolve the OCS controller.'));
 	}
 }
 

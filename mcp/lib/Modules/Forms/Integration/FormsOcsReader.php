@@ -13,6 +13,7 @@ use OCA\Mcp\Modules\Forms\FormsNativeReader;
 use OCA\Mcp\Modules\Forms\FormsReader;
 use OCA\Mcp\Modules\Forms\FormsResponseReader;
 use OCP\App\IAppManager;
+use OCP\AppFramework\Http\DataResponse;
 use OCP\Http\Client\IClientService;
 use OCP\IConfig;
 use OCP\IRequest;
@@ -26,6 +27,7 @@ final class FormsOcsReader implements FormsReader, FormsResponseReader {
 	private const MAX_RESPONSE_BYTES = 1_048_576;
 	private const REQUEST_TIMEOUT_SECONDS = 5;
 
+	/** @param \Closure(): object $controller Resolve the optional Forms controller for this request. */
 	public function __construct(
 		private IConfig $config,
 		private IRequest $request,
@@ -35,6 +37,8 @@ final class FormsOcsReader implements FormsReader, FormsResponseReader {
 		private IUserManager $users,
 		private IUserSession $session,
 		private FormsNativeReader $native,
+		private \Closure $controller,
+		private ?\Closure $shareController = null,
 	) {
 	}
 
@@ -204,8 +208,121 @@ final class FormsOcsReader implements FormsReader, FormsResponseReader {
 		}
 	}
 
+	public function officialMode(): bool {
+		return $this->config->getSystemValueBool(self::CONFIG_KEY, false);
+	}
+
+	public function supportsOfficialApi(): bool {
+		// Qualify the server-side use of these OCS actions before adding another package version.
+		return $this->officialMode() && in_array($this->apps->getAppVersion('forms'), ['5.4.4', '5.4.5'], true);
+	}
+
+	/** @return \Closure(string, int): array */
+	public function publicFormReader(string $uid, int $formId): \Closure {
+		if (!$this->supportsOfficialApi()) {
+			throw new ToolFailure(ToolFailure::FORBIDDEN);
+		}
+		$this->assertCurrentActor($uid);
+		if ($this->useOcs()) {
+			$this->assertOcsActor($uid);
+			return function (string $resource, int $id = 0) use ($uid, $formId): array {
+				$this->assertCurrentActor($uid);
+				$suffix = match ($resource) {
+					'form' => '',
+					'question' => '/questions/' . $id,
+					'submission' => '/submissions/' . $id,
+				};
+				return $this->data('apps/forms/api/v3/forms/' . $formId . $suffix)
+					?? throw new ToolFailure(ToolFailure::NOT_FOUND);
+			};
+		}
+
+		// MCP OAuth is scoped to MCP. Run the same GET actions in the authenticated
+		// Nextcloud user session without forwarding the token or minting credentials.
+		$controller = ($this->controller)();
+		return function (string $resource, int $id = 0) use ($uid, $formId, $controller): array {
+			$this->assertCurrentActor($uid);
+			$response = match ($resource) {
+				'form' => $controller->getForm($formId),
+				'question' => $controller->getQuestion($formId, $id),
+				'submission' => $controller->getSubmission($formId, $id),
+			};
+			if (!$response instanceof DataResponse || $response->getStatus() !== 200 || !is_array($response->getData())
+				|| strlen(json_encode($response->getData(), JSON_THROW_ON_ERROR)) > self::MAX_RESPONSE_BYTES) {
+				throw new ToolFailure(ToolFailure::NOT_FOUND);
+			}
+			return $response->getData();
+		};
+	}
+
+	/** Dispatch only the audited v3 authoring actions in the current actor's session. */
+	public function authoringRequest(string $uid, string $action, array $input): mixed {
+		if (!$this->supportsOfficialApi()) {
+			throw new ToolFailure(ToolFailure::FORBIDDEN);
+		}
+		$this->assertCurrentActor($uid);
+		$form = isset($input['formId']) ? '/' . $input['formId'] : '';
+		$questions = $form . '/questions';
+		$question = isset($input['questionId']) ? $questions . '/' . $input['questionId'] : '';
+		$options = $question . '/options';
+		[$verb, $path, $pathKeys, $created] = match ($action) {
+			'getForms' => ['GET', '', [], false],
+			'getForm' => ['GET', $form, ['formId'], false],
+			'newForm' => ['POST', '', [], true],
+			'updateForm' => ['PATCH', $form, ['formId'], false],
+			'deleteForm' => ['DELETE', $form, ['formId'], false],
+			'newQuestion' => ['POST', $questions, ['formId'], true],
+			'updateQuestion' => ['PATCH', $question, ['formId', 'questionId'], false],
+			'deleteQuestion' => ['DELETE', $question, ['formId', 'questionId'], false],
+			'reorderQuestions' => ['PATCH', $questions, ['formId'], false],
+			'newOption' => ['POST', $options, ['formId', 'questionId'], true],
+			'updateOption' => ['PATCH', $options . '/' . ($input['optionId'] ?? 0), ['formId', 'questionId', 'optionId'], false],
+			'deleteOption' => ['DELETE', $options . '/' . ($input['optionId'] ?? 0), ['formId', 'questionId', 'optionId'], false],
+			'reorderOptions' => ['PATCH', $options, ['formId', 'questionId'], false],
+			'newShare' => ['POST', $form . '/shares', ['formId'], true],
+			'deleteShare' => ['DELETE', $form . '/shares/' . ($input['shareId'] ?? 0), ['formId', 'shareId'], false],
+		};
+		$expected = $created ? 201 : 200;
+		if ($this->useOcs()) {
+			$this->assertOcsActor($uid);
+			$parameters = array_diff_key($input, array_flip($pathKeys));
+			return $this->requestOcs('apps/forms/api/v3/forms' . $path, $verb,
+				$verb === 'GET' ? $parameters : [],
+				in_array($verb, ['GET', 'DELETE'], true) ? null : $parameters,
+				$expected);
+		}
+
+		// As with official reads, an MCP token is scoped to MCP. Only these named
+		// methods are called in the bound Nextcloud session. None is an admin or
+		// public/anonymous action, and each enforces its native authorization.
+		$resolve = in_array($action, ['newShare', 'deleteShare'], true) ? $this->shareController : $this->controller;
+		$controller = ($resolve ?? throw new ToolFailure(ToolFailure::FORBIDDEN))();
+		$response = match ($action) {
+			'getForms' => $controller->getForms(...$input),
+			'getForm' => $controller->getForm(...$input),
+			'newForm' => $controller->newForm(...$input),
+			'updateForm' => $controller->updateForm(...$input),
+			'deleteForm' => $controller->deleteForm(...$input),
+			'newQuestion' => $controller->newQuestion(...$input),
+			'updateQuestion' => $controller->updateQuestion(...$input),
+			'deleteQuestion' => $controller->deleteQuestion(...$input),
+			'reorderQuestions' => $controller->reorderQuestions(...$input),
+			'newOption' => $controller->newOption(...$input),
+			'updateOption' => $controller->updateOption(...$input),
+			'deleteOption' => $controller->deleteOption(...$input),
+			'reorderOptions' => $controller->reorderOptions(...$input),
+			'newShare' => $controller->newShare(...$input),
+			'deleteShare' => $controller->deleteShare(...$input),
+		};
+		if (!$response instanceof DataResponse || $response->getStatus() !== $expected
+			|| strlen(json_encode($response->getData(), JSON_THROW_ON_ERROR)) > self::MAX_RESPONSE_BYTES) {
+			throw new ToolFailure('Forms did not acknowledge the operation.');
+		}
+		return $response->getData();
+	}
+
 	private function useOcs(): bool {
-		if (!$this->config->getSystemValueBool(self::CONFIG_KEY, false)) {
+		if (!$this->officialMode()) {
 			return false;
 		}
 		return preg_match('/^Basic[ \\t]+/i', $this->request->getHeader('Authorization')) === 1;
@@ -233,6 +350,11 @@ final class FormsOcsReader implements FormsReader, FormsResponseReader {
 
 	/** @param array<string, scalar> $query @return array<mixed>|null */
 	private function data(string $path, array $query = []): ?array {
+		$data = $this->requestOcs($path, 'GET', $query);
+		return is_array($data) ? $data : null;
+	}
+
+	private function requestOcs(string $path, string $verb, array $query, ?array $payload = null, int $expected = 200): mixed {
 		$headers = [
 			'Authorization' => $this->request->getHeader('Authorization'),
 			'OCS-APIRequest' => 'true',
@@ -241,7 +363,7 @@ final class FormsOcsReader implements FormsReader, FormsResponseReader {
 		$query['format'] = 'json';
 		$url = $this->url('ocs/v2.php/' . $path . '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986));
 		$client = $this->clients->newClient();
-		$response = $client->get($url, [
+		$options = [
 			'headers' => $headers,
 			'timeout' => self::REQUEST_TIMEOUT_SECONDS,
 			'connect_timeout' => 2,
@@ -249,8 +371,18 @@ final class FormsOcsReader implements FormsReader, FormsResponseReader {
 			'allow_redirects' => false,
 			'http_errors' => false,
 			'stream' => true,
-		]);
-		if ($response->getStatusCode() !== 200) {
+		];
+		if ($payload !== null) {
+			$options['headers']['Content-Type'] = 'application/json';
+			$options['body'] = json_encode((object)$payload, JSON_THROW_ON_ERROR);
+		}
+		$response = match ($verb) {
+			'GET' => $client->get($url, $options),
+			'POST' => $client->post($url, $options),
+			'PATCH' => $client->patch($url, $options),
+			'DELETE' => $client->delete($url, $options),
+		};
+		if ($response->getStatusCode() !== $expected) {
 			throw new \RuntimeException('The OCS request did not succeed.');
 		}
 		$body = $response->getBody();
@@ -276,11 +408,10 @@ final class FormsOcsReader implements FormsReader, FormsResponseReader {
 		if ($meta['statuscode'] === 403 || $meta['statuscode'] === 404) {
 			return null;
 		}
-		if (!in_array($meta['statuscode'], [100, 200], true) || ($meta['status'] ?? null) !== 'ok') {
+		if (!in_array($meta['statuscode'], $expected === 200 ? [100, 200] : [$expected], true) || ($meta['status'] ?? null) !== 'ok') {
 			throw new \RuntimeException('OCS reported a failed request.');
 		}
-		$data = $decoded['ocs']['data'] ?? null;
-		return is_array($data) ? $data : null;
+		return $decoded['ocs']['data'] ?? null;
 	}
 
 	private function url(string $path): string {

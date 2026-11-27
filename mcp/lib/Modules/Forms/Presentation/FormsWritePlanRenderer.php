@@ -16,7 +16,11 @@ final class FormsWritePlanRenderer {
         foreach(['before'=>'Current values','changes'=>'Proposed changes','impact'=>'Native effects'] as $field=>$title) {
             $lines[]=Translator::t($title).': '.PlanText::quoted(json_encode($plan[$field]??[],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR));
         }
-        if($plan['requiresSharedConfirmation']??false)$lines[]=Translator::t('This form belongs to another person. Separate shared-resource confirmation is required.');
+        if($plan['requiresSharedConfirmation']??false) {
+            $lines[]=($plan['official_authoring']??false)
+                ? Translator::t('Separate confirmation is required for the reviewed effects.')
+                : Translator::t('This form belongs to another person. Separate shared-resource confirmation is required.');
+        }
         return implode("\n\n",$lines);
     }
 }
