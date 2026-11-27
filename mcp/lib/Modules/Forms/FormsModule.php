@@ -49,7 +49,8 @@ final class FormsModule implements \OCA\Mcp\Mcp\Tools\ToolModule, PreviewsWrites
         $available=isset($this->availabilityWindow)?($this->availabilityWindow)():($this->available??null);
         if($available!==null&&!$available instanceof \Closure)throw new \LogicException('Forms availability window must return a closure.');
         if($available!==null)$definitions=array_filter($definitions,static fn(array $d):bool=>$available($d['name']));
-        foreach ($this->officialAuthoring?->tools() ?? [] as $tool) {
+        $officialAuthoring = $this->officialAuthoring ?? null;
+        foreach ($officialAuthoring?->tools() ?? [] as $tool) {
             if (isset($definitions[$tool])) {
                 $definitions[$tool] = FormsOfficialAuthoring::definition($definitions[$tool]);
             }

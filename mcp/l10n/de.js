@@ -510,6 +510,7 @@ OC.L10N.register(
     "CSV file in Files: %s" : "CSV-Datei in Dateien: %s",
     "Response rows: %d" : "Antwortzeilen: %d",
     "The destination is shared and requires separate confirmation." : "Das Ziel ist freigegeben und erfordert eine zusätzliche Bestätigung.",
+    "Separate confirmation is required for the reviewed effects." : "Die geprüften Auswirkungen müssen gesondert bestätigt werden.",
     "availability" : "Verfügbarkeit",
     "summarize_responses" : "Antworten zusammenfassen",
     "export_responses" : "Antworten exportieren",
