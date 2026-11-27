@@ -39,6 +39,16 @@ final class MailOfficialCatalogTest extends TestCase {
 		self::assertNotContains('mail_write_owned_draft', array_column($patched->definitions(), 'name'));
 	}
 
+	public function testOfficialSendIsPublishedOnlyWhenQualifiedAndEnabled(): void {
+		$factories = array_fill_keys([...array_keys(MailToolCatalog::definitions()), 'mail_send_owned_draft'], static fn () => throw new \LogicException('Metadata only'));
+		$access = new MailAccessGuard(new ScopeStub());
+		$module = new MailModule($factories, $access, officialMode: static fn (): bool => true, officialSend: static fn (): bool => true);
+		self::assertContains('mail_send_owned_draft', array_column($module->definitions(), 'name'));
+		$closed = new MailModule($factories, $access, officialMode: static fn (): bool => true);
+		self::assertNotContains('mail_send_owned_draft', array_column($closed->definitions(), 'name'));
+		self::assertNotContains('mail_send_owned_draft', array_keys(MailToolCatalog::legacyDefinitions()));
+	}
+
 	public function testOfficialModeRejectsLegacyNativeDraftPreview(): void {
 		$factories = array_fill_keys(array_keys(MailToolCatalog::definitions()), static fn () => throw new \LogicException('A hidden tool factory must not resolve'));
 		$module = new MailModule($factories, new MailAccessGuard(new ScopeStub()), officialMode: static fn (): bool => true);

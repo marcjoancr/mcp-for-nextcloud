@@ -7,6 +7,7 @@ OC.L10N.register(
     "Read private MCP mail drafts": "Llegeix els esborranys de correu privats de l’MCP",
     "Save a private MCP mail draft": "Desa un esborrany de correu privat de l’MCP",
     "Delete a private MCP mail draft": "Suprimeix un esborrany de correu privat de l’MCP",
+    "Send a private MCP mail draft": "Envia un esborrany de correu privat de l’MCP",
     "read_owned_drafts": "Llegeix els esborranys de correu privats de l’MCP",
     "write_owned_draft": "Desa un esborrany de correu privat de l’MCP",
     "delete_owned_draft": "Suprimeix un esborrany de correu privat de l’MCP",

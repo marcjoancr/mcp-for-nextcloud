@@ -22,6 +22,14 @@ final class MailPlanRenderer {
         if(in_array($tool,['mail_snooze','mail_wake','mail_cancel_snooze'],true))return self::snooze($tool,$plan);
         if($tool==='mail_import_draft')return self::importDraft($plan);
         if($tool==='mail_index_messages')return self::indexMessages($plan);
+        if ($tool === 'mail_send_owned_draft') {
+            return implode("\n", [
+                Translator::t('Approve this frozen mail for one immediate attempt.'),
+                '',
+                '- ' . Translator::t('Sender: %s', [PlanText::quoted((string)$plan['account']['name']) . ' <' . PlanText::quoted((string)$plan['account']['email']) . '>']),
+                ...self::draftFields($plan['draft']),
+            ]);
+        }
         if(in_array($tool,['mail_send','mail_schedule','mail_cancel_delivery','mail_sent_repair'],true))return self::delivery($tool,$plan);
 		if (!in_array($tool, ['mail_export_message', 'mail_save_attachment', 'mail_write_draft', 'mail_delete_draft', 'mail_attach_files', 'mail_write_account_settings', 'mail_write_signature', 'mail_configure_connection', 'mail_add_account', 'mail_complete_account_setup', 'mail_test_connection', 'mail_delete_account', 'mail_set_message_flag', 'mail_move_message', 'mail_archive_message', 'mail_trash_message', 'mail_restore_message', 'mail_create_mailbox', 'mail_rename_mailbox', 'mail_set_mailbox_subscription', 'mail_configure_mailboxes', 'mail_create_tag', 'mail_set_message_tag', 'mail_refresh_mailbox', 'mail_reconcile_operation', 'mail_add_alias', 'mail_update_alias', 'mail_delete_alias'], true)) {
 			return null;

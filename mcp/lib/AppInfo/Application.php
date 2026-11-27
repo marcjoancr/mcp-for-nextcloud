@@ -1155,6 +1155,11 @@ class Application extends App implements IBootstrap {
         $context->registerService(\OCA\Mcp\Modules\Mail\Accounts\MailIdentityAdministration::class, static fn(ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Accounts\MailIdentityAdministration(
             $c->get(\OCA\Mcp\Modules\Mail\Integration\MailAliasGateway::class),$c->get(\OCA\Mcp\Mcp\Confirmation\PlanState::class),$c->get(\OCA\Mcp\Mcp\Operations\OperationJournal::class),$c->get(\OCP\IDBConnection::class),static fn(string $uid,string $tool):bool=>self::mailToolAllowed($c,$uid,$tool),$c->get(\OCA\Mcp\Modules\Mail\Integration\NativeDraftWrites::class)
         ));
+        $context->registerService(\OCA\Mcp\Modules\Mail\Contracts\MailOwnedDraftSender::class,
+            static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Integration\OfficialMailSender(
+                $c->get(IConfig::class), $c->get(IAppManager::class), $c->get(\OCP\IDBConnection::class),
+                $c->get(\OCA\Mcp\Modules\Mail\Integration\MailServices::class),
+            ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Contracts\MailOwnedDraftStore::class,
             static fn (ContainerInterface $c) => new \OCA\Mcp\Db\MailOwnedDraftsMapper($c->get(\OCP\IDBConnection::class), $c->get(\OCP\Security\ICrypto::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Drafts\MailOwnedDraftOperations::class,
@@ -1168,6 +1173,7 @@ class Application extends App implements IBootstrap {
                 static fn (string $uid, string $tool, int $account): \Closure =>
                     $c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class)->resourceFence($uid, $tool, $account),
                 static fn (): bool => $c->get(IConfig::class)->getSystemValueBool('app.mcp.official-apps.mail'),
+                $c->get(\OCA\Mcp\Modules\Mail\Contracts\MailOwnedDraftSender::class),
             ));
         $context->registerService(\OCA\Mcp\Modules\Mail\MailModule::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\MailModule([
             'mail_list_accounts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class),
@@ -1183,6 +1189,7 @@ class Application extends App implements IBootstrap {
             'mail_read_owned_drafts' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ReadOwnedDrafts::class),
             'mail_write_owned_draft' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\WriteOwnedDraft::class),
             'mail_delete_owned_draft' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\DeleteOwnedDraft::class),
+            'mail_send_owned_draft' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\SendOwnedDraft::class),
             'mail_attach_files' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\AttachFiles::class),
             'mail_get_operation' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\GetOperation::class),
             'mail_list_operations' => static fn () => $c->get(\OCA\Mcp\Modules\Mail\Tools\ListOperations::class),
@@ -1248,6 +1255,7 @@ class Application extends App implements IBootstrap {
             $c->get(\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization::class),
             $c->get(\OCA\Mcp\Modules\Mail\Access\MailFreshAccess::class),
             static fn (): bool => $c->get(IConfig::class)->getSystemValueBool('app.mcp.official-apps.mail'),
+            static fn (): bool => $c->get(\OCA\Mcp\Modules\Mail\Contracts\MailOwnedDraftSender::class)->available(),
         ));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListAccounts::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListAccounts($c->get(\OCA\Mcp\Modules\Mail\Accounts\AccountLister::class)));
         $context->registerService(\OCA\Mcp\Modules\Mail\Tools\ListMailboxes::class, static fn (ContainerInterface $c) => new \OCA\Mcp\Modules\Mail\Tools\ListMailboxes($c->get(\OCA\Mcp\Modules\Mail\Mailboxes\MailboxLister::class)));

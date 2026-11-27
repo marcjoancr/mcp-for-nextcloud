@@ -4,6 +4,7 @@ OC.L10N.register(
     "Read private MCP mail drafts": "Ler rascunhos de e-mail privados do MCP",
     "Save a private MCP mail draft": "Salvar um rascunho de e-mail privado do MCP",
     "Delete a private MCP mail draft": "Excluir um rascunho de e-mail privado do MCP",
+    "Send a private MCP mail draft": "Enviar um rascunho de e-mail privado do MCP",
     "read_owned_drafts": "Ler rascunhos de e-mail privados do MCP",
     "write_owned_draft": "Salvar um rascunho de e-mail privado do MCP",
     "delete_owned_draft": "Excluir um rascunho de e-mail privado do MCP",

@@ -280,6 +280,7 @@ final class ToolPresentation {
             'mail_read_owned_drafts' => Translator::t('Read private MCP mail drafts'),
             'mail_write_owned_draft' => Translator::t('Save a private MCP mail draft'),
             'mail_delete_owned_draft' => Translator::t('Delete a private MCP mail draft'),
+            'mail_send_owned_draft' => Translator::t('Send a private MCP mail draft'),
             'mail_delete_draft' => Translator::t('Delete a mail draft'),
             'mail_attach_files' => Translator::t('Attach Files to a mail draft'),
             'mail_read_account_settings' => Translator::t('Read Mail preferences'),
