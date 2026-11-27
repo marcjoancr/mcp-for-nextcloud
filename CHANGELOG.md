@@ -2,6 +2,10 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.13.1
+
+- Publish empty MCP tool properties as JSON objects so ChatGPT can refresh the Forms catalog.
+
 ## 2.13.0
 
 - Add five authorized reads and sixteen confirmed authoring tools for official Forms 5.4.4 and 5.4.5.
