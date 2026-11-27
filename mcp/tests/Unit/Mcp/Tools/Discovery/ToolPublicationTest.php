@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace OCA\Mcp\Tests\Unit\Mcp\Tools\Discovery;
 
 use OCA\Mcp\Mcp\Tools\Discovery\ToolPublication;
+use OCA\Mcp\Modules\Forms\Execution\FormsCommands;
 use PHPUnit\Framework\TestCase;
 final class ToolPublicationTest extends TestCase {
     public function testProjectionKeepsOrderObjectsAndConfirmation(): void {
@@ -15,5 +16,18 @@ final class ToolPublicationTest extends TestCase {
         self::assertFalse($out['annotations']['readOnlyHint']);
         $definition['operation'] = 'read';
         self::assertInstanceOf(\stdClass::class, ToolPublication::present($definition)['inputSchema']['properties']);
+    }
+
+    public function testArgumentlessFormsReadsPublishObjectProperties(): void {
+        $definitions = FormsCommands::definitions();
+        foreach (['forms_capabilities', 'forms_read_admin_settings'] as $name) {
+            $published = ToolPublication::present($definitions[$name]);
+            $wireSchema = json_decode(json_encode($published['inputSchema'], JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR);
+
+            self::assertInstanceOf(\stdClass::class, $wireSchema->properties, $name);
+            self::assertSame([], get_object_vars($wireSchema->properties), $name);
+            self::assertSame([], $wireSchema->required, $name);
+            self::assertFalse($wireSchema->additionalProperties, $name);
+        }
     }
 }

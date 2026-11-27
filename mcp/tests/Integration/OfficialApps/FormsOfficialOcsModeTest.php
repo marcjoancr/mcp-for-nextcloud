@@ -113,6 +113,7 @@ final class FormsOfficialOcsModeTest extends IntegrationTestCase {
 			$bearer = new McpClient($bobBearer);
 			foreach ([$bob, $bobBearer] as $credential) {
 				$names = $this->toolNames($credential);
+				self::assertContains('forms_capabilities', $names);
 				self::assertSame($extraReads, array_values(array_intersect(self::EXTENDED_READS, $names)));
 				foreach (['forms_create', 'forms_update', 'forms_read_links', 'forms_list_response_files'] as $tool) {
 					self::assertNotContains($tool, $names);
@@ -382,8 +383,14 @@ final class FormsOfficialOcsModeTest extends IntegrationTestCase {
 			'Accept: application/json, text/event-stream',
 		], '{"jsonrpc":"2.0","id":1,"method":"tools/list"}');
 		self::assertSame(200, $response['status']);
-		$decoded = json_decode($response['body'], true, 512, JSON_THROW_ON_ERROR);
-		return array_column($decoded['result']['tools'], 'name');
+		$decoded = json_decode($response['body'], false, 512, JSON_THROW_ON_ERROR);
+		$tools = $decoded->result->tools;
+		foreach ($tools as $tool) {
+			if (property_exists($tool->inputSchema, 'properties')) {
+				self::assertInstanceOf(\stdClass::class, $tool->inputSchema->properties, $tool->name);
+			}
+		}
+		return array_column($tools, 'name');
 	}
 
 	private function read(McpClient $client, string $tool, array $arguments): array {
