@@ -15,6 +15,7 @@ use OCA\Mcp\Tests\Integration\Support\Http;
 use OCA\Mcp\Tests\Integration\Support\LoginFactory;
 use OCA\Mcp\Tests\Integration\Support\McpClient;
 use OCA\Mcp\Tests\Integration\Support\ToolPermissionFixture;
+use OCP\App\IAppManager;
 use OCP\IConfig;
 use OCP\IGroupManager;
 use OCP\IUserManager;
@@ -24,6 +25,7 @@ use PHPUnit\Framework\Attributes\Group;
 #[Group('official-apps')]
 final class FormsOfficialOcsModeTest extends IntegrationTestCase {
 	private const FORMS_API = Http::BASE . '/ocs/v2.php/apps/forms/api/v3/forms';
+	private const EXTENDED_READS = ['forms_read_settings', 'forms_read_question', 'forms_list_shares', 'forms_read_own_response', 'forms_read_response'];
 
 	public function testOfficialOcsUsesBasicButMcpBearerKeepsNativeReadsAndResultsPermission(): void {
 		if (getenv('MCP_IT_WITH_FORMS') !== '1' || getenv('MCP_IT_MAIL_GUARD') !== '0') {
@@ -39,7 +41,7 @@ final class FormsOfficialOcsModeTest extends IntegrationTestCase {
 		foreach ([Fixtures::ALICE, Fixtures::BOB] as $uid) {
 			$previousUsers[$uid] = ['eligible' => $policy->eligible($uid), 'connected' => $policy->connected($uid), 'resultsGrant' => $policy->granted($uid, 'forms', 'read_responses')];
 		}
-		$extraReads = ['forms_read_settings', 'forms_read_question', 'forms_list_shares', 'forms_read_own_response', 'forms_read_response'];
+		$extraReads = $this->hasExtendedOfficialForms() ? self::EXTENDED_READS : [];
 		$toolSnapshot = ToolPermissionFixture::capture([Fixtures::ALICE, Fixtures::BOB], [
 			'forms_list', 'forms_read', 'forms_read_responses', 'forms_capabilities', ...$extraReads,
 		]);
@@ -63,10 +65,6 @@ final class FormsOfficialOcsModeTest extends IntegrationTestCase {
 			$formId = $this->createForm($alice);
 			$question = $this->request($alice, 'POST', '/' . $formId . '/questions', ['type' => 'short', 'text' => 'OCS reader question']);
 			$questionId = (int)$question['id'];
-			$choice = $this->request($alice, 'POST', '/' . $formId . '/questions', ['type' => 'multiple', 'text' => 'OCS options']);
-			$this->request($alice, 'POST', '/' . $formId . '/questions/' . $choice['id'] . '/options', [
-				'optionTexts' => ['synthetic alpha', 'synthetic beta'],
-			]);
 			$share = $this->request($alice, 'POST', '/' . $formId . '/shares', [
 				'shareType' => 0, 'shareWith' => Fixtures::BOB, 'permissions' => ['submit'],
 			]);
@@ -115,9 +113,7 @@ final class FormsOfficialOcsModeTest extends IntegrationTestCase {
 			$bearer = new McpClient($bobBearer);
 			foreach ([$bob, $bobBearer] as $credential) {
 				$names = $this->toolNames($credential);
-				foreach ($extraReads as $tool) {
-					self::assertContains($tool, $names);
-				}
+				self::assertSame($extraReads, array_values(array_intersect(self::EXTENDED_READS, $names)));
 				foreach (['forms_create', 'forms_update', 'forms_read_links', 'forms_list_response_files'] as $tool) {
 					self::assertNotContains($tool, $names);
 				}
@@ -127,6 +123,15 @@ final class FormsOfficialOcsModeTest extends IntegrationTestCase {
 			self::assertFalse($capabilities['guardedWrites']);
 			$native = $bearer->tool('forms_list');
 			self::assertTrue($native->ok(), $native->describe(), 'MCP bearer uses the in-process official Forms service path');
+			if ($extraReads === []) {
+				self::assertSame([], $capabilities['officialWriteTools']);
+				return;
+			}
+
+			$choice = $this->request($alice, 'POST', '/' . $formId . '/questions', ['type' => 'multiple', 'text' => 'OCS options']);
+			$this->request($alice, 'POST', '/' . $formId . '/questions/' . $choice['id'] . '/options', [
+				'optionTexts' => ['synthetic alpha', 'synthetic beta'],
+			]);
 
 			$owner = new McpClient(LoginFactory::bearer(Fixtures::ALICE));
 			$formArgs = ['id' => $formId];
@@ -234,8 +239,8 @@ final class FormsOfficialOcsModeTest extends IntegrationTestCase {
 	}
 
 	public function testOfficialAuthoringUsesConfirmedToolsAndIndependentNativeAccess(): void {
-		if (getenv('MCP_IT_WITH_FORMS') !== '1' || getenv('MCP_IT_MAIL_GUARD') !== '0') {
-			$this->markTestSkipped('Requires the disposable stock Forms profile.');
+		if (getenv('MCP_IT_WITH_FORMS') !== '1' || getenv('MCP_IT_MAIL_GUARD') !== '0' || !$this->hasExtendedOfficialForms()) {
+			$this->markTestSkipped('Requires the disposable stock Forms 5.4.4 or 5.4.5 profile.');
 		}
 		$config = Server::get(IConfig::class);
 		$setting = 'app.mcp.official-apps.forms';
@@ -350,6 +355,10 @@ final class FormsOfficialOcsModeTest extends IntegrationTestCase {
 				$config->setSystemValue($setting, $previousOfficial);
 			}
 		}
+	}
+
+	private function hasExtendedOfficialForms(): bool {
+		return in_array(Server::get(IAppManager::class)->getAppVersion('forms'), ['5.4.4', '5.4.5'], true);
 	}
 
 	private function approvedAuthoring(array $arguments, array $plan): array {
