@@ -2,6 +2,13 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.13.0
+
+- Add five authorized reads and sixteen confirmed authoring tools for official Forms 5.4.4 and 5.4.5.
+- Let form owners publish and revoke submit-only public links. Keep result access and analysis under independent permissions.
+- Recheck the approved plan before writing, verify the observed result, and retain uncertain receipts without resending.
+- Qualify official Forms 5.4.5 on Nextcloud 35 with PostgreSQL 16.
+
 ## 2.12.0
 
 - Add opt-in, confirmed sending through official Nextcloud Mail 5.12.5 on Nextcloud 35.0.2 and MariaDB. Use the configured sender account and a separate OAuth tool grant.
