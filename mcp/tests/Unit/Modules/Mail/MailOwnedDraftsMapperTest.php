@@ -29,6 +29,34 @@ final class MailOwnedDraftsMapperTest extends TestCase {
 		(new MailOwnedDraftsMapper($db, $crypto))->load('alice', str_repeat('a', 64));
 	}
 
+	public function testFailureToInsertReceiptRollsBackTheReleasedDraftSlot(): void {
+		$expression = $this->createMock(IExpressionBuilder::class);
+		$expression->method('eq')->willReturn('predicate');
+		$snapshot = $this->createMock(IQueryBuilder::class);
+		$snapshot->method('expr')->willReturn($expression);
+		foreach (['update', 'set', 'where', 'andWhere'] as $method) {
+			$snapshot->method($method)->willReturnSelf();
+		}
+		$snapshot->expects(self::once())->method('executeStatement')->willReturn(1);
+
+		$receipt = $this->createMock(IQueryBuilder::class);
+		$receipt->method('insert')->with('mcp_mail_owned_attempts')->willReturnSelf();
+		$receipt->method('setValue')->willReturnSelf();
+		$receipt->expects(self::once())->method('executeStatement')->willThrowException(new \RuntimeException('receipt insert failed'));
+		$db = $this->createMock(IDBConnection::class);
+		$db->method('inTransaction')->willReturnOnConsecutiveCalls(false, true);
+		$db->expects(self::once())->method('beginTransaction');
+		$db->expects(self::once())->method('rollBack');
+		$db->expects(self::never())->method('commit');
+		$db->method('getQueryBuilder')->willReturnOnConsecutiveCalls($snapshot, $receipt);
+		$crypto = $this->createMock(ICrypto::class);
+		$crypto->method('encrypt')->willReturn('ciphertext');
+
+		$this->expectExceptionMessage('receipt insert failed');
+		(new MailOwnedDraftsMapper($db, $crypto))->compareAndSwap('alice', str_repeat('a', 64), 1,
+			[['owned_draft_id' => str_repeat('a', 32), 'account_id' => 7, 'revision' => 1, 'send_state' => 'uncertain']], 1);
+	}
+
 	private function reader(array $row): array {
 		$result = $this->createMock(IResult::class);
 		$result->method('fetch')->willReturn($row);

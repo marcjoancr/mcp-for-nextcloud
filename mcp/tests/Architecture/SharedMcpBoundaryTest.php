@@ -20,6 +20,10 @@ final class SharedMcpBoundaryTest extends TestCase {
         foreach ($parts as $part) {
             // These exact values are hash inputs in the optional Mail artifact, not MCP loaders.
             if($file==='lib/Modules/Mail/Integration/NativeGuardManifest.php' && in_array(trim($part,"'\""),['lib/'.'Service/DeliveryAuthorization.php','lib/'.'Service/FrozenMessageRenderer.php','lib/'.'Service/FrozenInlineImages.php','lib/'.'Service/GuardedDelivery.php','lib/'.'Service/SentCopyRepair.php','lib/'.'Service/GuardedContentReader.php','lib/'.'Service/GuardedBodyIndex.php','lib/'.'Service/GuardedDraftImport.php','lib/'.'Service/GuardedDraftSearch.php','lib/'.'Service/SetupService.php','lib/'.'Service/OauthStateService.php','lib/'.'Service/LocalDraftEditor.php','lib/'.'Service/OutboxService.php','lib/'.'Service/MailTransmission.php','lib/'.'Service/DraftsService.php','lib/'.'Service/AliasesService.php','lib/'.'Service/TransmissionService.php','lib/'.'Service/Attachment/AttachmentService.php','lib/'.'Service/Attachment/AttachmentStorage.php','lib/'.'Service/GuardedMessageMutations.php','lib/'.'Service/MutationFence.php','lib/'.'Service/AccountService.php','lib/'.'Service/MailManager.php','lib/'.'Service/GuardedMailboxMutations.php','lib/'.'Service/GuardedMailboxRefresh.php','lib/'.'Service/RefreshFence.php','lib/'.'Service/Classification/NewMessagesClassifier.php','lib/'.'Service/Sync/ImapToDbSynchronizer.php','lib/'.'Service/AllowedRecipientsService.php','lib/'.'Service/FilterService.php','lib/'.'Service/GuardedSieveSettings.php','lib/'.'Service/GuardedSignatureMode.php','lib/'.'Service/GuardedSnooze.php','lib/'.'Service/MailFilter/FilterBuilder.php','lib/'.'Service/MailFilter/FilterParser.php','lib/'.'Service/MailFilter/FilterParserResult.php','lib/'.'Service/OutOfOffice/OutOfOfficeParser.php','lib/'.'Service/OutOfOffice/OutOfOfficeParserResult.php','lib/'.'Service/OutOfOffice/OutOfOfficeState.php','lib/'.'Service/OutOfOfficeService.php','lib/'.'Service/SieveService.php','lib/'.'Service/SieveSettingsFence.php','lib/'.'Service/SnoozeFence.php','lib/'.'Service/SnoozeService.php'],true))continue;
+            if ($file === 'lib/Modules/Mail/Integration/OfficialMailManifest.php'
+                && trim($part, "'\"") === 'lib/'.'Service/MailTransmission.php') {
+                continue;
+            }
             $part = str_replace('\\\\', '\\', $part);
             if (preg_match('~OCA\\\\Mcp\\\\(?:Tests\\\\Unit\\\\)?(?:Tools|Service)\\\\[A-Za-z_]~', $part)
                 || preg_match('~(?:lib|tests/Unit)/(?:Tools|Service)/[A-Za-z_]~', $part)) {
@@ -87,6 +91,10 @@ final class SharedMcpBoundaryTest extends TestCase {
     public function testNativeFingerprintDataDoesNotPermitRetiredMcpLoadersElsewhere():void {
         $native="<?php const FILE = ".var_export('lib/'.'Service/GuardedMessageMutations.php',true).";";
         $manifest='lib/Modules/Mail/Integration/NativeGuardManifest.php';
+        $stock = "<?php const FILE = ".var_export('lib/'.'Service/MailTransmission.php',true).";";
+        self::assertSame([],self::retired($stock,'lib/Modules/Mail/Integration/OfficialMailManifest.php'));
+        self::assertNotEmpty(self::retired($stock,'lib/Modules/Mail/Integration/OfficialMailSender.php'));
+
         self::assertSame([],self::retired($native,$manifest));
         foreach(['DeliveryAuthorization','FrozenMessageRenderer','FrozenInlineImages','GuardedDelivery','SentCopyRepair','SetupService','OauthStateService','LocalDraftEditor','OutboxService','MailTransmission','DraftsService','AliasesService','TransmissionService','Attachment/AttachmentService','Attachment/AttachmentStorage'] as $file){
             $data="<?php const FILE = ".var_export('lib/'.'Service/'.$file.'.php',true).";";

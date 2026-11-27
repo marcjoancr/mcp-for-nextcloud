@@ -30,20 +30,44 @@ for private drafts stored by MCP under separate permissions.
 | `mail_read_owned_drafts` | Lists private drafts for an accessible owned account, or reads an individual draft by its opaque MCP ID. |
 | `mail_write_owned_draft` | Previews and confirms a plain-text draft create or revision-checked edit. |
 | `mail_delete_owned_draft` | Previews and confirms deletion of an exact private draft revision. |
+| `mail_send_owned_draft` | Previews and confirms one immediate send of an exact private plain-text draft through the owner's configured Mail account. |
 
 MCP drafts are encrypted in MCP storage and scoped to the owner’s current
-account incarnation and Mail access. The native Mail composer and mail server
-never receive these drafts. Use native Mail to compose and send with attachments.
+account incarnation and Mail access. The native Mail composer does not display these drafts. An explicit send confirmation can pass a private draft to Mail's native transmission service.
 After a lost answer to a local write, read the draft or list current drafts
 before preparing another write. Previously approved stale plans cannot apply.
 Edit and delete previews identify the previous revision. Reading its contents
 requires the separate draft read permission.
 
-Official mode closes native draft writes, account configuration and remote
-changes, including send and schedule. The MCP delivery and snooze workers
-leave their old queue entries in place while official mode is enabled.
-Inventory pending work and protected native drafts before replacing the
-Mail package. The release source kit includes the retirement procedure and the PostgreSQL script.
+Official mode closes native draft writes, account configuration and remote mailbox changes.
+Immediate send is separately opt-in with `app.mail.mcp-transmission.enabled`.
+It requires `app.mcp.official-apps.mail`, a qualified stock Mail 5.12.5 installation on
+Nextcloud 35.0.2 and MariaDB, and a persistent OAuth connection that selects
+`mail_send_owned_draft`. Give the user an explicit grant for that tool and for
+the draft reads and writes they need. The account must use IMAP/SMTP and have
+a native Sent folder configured. This tool supports individual addresses and
+plain text. Use native Mail for scheduling and attachments.
+
+The MCP claims the approved revision before contacting SMTP. A repeated
+confirmation cannot send it twice. After a lost acknowledgement, use
+`mail_read_owned_drafts` to inspect the draft and reconcile it in Mail.
+SMTP acceptance does not establish delivery. If SMTP accepted the message
+but the Sent copy could not be verified, the receipt distinguishes that case.
+No MCP draft is staged in the native outbox.
+
+The 50-draft and byte quotas apply to active private drafts. On confirmation,
+the encrypted attempted draft moves to independent history in the same
+database transaction that releases its draft slot. Accepted, uncertain and
+accepted-with-unconfirmed-copy attempts all release the slot. View an attempt
+by passing its original ID to `mail_read_owned_drafts`. Listing drafts without an
+ID shows active drafts only. No delete grant is required to make room after
+sending. Previous attempted drafts are archived on the next successful update
+to their owner's draft store.
+
+Official mode pauses the guarded MCP delivery and snooze workers. Inventory
+pending work and protected native drafts before replacing a guarded Mail
+package. The release source kit includes the retirement procedure and
+the PostgreSQL script.
 
 ### Guarded and legacy acceptance
 

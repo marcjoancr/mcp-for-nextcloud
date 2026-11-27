@@ -212,6 +212,33 @@ class MailServices {
 		return $this->resolve(self::CLIENT_FACTORY_CLASS, $userId);
 	}
 
+	/** @return array{object,object,object,object} Use detached native handlers so no stage can invoke the next one implicitly. */
+	public function officialSendHandlers(string $uid): array {
+		$handlers = [
+			clone $this->resolve('OCA\Mail\Send\SentMailboxHandler', $uid),
+			clone $this->resolve('OCA\Mail\Send\AntiAbuseHandler', $uid),
+			clone $this->resolve('OCA\Mail\Send\SendHandler', $uid),
+			clone $this->resolve('OCA\Mail\Send\CopySentMessageHandler', $uid),
+		];
+		foreach ($handlers as $handler) {
+			$link = new \ReflectionProperty($handler, 'next');
+			$link->setValue($handler, null);
+		}
+		return $handlers;
+	}
+
+	/** @return array{object,class-string} */
+	public function officialSendMessage(string $uid, int $account): array {
+		$message = 'OCA\Mail\Db\LocalMessage';
+		$recipient = 'OCA\Mail\Db\Recipient';
+		if (!$this->isEnabledFor($uid) || !class_exists($message) || !class_exists($recipient)) {
+			throw new MailUnavailableException();
+		}
+		$entity = new $message();
+		$entity->setAccountId($account);
+		return [$entity, $recipient];
+	}
+
 	public function newSearchQuery(string $userId): object {
 		$class = self::SEARCH_QUERY_CLASS;
 		if (!$this->isEnabledFor($userId) || !class_exists($class)) {

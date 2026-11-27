@@ -18,11 +18,11 @@ use OCA\Mcp\Mcp\Tools\ToolModule;
 
 /** Static publication and lazy dispatch for the Mail feature. */
 final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, RendersPlans {
-    private const OWNED_DRAFT_TOOLS=['mail_read_owned_drafts','mail_write_owned_draft','mail_delete_owned_draft'];
+    private const OWNED_DRAFT_TOOLS=['mail_read_owned_drafts','mail_write_owned_draft','mail_delete_owned_draft', Drafts\MailOwnedDraftOperations::SEND_TOOL];
     /** @param array<string, \Closure(): Tool> $factories */
-    public function __construct(private array $factories, private \OCA\Mcp\Modules\Mail\Access\MailAccessGuard $access, private ?\OCA\Mcp\Mcp\Operations\OperationJournal $operations = null, private ?Operations\MailOperationReader $receipts = null,private ?\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization $authorization=null,private ?\OCA\Mcp\Modules\Mail\Access\MailFreshAccess $fresh=null,private ?\Closure $officialMode=null) {
+    public function __construct(private array $factories, private \OCA\Mcp\Modules\Mail\Access\MailAccessGuard $access, private ?\OCA\Mcp\Mcp\Operations\OperationJournal $operations = null, private ?Operations\MailOperationReader $receipts = null,private ?\OCA\Mcp\Modules\Mail\Access\MailOperationAuthorization $authorization=null,private ?\OCA\Mcp\Modules\Mail\Access\MailFreshAccess $fresh=null,private ?\Closure $officialMode=null, private ?\Closure $officialSend=null) {
         $known = array_keys(MailToolCatalog::definitions());
-        $required = array_keys($this->official() ? MailToolCatalog::officialDefinitions() : MailToolCatalog::legacyDefinitions());
+        $required = array_keys($this->publishedDefinitions());
         if (array_diff($required, array_keys($factories)) !== [] || array_diff(array_keys($factories), $known) !== []) {
             throw new \LogicException('Factories must cover the published Mail catalog');
         }
@@ -38,7 +38,7 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
     }
 
     public function call(string $name, array $arguments, string $userId): array {
-        $official=$this->official();$published=$official?MailToolCatalog::officialDefinitions():MailToolCatalog::legacyDefinitions();
+        $official=$this->official();$published=$this->publishedDefinitions();
         if(!isset($published[$name])||!isset($this->factories[$name]))throw new \InvalidArgumentException('Unknown tool');
         $this->access->assertReadable($userId);
         $project=$this->projectionFence($userId,$name,$arguments,$official);
@@ -71,7 +71,7 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
     }
 
     public function preview(string $name, array $arguments, string $userId): array {
-        $official=$this->official();$published=$official?MailToolCatalog::officialDefinitions():MailToolCatalog::legacyDefinitions();
+        $official=$this->official();$published=$this->publishedDefinitions();
         if(!isset($published[$name])||!isset($this->factories[$name]))throw new \InvalidArgumentException('Unknown tool');
         $this->access->assertReadable($userId);
         $project=$this->projectionFence($userId,$name,$arguments,$official);
@@ -98,7 +98,7 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
 
     private function projectionFence(string $uid,string $tool,array $args,bool $official):\Closure {
         if($this->fresh===null)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Fresh Mail projection unavailable.');
-        if(in_array($tool,self::OWNED_DRAFT_TOOLS,true)) {
+        if($this->ownedDraftTool($tool)) {
             if(!$official||!$this->official())throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('MCP-owned Mail drafts are unavailable.');
             $account=$args['account_id']??null;
             if(!is_int($account)||$account<1)throw new \InvalidArgumentException('A positive account_id is required.');
@@ -125,7 +125,7 @@ final class MailModule implements ToolModule, ToolGuideNotes, PreviewsWrites, Re
     }
 
     /** @return array<string,array<string,mixed>> */
-    private function publishedDefinitions():array { return $this->official()?MailToolCatalog::officialDefinitions():MailToolCatalog::legacyDefinitions(); }
+    private function publishedDefinitions():array { return $this->official() ? MailToolCatalog::officialDefinitions($this->officialSend !== null && ($this->officialSend)()) : MailToolCatalog::legacyDefinitions(); }
     private function official():bool { return isset($this->officialMode) && ($this->officialMode)() === true; }
     private function ownedDraftTool(string $name):bool { return in_array($name,self::OWNED_DRAFT_TOOLS,true); }
     private function assertModeUnchanged(bool $admitted):void { if($this->official()!==$admitted)throw new \OCA\Mcp\Mcp\Tools\Results\ToolFailure('Mail capabilities changed.'); }

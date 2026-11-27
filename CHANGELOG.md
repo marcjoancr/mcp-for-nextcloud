@@ -2,6 +2,11 @@
 
 All notable changes to the native Nextcloud app (`mcp/`). Versions follow `mcp/appinfo/info.xml`.
 
+## 2.12.0
+
+- Add opt-in, confirmed sending through official Nextcloud Mail 5.12.5 on Nextcloud 35.0.2 and MariaDB. Use the configured sender account and a separate OAuth tool grant.
+- Keep send attempts in encrypted history outside the active draft quota. An uncertain SMTP result blocks another attempt for that draft and remains available by its original ID.
+
 ## 2.11.0
 
 - Add optional support for official Forms. Authorized users can read forms and results, summarize submissions, and export bounded CSV.

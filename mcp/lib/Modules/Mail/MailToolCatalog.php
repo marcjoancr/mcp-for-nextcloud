@@ -19,7 +19,7 @@ final class MailToolCatalog {
 
     /** @return list<class-string<Tool>> all definitions, including tools hidden by the default patched publication */
     public static function allClasses(): array {
-        return [...self::classes(), ReadOwnedDrafts::class, WriteOwnedDraft::class, DeleteOwnedDraft::class];
+        return [...self::classes(), ReadOwnedDrafts::class, WriteOwnedDraft::class, DeleteOwnedDraft::class, Tools\SendOwnedDraft::class];
     }
 
     /** @return list<class-string<Tool>> the explicitly allowed official-package subset */
@@ -54,5 +54,11 @@ final class MailToolCatalog {
     public static function legacyDefinitions(): array { return self::definitions(self::classes()); }
 
     /** @return array<string,array<string,mixed>> the narrow official-package publication */
-    public static function officialDefinitions(): array { return self::definitions(self::officialClasses()); }
+    public static function officialDefinitions(bool $sending = false): array {
+        $classes = self::officialClasses();
+        if ($sending) {
+            $classes[] = Tools\SendOwnedDraft::class;
+        }
+        return self::definitions($classes);
+    }
 }
