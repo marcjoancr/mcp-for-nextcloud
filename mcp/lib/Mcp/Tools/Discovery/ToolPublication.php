@@ -20,11 +20,15 @@ final class ToolPublication {
      */
     public static function present(array $definition): array {
         $definition = WriteGate::publish($definition);
+        $schema = $definition['inputSchema'];
+        if (($schema['properties'] ?? null) === []) {
+            $schema['properties'] = new \stdClass();
+        }
         return [
             'name' => $definition['name'],
             'title' => ToolPresentation::title($definition['name']),
             'description' => $definition['description'],
-            'inputSchema' => $definition['inputSchema'],
+            'inputSchema' => $schema,
             'annotations' => ToolPresentation::annotations($definition['name'], $definition['operation'], ($definition['destructiveHint'] ?? false) === true),
             'module' => $definition['module'],
             'operation' => $definition['operation'],
