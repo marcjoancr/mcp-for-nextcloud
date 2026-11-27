@@ -115,7 +115,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   official-apps-pg16:
-    name: Official Forms 5.4.4 / Mail 5.13.4 / NC35 PG16
+    name: Official Forms 5.4.5 / Mail 5.13.4 / NC35 PG16
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:

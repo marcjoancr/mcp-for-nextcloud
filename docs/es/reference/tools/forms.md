@@ -12,6 +12,53 @@ Las herramientas de Forms requieren Forms 5.3.0 o posterior, disponibilidad para
 
 `forms_list` lista formularios accesibles; `forms_read` lee preguntas y opciones. Ambas usan `forms.read`. `forms_read_responses` requiere la operación independiente `forms.read_responses` y permiso nativo para ver resultados. Poder enviar un formulario o consultar solo la propia respuesta no concede acceso al conjunto completo de resultados.
 
+## Paquete oficial de Forms
+
+Con `app.mcp.official-apps.forms` y Forms 5.4.4 o 5.4.5, estas lecturas de la API OCS v3
+también se pueden asignar y seleccionar en la conexión:
+
+| Herramienta | Permiso nativo y datos |
+| --- | --- |
+| `forms_read_settings` | Acceso vigente al formulario. Ajustes y una página de metadatos de preguntas sin secretos de compartición. |
+| `forms_read_question` | Acceso vigente al formulario. Una pregunta con paginación independiente de opciones. |
+| `forms_list_shares` | Solo el propietario. Metadatos de compartición con usuarios y grupos sin tokens de enlaces públicos. |
+| `forms_read_own_response` | Acceso vigente y un ID de respuesta del propio usuario autenticado. |
+| `forms_read_response` | Acceso vigente y permiso nativo explícito de resultados. La identidad del participante requiere un permiso y una selección adicionales en el MCP. |
+
+La lectura de una respuesta omite archivos y respuestas cuyo tipo de pregunta
+no se puede verificar. Basic llama a Forms por HTTP. Para OAuth del MCP, la
+sesión autenticada de Nextcloud invoca los mismos controladores de lectura de
+OCS en el servidor. `forms_capabilities` informa de las lecturas probadas en
+`officialReadTools`. El App Store sigue gestionando el paquete oficial. Con
+una versión de Forms pendiente de comprobar, el catálogo vuelve a las
+herramientas originales hasta verificar las lecturas ampliadas.
+
+### Autoría con el paquete oficial
+
+Este modo permite crear, clonar en privado, editar, abrir, cerrar y eliminar
+formularios, además de gestionar sus preguntas y opciones. El propietario puede
+crear y revocar enlaces públicos que permiten enviar respuestas. Los permisos
+de consulta y análisis de resultados siguen siendo independientes.
+`forms_capabilities` informa de las escrituras disponibles en `officialWriteTools`.
+
+Confirma la vista previa con su `operation_id` y `plan_state`. Los enlaces
+públicos, los cambios sobre recursos compartidos y el borrado definitivo
+requieren confirmación adicional. El MCP vuelve a comprobar el estado y los
+permisos antes de llamar a Forms y comprueba después el resultado observado.
+Forms puede aceptar cambios concurrentes mientras escribe. Si se pierde la
+respuesta o queda sin verificar, el resultado se marca como `uncertain`.
+Repetir la confirmación devuelve el recibo de la operación y no envía otra
+escritura. Comprueba el estado en Forms antes de reconciliar una operación
+incierta. Si se interrumpe el alta después de crear el formulario, puede quedar
+un borrador privado sin título.
+
+Para cambiar un tipo, crea otra pregunta. Si el formulario ya tiene respuestas,
+clónalo en privado y conserva el original para consultar sus resultados.
+El MCP exige observar un conjunto de respuestas vacío para retirar preguntas u
+opciones. Al retirar una pregunta, Forms puede dejar de mostrar sus respuestas
+anteriores. El borrado definitivo del formulario elimina sus datos asociados y
+no genera una copia de recuperación.
+
 ## Resumir respuestas
 
 `forms_summarize_responses` requiere `forms.summarize_responses`. Envía `id`, con `offset` y `limit` opcionales (50 por defecto, máximo 100 envíos). Devuelve recuentos deterministas de respuestas por pregunta para esa página, con `submissionsAnalyzed`, `partial`, `hasMore` y `nextOffset`. Sigue el desplazamiento devuelto para continuar; un resumen de página no es un resumen del formulario entero. Se consideran hasta 50 registros de metadatos de preguntas y 200 respuestas por envío, con un límite de 8000 respuestas examinadas y 4 MiB de texto de respuestas. Los límites de texto y recorrido también pueden dar resultados parciales.
@@ -33,7 +80,7 @@ extensión nativa instalada, los permisos actuales y la selección de la conexi�
 Consulta `mcp_guide` con `module: "forms"` para ver los esquemas y permisos
 vigentes, y `forms_capabilities` para comprobar compatibilidad y límites.
 Las cinco herramientas anteriores conservan su compatibilidad con Forms 5.3.
-Los flujos ampliados necesitan la extensión independiente de Forms 5.4.2 y una
+Los demás flujos ampliados necesitan la extensión independiente de Forms 5.4.2 y una
 combinación cualificada de Nextcloud, base de datos, almacenamiento y escritores
 nativos. El número de versión por sí solo no habilita estas funciones. Consulta
 `native/forms-guard/README.md` en el paquete de código fuente correspondiente

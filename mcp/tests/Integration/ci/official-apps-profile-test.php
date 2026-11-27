@@ -32,8 +32,8 @@ $expected = [
     'mail_guard' => '0',
     'mail_official' => true,
     'imap_image' => 'dovecot/dovecot:2.4.5@sha256:1b3041c09854aa53b6b57ac0e613fbfb9b859bbf976d808b1b12dba0444db4c6',
-    'forms_version' => '5.4.4',
-    'forms_sha256' => 'bc5a343c97d0888c0106ebc8646764176f5ed088d5b9bbf20985a7a481f6a9d9',
+    'forms_version' => '5.4.5',
+    'forms_sha256' => 'd69d53c168ffb80d11a018a9884e1f776d0dd6db1ced71f67eaa62d1c31ce526',
     'mail_version' => '5.13.4',
     'mail_sha256' => '2859a9020e06dd9d515cb7c55f76c7ac183ffdb5761c8ccff6ffb646bbbc925f',
 ];

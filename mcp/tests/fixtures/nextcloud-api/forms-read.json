@@ -538,11 +538,193 @@
         "tableName"
       ],
       "external": []
+    },
+    "OCA\\Forms\\Controller\\ApiController": {
+      "kind": "class",
+      "methods": {
+        "deleteForm": [
+          "formId"
+        ],
+        "deleteOption": [
+          "formId",
+          "questionId",
+          "optionId"
+        ],
+        "deleteQuestion": [
+          "formId",
+          "questionId"
+        ],
+        "getForm": [
+          "formId"
+        ],
+        "getForms": [
+          "type?"
+        ],
+        "getQuestion": [
+          "formId",
+          "questionId"
+        ],
+        "getSubmission": [
+          "formId",
+          "submissionId"
+        ],
+        "newForm": [
+          "fromId?"
+        ],
+        "newOption": [
+          "formId",
+          "questionId",
+          "optionTexts",
+          "optionType?"
+        ],
+        "newQuestion": [
+          "formId",
+          "type?",
+          "subtype?",
+          "text?",
+          "fromId?",
+          "position?"
+        ],
+        "reorderOptions": [
+          "formId",
+          "questionId",
+          "newOrder",
+          "optionType?"
+        ],
+        "reorderQuestions": [
+          "formId",
+          "newOrder"
+        ],
+        "updateForm": [
+          "formId",
+          "keyValuePairs"
+        ],
+        "updateOption": [
+          "formId",
+          "questionId",
+          "optionId",
+          "keyValuePairs"
+        ],
+        "updateQuestion": [
+          "formId",
+          "questionId",
+          "keyValuePairs"
+        ]
+      },
+      "types": {
+        "deleteForm": [
+          "int"
+        ],
+        "deleteOption": [
+          "int",
+          "int",
+          "int"
+        ],
+        "deleteQuestion": [
+          "int",
+          "int"
+        ],
+        "getForm": [
+          "int"
+        ],
+        "getForms": [
+          "string"
+        ],
+        "getQuestion": [
+          "int",
+          "int"
+        ],
+        "getSubmission": [
+          "int",
+          "int"
+        ],
+        "newForm": [
+          "?int"
+        ],
+        "newOption": [
+          "int",
+          "int",
+          "array",
+          "?string"
+        ],
+        "newQuestion": [
+          "int",
+          "?string",
+          "?string",
+          "string",
+          "?int",
+          "?int"
+        ],
+        "reorderOptions": [
+          "int",
+          "int",
+          "array",
+          "?string"
+        ],
+        "reorderQuestions": [
+          "int",
+          "array"
+        ],
+        "updateForm": [
+          "int",
+          "array"
+        ],
+        "updateOption": [
+          "int",
+          "int",
+          "int",
+          "array"
+        ],
+        "updateQuestion": [
+          "int",
+          "int",
+          "array"
+        ]
+      },
+      "constants": [],
+      "properties": [],
+      "fields": [],
+      "external": []
+    },
+    "OCA\\Forms\\Controller\\ShareApiController": {
+      "kind": "class",
+      "methods": {
+        "deleteShare": [
+          "formId",
+          "shareId"
+        ],
+        "newShare": [
+          "formId",
+          "shareType",
+          "shareWith?",
+          "permissions?"
+        ]
+      },
+      "types": {
+        "deleteShare": [
+          "int",
+          "int"
+        ],
+        "newShare": [
+          "int",
+          "int",
+          "string",
+          "array"
+        ]
+      },
+      "constants": [],
+      "properties": [],
+      "fields": [],
+      "external": []
     }
   },
   "historyQuestionMapper": {
     "version": "5.3.0",
     "url": "https://raw.githubusercontent.com/nextcloud/forms/v5.3.0/lib/Db/QuestionMapper.php",
     "sha256": "9a66c3f984a279aba30ea44bfc79c1092bd391ec7a292a23b50bd0974e7c808a"
+  },
+  "officialOcsController": {
+    "version": "5.4.5",
+    "sha256": "d69d53c168ffb80d11a018a9884e1f776d0dd6db1ced71f67eaa62d1c31ce526"
   }
 }

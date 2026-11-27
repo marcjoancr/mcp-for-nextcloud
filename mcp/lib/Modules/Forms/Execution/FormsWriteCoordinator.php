@@ -8,6 +8,8 @@ declare(strict_types=1);
 
 namespace OCA\Mcp\Modules\Forms\Execution;
 use OCA\Mcp\Modules\Forms\Integration\FormsGateway;
+use OCA\Mcp\Modules\Forms\Integration\FormsOfficialAuthoring;
+use OCA\Mcp\Modules\Forms\Integration\FormsPublicReads;
 use OCA\Mcp\Modules\Forms\Presentation\FormsProjection;
 use OCA\Mcp\Mcp\Confirmation\PlanState;
 use OCA\Mcp\Mcp\Confirmation\PlanChanged;
@@ -18,11 +20,16 @@ use OCA\Mcp\Mcp\Tools\Results\ToolFailure;
 /** One confirmation boundary for every extended Forms command. */
 final class FormsWriteCoordinator {
     /** @param \Closure(string,string,array,array):void $authorize */
-    public function __construct(private FormsGateway $native,private PlanState $proof,private FormsOperationJournal $journal,private \Closure $authorize) {}
-    public function capabilities(string $uid):array {return $this->native->capabilities($uid);}
+    public function __construct(private FormsGateway $native,private PlanState $proof,private FormsOperationJournal $journal,
+        private \Closure $authorize,private ?FormsPublicReads $publicReads=null,private ?FormsOfficialAuthoring $officialAuthoring=null) {}
+    public function capabilities(string $uid):array {
+        return $this->native->capabilities($uid)+['officialReadTools'=>$this->publicReads?->tools()??[], 'officialWriteTools'=>$this->officialAuthoring?->tools()??[]];
+    }
     public function call(string $tool,string $uid,array $arguments):array {
-        $args=$this->arguments($tool,$arguments);($this->authorize)($uid,$tool,$args,[]);
-        if($tool==='forms_capabilities')return $this->native->capabilities($uid);
+        $args=$this->arguments($tool,$arguments);
+        if(in_array($tool,$this->publicReads?->tools()??[],true))return $this->publicReads->read($uid,$tool,$args);
+        ($this->authorize)($uid,$tool,$args,[]);
+        if($tool==='forms_capabilities')return $this->capabilities($uid);
         if($tool==='forms_get_operation')return $this->journal->get($uid,$args['operation_id'],$this->historical($uid),fn(string $key,string $tool,array $refs):?array=>$this->native->lookup($uid,$key,['tool'=>$tool,'references'=>$refs]));
         if($tool==='forms_list_operations')return $this->journal->list($uid,$args['cursor']??null,$args['limit']??50,$this->historical($uid));
         if(FormsCommands::readOnly($tool)) {
@@ -36,9 +43,10 @@ final class FormsWriteCoordinator {
         }
         if(($args['confirm']??false)!==true)return $this->preview($tool,$uid,$args);
         PlanState::require($args);
-        $result=$this->journal->execute($tool,$uid,$args,function(string $nativeKey,\Closure $checkpoint)use($tool,$uid,$args):array {
+        $gateway=$this->writeGateway($tool);
+        $result=$this->journal->execute($tool,$uid,$args,function(string $nativeKey,\Closure $checkpoint)use($tool,$uid,$args,$gateway):array {
             try {
-            $snapshot=$this->native->snapshot($uid,$tool,$this->effect($args));
+            $snapshot=$gateway->snapshot($uid,$tool,$this->effect($args));
             ($this->authorize)($uid,$tool,$args,$snapshot);
             $plan=FormsPlan::build($tool,$args,$snapshot,$uid);
             if(!PlanState::matches($this->state($tool,$uid,$args,$snapshot),$args))throw new PlanChanged($this->preview($tool,$uid,$args));
@@ -49,21 +57,24 @@ final class FormsWriteCoordinator {
             $checkpoint($admission+array_intersect_key($snapshot,array_flip(['bulk_authority','bulk_version'])));
             } catch(PlanChanged|FormsBeforeEffect $failure) {throw $failure;}
             catch(\Throwable) {throw new FormsBeforeEffect('Forms preflight could not be completed. No native change was started; review a new preview.');}
-            return $this->native->apply($uid,$tool,$this->effect($args),(string)$snapshot['revision'],$nativeKey);
+            return $gateway->apply($uid,$tool,$this->effect($args),(string)$snapshot['revision'],$nativeKey);
         },$this->historical($uid),in_array($tool,['forms_continue_operation','forms_cancel_operation'],true)
             ?fn():array=>array_intersect_key($this->native->snapshot($uid,$tool,$this->effect($args)),array_flip(['job_version','bulk_id','bulk_version'])):null);
         ($this->authorize)($uid,$tool,$args,[]);
-        if(array_key_exists('data',$result))$result['data']=FormsProjection::mutation($result['data'],$tool);
+        if($gateway===$this->native&&array_key_exists('data',$result))$result['data']=FormsProjection::mutation($result['data'],$tool);
         return FormsProjection::bounded($result);
     }
     public function preview(string $tool,string $uid,array $arguments):array {
         $args=$this->arguments($tool,$arguments);
         ($this->authorize)($uid,$tool,$args,[]);
-        $snapshot=$this->native->snapshot($uid,$tool,$this->effect($args));
+        $snapshot=$this->writeGateway($tool)->snapshot($uid,$tool,$this->effect($args));
         ($this->authorize)($uid,$tool,$args,$snapshot);
         $plan=FormsPlan::build($tool,$args,$snapshot,$uid);
         $plan['plan_state']=$this->state($tool,$uid,$args,$snapshot);
         return $this->journal->plan($tool,$uid,$args,$plan);
+    }
+    private function writeGateway(string $tool):FormsGateway {
+        return in_array($tool,$this->officialAuthoring?->tools()??[],true) ? $this->officialAuthoring : $this->native;
     }
     private function state(string $tool,string $uid,array $args,array $snapshot):string {
         // Encrypted read locators rotate their nonce; all approved intent, counts and digests remain bound.
